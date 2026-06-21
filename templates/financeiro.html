@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Financeiro - Agro Manager</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Poppins', sans-serif; background-color: #121212; color: #fff; margin: 0; padding: 20px; }
+        .card { background: #1a1a1a; border-radius: 12px; padding: 20px; border: 1px solid #333; margin-bottom: 20px; }
+        .card-header { font-size: 18px; font-weight: bold; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
+        .saldo-total { font-size: 28px; font-weight: 900; color: #4caf50; margin-bottom: 20px; }
+        .fluxo-container { display: flex; justify-content: space-between; border-top: 1px dashed #444; padding-top: 15px; }
+        .entrada-texto { color: #4caf50; font-weight: bold; font-size: 16px; }
+        .saida-texto { color: #f44336; font-weight: bold; font-size: 16px; }
+        .transacao-item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #2a2a2a; font-size: 14px; }
+        .btn-voltar { display: block; width: 100%; padding: 15px; background: #333; color: #fff; text-align: center; text-decoration: none; border-radius: 12px; font-weight: bold; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <div class="card-header"><i class="fas fa-chart-pie" style="color: #ff9800;"></i> Fluxo de Caixa</div>
+        <div class="saldo-total">R$ {{ "{:,.2f}".format(saldo).replace(',','v').replace('.',',').replace('v','.') }}</div>
+        
+        <div class="fluxo-container">
+            <div>
+                <div style="color: #aaa; font-size: 13px;">Entradas:</div>
+                <div class="entrada-texto">+ R$ {{ "{:,.2f}".format(entradas).replace(',','v').replace('.',',').replace('v','.') }}</div>
+            </div>
+            <div style="text-align: right;">
+                <div style="color: #aaa; font-size: 13px;">Saídas:</div>
+                <div class="saida-texto">- R$ {{ "{:,.2f}".format(saidas).replace(',','v').replace('.',',').replace('v','.') }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header"><i class="fas fa-history" style="color: #bbb;"></i> Histórico Recente</div>
+        
+        {% if not historico %}
+            <p style="color: #777; font-style: italic; text-align: center; margin: 20px 0;">Nenhuma transação registrada ainda.</p>
+        {% else %}
+            {% for t in historico %}
+                <div class="transacao-item">
+                    <span style="color: #ccc;">{{ t.descricao }}</span>
+                    {% if t.tipo == 'entrada' %}
+                        <b class="entrada-texto">+ R$ {{ "{:,.2f}".format(t.valor).replace(',','v').replace('.',',').replace('v','.') }}</b>
+                    {% else %}
+                        <b class="saida-texto">- R$ {{ "{:,.2f}".format(t.valor).replace(',','v').replace('.',',').replace('v','.') }}</b>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+
+    <a href="/mapa" class="btn-voltar"><i class="fas fa-arrow-left"></i> Voltar para o Mapa</a>
+
+</body>
+</html>

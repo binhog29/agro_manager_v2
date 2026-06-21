@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <title>Agro Manager</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+</head>
+<body>
+    <div class="card">
+        <img src="{{ url_for('static', filename='img/trator.png') }}" alt="Trator" class="trator-icon">
+        <h2>Agro Manager</h2>
+        
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alerta-amarelo">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="tabs">
+            <div class="tab active" id="tab-login">Entrar</div>
+            <div class="tab" id="tab-registro">Criar Conta</div>
+        </div>
+
+        <form id="form-login" action="/autenticar" method="POST">
+            <input type="hidden" name="acao" value="entrar">
+            <input type="text" name="usuario" placeholder="Usuário" required>
+            <input type="password" name="senha" placeholder="Senha" required>
+            <button type="submit">ACESSAR</button>
+        </form>
+
+        <form id="form-registro" action="/autenticar" method="POST" class="hidden">
+            <input type="hidden" name="acao" value="criar">
+            <input type="text" name="usuario" placeholder="Criar Usuário" required>
+            <input type="email" name="email" placeholder="E-mail">
+            <input type="password" name="senha" placeholder="Criar Senha" required>
+            
+            <label class="label-dificuldade">Dificuldade</label>
+            <select name="dificuldade">
+                <option value="facil">Fácil (Começa com 50k - Preços Baixos)</option>
+                <option value="medio" selected>Médio (Começa com 25k - Normal)</option>
+                <option value="dificil">Difícil (Começa com 10k - Preços Altos)</option>
+            </select>
+            <button type="submit">CADASTRAR</button>
+        </form>
+                <div class="copyright">
+            &copy; 2026 DualCore Solutions. Todos os direitos reservados.
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/login.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+/* Força os alertas do SweetAlert a ficarem na frente de QUALQUER modal */
+.swal2-container {
+    z-index: 999999 !important;
+}
+
+/* Você pode adicionar estilos futuros do silo aqui embaixo! */

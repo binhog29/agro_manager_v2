@@ -1,0 +1,87 @@
+/* CORREÇÃO: Só mostra a loja se ela tiver a classe 'active' */
+#view-loja.active {
+    display: block !important; 
+    width: 100%;
+}
+
+/* SEGURANÇA: Se não tiver a classe 'active', ESCONDE NA MARRA */
+#view-loja:not(.active) {
+    display: none !important;
+}
+
+#modal-acao-segura { 
+    z-index: 999999 !important; 
+}
+
+/* ESTILOS DA LOJA */
+.loja-cat-title { 
+    color: #1b5e20; 
+    background: rgba(255, 255, 255, 0.9); 
+    padding: 8px 15px; 
+    border-radius: 20px;
+    margin: 25px 0 15px 0; 
+    font-weight: 900; 
+    text-transform: uppercase;
+    font-size: 14px;
+    display: inline-block; 
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.grid-loja { 
+    display: grid; 
+    grid-template-columns: 1fr 1fr; 
+    gap: 15px; 
+    margin-bottom: 30px; 
+}
+
+.item-loja {
+    display: flex !important;            
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    text-align: center !important;       
+    padding: 15px !important;
+    height: auto !important;
+    min-height: 250px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    border-bottom: 4px solid #e0e0e0;
+    position: relative; 
+    z-index: 10; 
+}
+
+.img-loja { 
+    height: 60px; 
+    object-fit: contain; 
+    margin-bottom: 10px !important;
+    display: block !important; 
+    margin-left: auto !important;
+    margin-right: auto !important;
+}
+
+/* BOTÃO VERDE */
+.btn-compra-verde {
+    width: 100%;
+    background-color: #43a047; 
+    color: white;
+    border: none;
+    padding: 12px 0;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 13px;
+    cursor: pointer;
+    margin-top: 15px; 
+    box-shadow: 0 3px 0 #2e7d32;
+    transition: 0.1s;
+    position: relative; 
+    z-index: 100;
+}
+
+.btn-compra-verde:active { 
+    box-shadow: none; 
+    transform: translateY(3px); 
+}
+
+.item-loja h3 { margin: 5px 0 !important; font-size: 14px; color: #2e7d32; }
+.item-loja p { margin: 0 !important; font-weight: bold; color: #777; font-size: 12px; }

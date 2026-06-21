@@ -1,0 +1,70 @@
+body { 
+    background-color: #1a1a1a; color: #fff; 
+    font-family: 'Poppins', sans-serif; margin: 0; padding: 15px; 
+    padding-bottom: 50px;
+}
+
+/* Cabeçalho */
+.top-panel {
+    display: flex; justify-content: space-between; align-items: center;
+    background: #2a2a2a; padding: 15px; border-radius: 15px; 
+    border: 1px solid #444; margin-bottom: 20px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+}
+.btn-voltar {
+    background: #444; color: white; border: none; padding: 8px 15px; 
+    border-radius: 8px; font-weight: bold; cursor: pointer;
+}
+.carteira {
+    background: #111; padding: 6px 12px; border-radius: 8px; 
+    border: 1px solid #4caf50; color: #4caf50; font-size: 13px; font-weight: 800;
+}
+
+/* Títulos e Mensagens */
+.section-title { 
+    color: #aaa; font-size: 14px; margin: 20px 0 10px 0; 
+    border-bottom: 1px dashed #444; padding-bottom: 5px; font-weight: bold;
+}
+.empty-msg {
+    background: #222; padding: 20px; border-radius: 12px; text-align: center; 
+    color: #777; font-style: italic; border: 1px dashed #444;
+}
+
+/* Grade da IA */
+.grid-ia { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ia-card {
+    background: #2a2a2a; border-radius: 15px; padding: 15px; 
+    text-align: center; border: 1px solid #444;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+}
+.ia-card h4 { margin: 0 0 10px 0; text-transform: capitalize; color: #fff; }
+.ia-card img { 
+    height: 60px; object-fit: contain; margin-bottom: 10px;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.6));
+}
+
+.seletor { 
+    background: #111; color: #fff; border: 1px solid #555; 
+    padding: 8px; border-radius: 8px; width: 100%; margin-bottom: 6px; 
+    font-family: 'Poppins', sans-serif; font-size: 11px; outline: none;
+}
+
+.preco-tag { font-size: 16px; font-weight: 900; color: #4caf50; margin: 10px 0; }
+
+.btn-comprar {
+    background: #2e7d32; color: white; border: none; padding: 10px; 
+    width: 100%; border-radius: 8px; font-weight: 800; cursor: pointer;
+    box-shadow: 0 3px 0 #1b5e20; transition: 0.1s; font-family: 'Poppins', sans-serif;
+}
+.btn-comprar:active { transform: translateY(3px); box-shadow: none; }
+
+.botoes-lote-vertical {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    width: 100% !important;
+}
+.botoes-lote-vertical button {
+    width: 100% !important;
+    margin: 0 !important;
+}

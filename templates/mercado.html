@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Leilão Global</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mercado.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+
+    <div class="top-panel">
+        <button onclick="window.location.href='/mapa'" class="btn-voltar"><i class="fas fa-arrow-left"></i></button>
+        <h3 style="margin: 0;">📢 Leilão</h3>
+        <div class="carteira">R$ {{ "{:,.2f}".format(user.saldo).replace(',','v').replace('.',',').replace('v','.') }}</div>
+    </div>
+
+    <h3 style="color: #ff9800; border-bottom: 1px solid #444; padding-bottom: 10px; margin-top: 30px;">
+        <i class="fas fa-users"></i> Ofertas da Comunidade
+    </h3>
+
+    <div style="display: grid; grid-template-columns: 1fr; gap: 15px; margin-bottom: 40px;">
+        {% if not anuncios %}
+            <div style="background: #1a1a1a; padding: 20px; border-radius: 12px; text-align: center; border: 1px dashed #444;">
+                <p style="color:#777; font-style: italic; margin: 0;">Nenhum jogador anunciando agora.</p>
+            </div>
+        {% else %}
+            {% for anuncio in anuncios %}
+            <div style="background: #111; padding: 15px; border-radius: 12px; border: 1px solid #333; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <img src="/static/img/{{ anuncio.animal.raca|lower }}.png" style="width: 60px; height: 60px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));">
+                    <div>
+                        <b style="color: #fff; text-transform: capitalize; font-size: 16px;">{{ anuncio.animal.raca }}</b>
+                        <div style="color: #aaa; font-size: 12px; margin-top: 3px;">
+                            ⚖️ {{ anuncio.animal.peso }} @ | {{ anuncio.animal.fase }}<br>
+                            👤 Vendedor: <b style="color: #4caf50;">{{ anuncio.vendedor.username }}</b>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="text-align: right;">
+                    <div style="color: #4caf50; font-size: 18px; font-weight: 900; margin-bottom: 8px;">R$ {{ anuncio.valor }}</div>
+                    
+                    {% if anuncio.vendedor_id == user.id %}
+                        <button onclick="cancelar('{{ anuncio.id }}')" style="background: #f44336; color: white; border: none; padding: 8px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #b71c1c;">CANCELAR</button>
+                    {% else %}
+                        <button onclick="prepararCompraComunidade('{{ anuncio.id }}', '{{ anuncio.animal.raca }}', {{ anuncio.valor }})" style="background: #2e7d32; color: white; border: none; padding: 8px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #1b5e20;">COMPRAR</button>
+                    {% endif %}
+                </div>
+                
+            </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+
+    <div class="section-title"><i class="fas fa-truck-moving"></i> Fornecedores Oficiais (IA)</div>
+    <div class="grid-ia">
+        {% for item in anuncios_ia %}
+        <div class="ia-card">
+            <h4>{{ item.id_ia }}</h4>
+            <img src="/static/img/{{ item.id_ia }}.png" onerror="this.src='/static/img/nelore.png'">
+            
+            <select id="fase-{{ item.id_ia }}" class="seletor" onchange="atualizarPrecoDinamico('{{ item.id_ia }}')">
+                <option value="filhote">Filhote</option>
+                <option value="adulto" selected>Adulto</option>
+            </select>
+            <select id="sexo-{{ item.id_ia }}" class="seletor">
+                <option value="M">Macho</option>
+                <option value="F">Fêmea</option>
+            </select>
+
+            <div class="preco-tag">R$ <span id="val-{{ item.id_ia }}">{{ item.valor|int }}</span></div>
+            
+            <button class="btn-comprar" onclick="prepararCompraIA('{{ item.id_ia }}')">COMPRAR</button>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/mercado.js') }}?v=2"></script>
+    
+    <div id="modal-logistica" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center;">
+        <div style="background: #2a2a2a; padding: 20px; border-radius: 15px; width: 90%; max-width: 400px; border: 1px solid #444;">
+            
+            <div style="text-align: center; margin-bottom: 15px;">
+                <img id="img-veiculo" src="/static/img/caminhao_boiadeiro.png" alt="Caminhão Boiadeiro" style="width: 120px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));">
+                <h3 style="margin: 10px 0 0 0;"><i class="fas fa-truck"></i> Logística de Entrega</h3>
+                <small style="color: #aaa;">Entrega Expressa (Fase 1)</small>
+            </div>
+            
+            <div style="margin: 15px 0; background: #1a1a1a; padding: 10px; border-radius: 8px;">
+    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+        <input type="checkbox" id="check-caminhao-proprio" onchange="atualizarTotalModal()" disabled>
+        <span>Usar Caminhão Próprio (Frete Grátis)</span>
+    </label>
+    <small style="color: #777; font-size: 11px;">* Você ainda não possui um caminhão. Adquira na loja.</small>
+</div>
+
+            <p style="text-align: center;">Comprando: <b id="modal-animal-nome" style="color:#4caf50; text-transform: capitalize; font-size: 18px;"></b></p>
+            
+            <label>Quantidade de Cabeças:</label>
+            <input type="number" id="modal-quantidade" class="seletor" value="1" min="1" oninput="atualizarTotalModal()">
+            
+            <label>Destino (Suas Propriedades):</label>
+            <select id="modal-destino" class="seletor" style="font-size: 16px; padding: 10px;">
+                {% for terra in minhas_terras %}
+                    <option value="{{ terra.id }}">{{ terra.nome }}</option>
+                {% endfor %}
+            </select>
+            
+            <div style="margin-top: 15px; font-size: 18px; text-align: center; background: #111; padding: 10px; border-radius: 8px;">
+                Total: <b style="color:#4caf50;">R$ <span id="modal-total-calc">0</span></b>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button onclick="fecharModal()" style="flex: 1; background: #555; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold;">Cancelar</button>
+                <button onclick="confirmarCompra()" style="flex: 1; background: #2e7d32; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold;">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

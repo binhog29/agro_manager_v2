@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Agro Manager - Perfil</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/perfil.css') }}">
+</head>
+<body>
+    <div class="card">
+        <a href="/mapa" class="btn-back"><i class="fas fa-arrow-left"></i></a>
+        <div class="avatar"><i class="fas fa-user-circle"></i></div>
+        
+        <h2>{{ jogador.username }}</h2>
+        <p class="titulo-jogador">
+            {% if jogador.is_admin %}👑 Dono do Jogo{% else %}Fazendeiro - Nível {{ jogador.nivel }}{% endif %}
+        </p>
+        
+        <div id="alerta-box"></div>
+        
+        <input type="text" id="nome" value="{{ jogador.username }}" placeholder="Nome">
+        <input type="email" id="email" value="{{ jogador.email or '' }}" placeholder="E-mail">
+        <input type="password" id="senha" placeholder="Nova Senha (deixe em branco para manter)">
+        
+        <button onclick="salvarPerfil()">SALVAR DADOS</button>
+    </div>
+
+    <div class="copyright-perfil">
+        &copy; 2026 DualCore Solutions
+    </div>
+
+    <script src="{{ url_for('static', filename='js/perfil.js') }}"></script>
+</body>
+</html>

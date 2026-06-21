@@ -1,0 +1,50 @@
+<link rel="stylesheet" href="{{ url_for('static', filename='css/silo.css') }}?v=1">
+<div id="modal-silo" class="modal-fundo" onclick="fecharSeClicarFora(event, 'modal-silo')">
+    <div class="modal-janela" style="border-top: 5px solid #fbc02d;">
+        <span class="fechar-btn" onclick="fecharModal('modal-silo')">&times;</span>
+        
+        <h2 class="modal-titulo">
+            <img src="/static/img/silo.png" style="height: 28px; vertical-align: middle;"> Silo de Grãos
+        </h2>
+        
+        <img src="/static/img/silo.png" class="img-modal-destaque" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2829/2829803.png'">
+        
+        <div style="background: #111; border-radius: 10px; height: 24px; margin: 15px 0; position: relative; overflow: hidden; border: 1px solid #333;">
+            {% set total_estoque = (fazenda.est_milho + fazenda.est_soja + fazenda.est_cafe + fazenda.est_arroz + fazenda.est_feijao + fazenda.est_algodao + fazenda.est_cana + fazenda.est_mandioca + fazenda.est_pimenta + fazenda.est_cacau + fazenda.est_acai + fazenda.est_cupuacu + fazenda.est_banana + fazenda.est_abacaxi + fazenda.est_melancia) %}
+            {% set porcentagem = (total_estoque / fazenda.cap_silo) * 100 if fazenda.cap_silo > 0 else 0 %}
+            <div style="width: {{ porcentagem }}%; background: #fbc02d; height: 100%; transition: width 0.5s;"></div>
+            <small style="position: absolute; width: 100%; left: 0; top: 0; line-height: 24px; font-weight: bold; color: #fff; text-shadow: 1px 1px 2px #000;">
+                {{ total_estoque }} / {{ fazenda.cap_silo }} kg
+            </small>
+        </div>
+
+        <div style="background: #333; padding: 12px; border-radius: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #444;">
+            <div style="text-align: left;">
+                <span style="font-size: 11px; color: #aaa; display: block;">Próximo Nível:</span>
+                <b style="color: #fbc02d;">+500 kg</b>
+            </div>
+            <button onclick="expandirSilo()" style="background: #f57c00; color: white; border: none; padding: 8px 15px; border-radius: 8px; font-size: 12px; font-weight: bold; box-shadow: 0 4px 0 #e65100; cursor: pointer;">
+                EXPANDIR 🛠️
+            </button>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            {% set lista_completa = [('milho', 'Milho'), ('soja', 'Soja'), ('cafe', 'Café'), ('arroz', 'Arroz'), ('feijao', 'Feijão'), ('algodao', 'Algodão'), ('cana', 'Cana'), ('mandioca', 'Mandioca'), ('pimenta', 'Pimenta'), ('cacau', 'Cacau'), ('acai', 'Açaí'), ('cupuacu', 'Cupuaçu'), ('banana', 'Banana'), ('abacaxi', 'Abacaxi'), ('melancia', 'Melancia')] %}
+            {% for tipo, nome in lista_completa %}
+                {% set qtd = fazenda['est_' ~ tipo] %}
+                {% if qtd > 0 %}
+                <div style="background: #222; padding: 12px; border-radius: 12px; border: 1px solid #444; display: flex; flex-direction: column; align-items: center;">
+                    <img src="/static/img/{{ tipo }}.png" style="height:40px; margin-bottom:5px;" onerror="this.src='/static/img/milho.png'">
+                    <span style="font-size: 13px; color: #aaa; font-weight: 600;">{{ nome }}</span>
+                    <b style="font-size: 16px; color: #fbc02d;">{{ qtd }} kg</b>
+                    <button onclick="prepararVenda('{{ tipo }}', '{{ nome }}', {{ qtd }})" style="background: #2e7d32; color: white; border: none; padding: 8px; border-radius: 6px; font-size: 11px; margin-top: 10px; width: 100%; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #1b5e20;">VENDER 💰</button>
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+        {% if total_estoque == 0 %}
+            <span style="color: #888; font-style: italic; margin-top: 20px; display: block;">O Silo está vazio! Plante algo. 🌱</span>
+        {% endif %}
+    </div>
+    <script src="{{ url_for('static', filename='js/silo.js') }}?v=1"></script>
+</div>

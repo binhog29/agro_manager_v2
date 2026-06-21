@@ -1,0 +1,115 @@
+body {
+    margin: 0; 
+    font-family: 'Poppins', sans-serif;
+    background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.7)), url('https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=1000');
+    background-size: cover; 
+    background-position: center;
+    height: 100vh; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+}
+
+.card {
+    background: rgba(255, 255, 255, 0.95); 
+    backdrop-filter: blur(10px);
+    width: 85%; 
+    max-width: 350px; 
+    border-radius: 20px;
+    padding: 30px; 
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5); 
+    text-align: center;
+}
+
+.trator-icon {
+    width: 65px;
+    margin-bottom: 10px;
+}
+
+h2 {
+    margin-top: 0;
+    color: #333;
+}
+
+.alerta-amarelo {
+    background: #fff3cd; 
+    color: #856404; 
+    padding: 10px; 
+    margin-bottom: 15px; 
+    border-radius: 10px; 
+    border: 1px solid #ffeeba; 
+    font-size: 14px;
+}
+
+.tabs { 
+    display: flex; 
+    margin-bottom: 20px; 
+    border-bottom: 1px solid #eee; 
+}
+
+.tab { 
+    flex: 1; 
+    padding: 10px; 
+    cursor: pointer; 
+    color: #999; 
+    font-weight: 600; 
+}
+
+.tab.active { 
+    color: #2e7d32; 
+    border-bottom: 3px solid #2e7d32; 
+}
+
+input, select { 
+    width: 100%; 
+    padding: 12px; 
+    margin-bottom: 15px; 
+    border: 1px solid #ddd; 
+    border-radius: 10px; 
+    box-sizing: border-box; 
+    font-family: 'Poppins', sans-serif;
+    outline: none;
+}
+
+input:focus, select:focus {
+    border-color: #2e7d32;
+}
+
+.label-dificuldade {
+    display: block; 
+    text-align: left; 
+    font-size: 12px; 
+    color: #666; 
+    margin-bottom: 5px;
+    font-weight: 600;
+}
+
+button { 
+    width: 100%; 
+    padding: 12px; 
+    background: #2e7d32; 
+    color: white; 
+    border: none; 
+    border-radius: 10px; 
+    font-weight: bold; 
+    cursor: pointer; 
+    font-family: 'Poppins', sans-serif;
+    font-size: 15px;
+}
+
+button:hover {
+    background: #1b5e20;
+}
+
+.hidden { 
+    display: none; 
+}
+
+.copyright {
+    margin-top: 25px;
+    font-size: 11px;
+    color: #888;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}

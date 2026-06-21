@@ -1,0 +1,66 @@
+<link rel="stylesheet" href="{{ url_for('static', filename='css/armazem.css') }}?v=1">
+
+<div id="modal-armazem" class="modal-fundo" onclick="fecharSeClicarFora(event, 'modal-armazem')">
+    <div class="modal-janela" style="border-top: 5px solid #8d6e63;">
+        <span class="fechar-btn" onclick="fecharModal('modal-armazem')">&times;</span>
+        
+        <h2 class="modal-titulo">
+            <img src="/static/img/celeiro.png" style="height: 28px; vertical-align: middle;"> Insumos
+        </h2>
+        
+        <img src="/static/img/celeiro.png" class="img-modal-destaque" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2829/2829839.png'">
+        
+        <div style="background: #111; border-radius: 10px; height: 24px; margin: 15px 0; position: relative; overflow: hidden; border: 1px solid #333;">
+            {% set total_insumos = (fazenda.est_sal + fazenda.est_racao + fazenda.est_adubo + fazenda.est_veneno + fazenda.est_combustivel + fazenda.est_vacina_aftosa + fazenda.est_vacina_brucelose + fazenda.est_medicamento_geral + fazenda.est_suplemento_engorda) %}
+            {% set porcentagem_ins = (total_insumos / fazenda.cap_armazem) * 100 if fazenda.cap_armazem > 0 else 0 %}
+            
+            <div style="width: {{ porcentagem_ins }}%; background: #8d6e63; height: 100%; transition: width 0.5s;"></div>
+            <small style="position: absolute; width: 100%; left: 0; top: 0; line-height: 24px; font-weight: bold; color: #fff; text-shadow: 1px 1px 2px #000; text-align: center;">
+                {{ total_insumos }} / {{ fazenda.cap_armazem }} un
+            </small>
+        </div>
+
+        <div style="background: #333; padding: 12px; border-radius: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #444;">
+            <div style="text-align: left;">
+                <span style="font-size: 11px; color: #aaa; display: block;">Próximo Nível:</span>
+                <b style="color: #8d6e63;">+300 un</b>
+            </div>
+            <button onclick="expandirArmazem()" style="background: #f57c00; color: white; border: none; padding: 8px 15px; border-radius: 8px; font-size: 12px; font-weight: bold; box-shadow: 0 4px 0 #e65100; cursor: pointer;">
+                EXPANDIR 🛠️
+            </button>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            {% set lista_insumos = [
+                ('sal','Sal'), ('racao','Ração'), ('adubo','Adubo'), 
+                ('veneno','Defensivo'), ('combustivel','Diesel'),
+                ('vacina_aftosa','Vacina Aftosa'), 
+                ('vacina_brucelose','Vacina Brucelose'),
+                ('medicamento_geral','Medicamento Geral'), 
+                ('suplemento_engorda','Suplemento Engorda')
+            ] %}
+            
+            {% for chave, nome in lista_insumos %}
+                {% set q = fazenda['est_' ~ chave] %}
+                {% if q > 0 %}
+                <div style="background: #222; padding: 12px; border-radius: 12px; border: 1px solid #444; display: flex; flex-direction: column; align-items: center;">
+                    <img src="/static/img/{{ chave }}.png" style="height: 40px; object-fit: contain; margin-bottom: 5px;" onerror="this.src='/static/img/suplemento.png'">
+                    <span style="font-size: 12px; color: #aaa; font-weight: 600; text-align: center;">{{ nome }}</span>
+                    <b style="font-size: 16px; color: #8d6e63;">{{ q }} un</b>
+                    
+                    <button onclick="prepararVendaInsumo('{{ chave }}', '{{ nome }}', {{ q }})" 
+                            style="background: #d32f2f; color: white; border: none; padding: 8px; border-radius: 6px; font-size: 11px; margin-top: 10px; width: 100%; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #b71c1c;">
+                        VENDER 💰
+                    </button>
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        {% if total_insumos == 0 %}
+            <span style="color: #888; font-style: italic; margin-top: 20px; display: block;">Armazém vazio. Vá na Loja! 🛒</span>
+        {% endif %}
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/armazem.js') }}?v=1"></script>

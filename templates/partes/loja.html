@@ -1,0 +1,150 @@
+<link rel="stylesheet" href="{{ url_for('static', filename='css/loja.css') }}?v=1">
+
+<div id="view-loja" class="view-section" style="display: none; padding: 10px; padding-bottom: 80px;">
+
+    <div style="background: white; border-radius: 15px; padding: 15px; text-align: center; border: 2px dashed #ccc; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+        <img src="/static/img/trator.png" style="height: 70px; object-fit: contain;" onerror="this.src='/static/img/arado.png'">
+        <h3 style="color:#333; margin: 10px 0 5px 0;">Trator Agrícola</h3>
+        <p style="color:#999; font-size:12px; margin: 0 0 15px 0;">Disponível no nível 10</p>
+        <button class="btn-compra-verde" style="background:#ccc; box-shadow:none; color:#666; cursor:not-allowed; margin-top: 0;">BLOQUEADO</button>
+    </div>
+
+    <div class="loja-cat-title">🧪 Insumos Agrícolas</div>
+    <div class="grid-loja">
+        <div class="item-loja">
+            <img src="/static/img/sal.png" class="img-loja">
+            <h3>Sal Mineral</h3><p>$80 un</p>
+            <button class="btn-compra-verde" onclick="prepararCompra('sal', 'Sal Mineral', 80)">Comprar</button>
+        </div>
+        <div class="item-loja">
+            <img src="/static/img/racao.png" class="img-loja">
+            <h3>Ração</h3><p>$120 sc</p>
+            <button class="btn-compra-verde" onclick="prepararCompra('racao', 'Ração', 120)">Comprar</button>
+        </div>
+        <div class="item-loja">
+            <img src="/static/img/adubo.png" class="img-loja">
+            <h3>Adubo</h3><p>$150 sc</p>
+            <button class="btn-compra-verde" onclick="prepararCompra('adubo', 'Adubo', 150)">Comprar</button>
+        </div>
+        <div class="item-loja">
+            <img src="/static/img/veneno.png" class="img-loja">
+            <h3>Defensivo</h3><p>$200 gl</p>
+            <button class="btn-compra-verde" onclick="prepararCompra('veneno', 'Defensivo', 200)">Comprar</button>
+        </div>
+        <div class="item-loja">
+            <img src="/static/img/combustivel.png" class="img-loja">
+            <h3>Combustível</h3><p>$450 gl</p>
+            <button class="btn-compra-verde" onclick="prepararCompra('combustivel', 'Combustível', 450)">Comprar</button>
+        </div>
+    </div>
+
+    <div class="loja-cat-title">🌽 Grãos & Cereais</div>
+    <div class="grid-loja">
+        <div class="item-loja">
+            <img src="/static/img/milho.png" class="img-loja">
+            <h3>Milho</h3><p>$200 sc</p>
+            <button class="btn-compra-verde" onclick="prepararCompra('sem_milho', 'Semente de Milho', 200)">Comprar</button>
+        </div>
+        <div class="item-loja">
+            <img src="/static/img/soja.png" class="img-loja">
+            <h3>Soja</h3><p>$350 sc</p>
+            <button class="btn-compra-verde" onclick="prepararCompra('sem_soja', 'Semente de Soja', 350)">Comprar</button>
+        </div>
+        <div class="item-loja">
+            <img src="/static/img/arroz.png" class="img-loja">
+            <h3>Arroz</h3><p>$180 sc</p>
+            <button class="btn-compra-verde" onclick="prepararCompra('sem_arroz', 'Semente de Arroz', 180)">Comprar</button>
+        </div>
+        <div class="item-loja">
+            <img src="/static/img/feijao.png" class="img-loja">
+            <h3>Feijão</h3><p>$250 sc</p>
+            <button class="btn-compra-verde" onclick="prepararCompra('sem_feijao', 'Semente de Feijão', 250)">Comprar</button>
+        </div>
+        <div class="item-loja">
+            <img src="/static/img/algodao.png" class="img-loja">
+            <h3>Algodão</h3><p>$400 sc</p>
+            <button class="btn-compra-verde" onclick="prepararCompra('sem_algodao', 'Semente de Algodão', 400)">Comprar</button>
+        </div>
+        <div class="item-loja">
+            <img src="/static/img/cana.png" class="img-loja">
+            <h3>Cana</h3><p>$300 md</p>
+            <button class="btn-compra-verde" onclick="prepararCompra('sem_cana', 'Muda de Cana', 300)">Comprar</button>
+        </div>
+        <div class="item-loja">
+            <img src="/static/img/mandioca.png" class="img-loja">
+            <h3>Mandioca</h3><p>$150 md</p>
+            <button class="btn-compra-verde" onclick="prepararCompra('sem_mandioca', 'Muda de Mandioca', 150)">Comprar</button>
+        </div>
+    </div>
+
+    <div class="loja-cat-title">🍎 Frutas & Pomar</div>
+    <div class="grid-loja">
+        <div class="item-loja">
+            <img src="/static/img/cafe.png" class="img-loja">
+            <h3>Café</h3><p>$500 md</p>
+            <button class="btn-compra-verde" onclick="prepararCompra('sem_cafe', 'Muda de Café', 500)">Comprar</button>
+        </div>
+        <div class="item-loja">
+            <img src="/static/img/cacau.png" class="img-loja">
+            <h3>Cacau</h3><p>$600 md</p>
+            <button class="btn-compra-verde" onclick="prepararCompra('sem_cacau', 'Muda de Cacau', 600)">Comprar</button>
+        </div>
+        <div class="item-loja">
+            <img src="/static/img/acai.png" class="img-loja">
+            <h3>Açaí</h3><p>$450 md</p>
+            <button class="btn-compra-verde" onclick="prepararCompra('sem_acai', 'Muda de Açaí', 450)">Comprar</button>
+        </div>
+        <div class="item-loja">
+            <img src="/static/img/cupuacu.png" class="img-loja">
+            <h3>Cupuaçu</h3><p>$400 md</p>
+            <button class="btn-compra-verde" onclick="prepararCompra('sem_cupuacu', 'Muda de Cupuaçu', 400)">Comprar</button>
+        </div>
+        <div class="item-loja">
+            <img src="/static/img/banana.png" class="img-loja">
+            <h3>Banana</h3><p>$200 md</p>
+            <button class="btn-compra-verde" onclick="prepararCompra('sem_banana', 'Muda de Banana', 200)">Comprar</button>
+        </div>
+        <div class="item-loja">
+            <img src="/static/img/abacaxi.png" class="img-loja">
+            <h3>Abacaxi</h3><p>$250 md</p>
+            <button class="btn-compra-verde" onclick="prepararCompra('sem_abacaxi', 'Muda de Abacaxi', 250)">Comprar</button>
+        </div>
+        <div class="item-loja">
+            <img src="/static/img/melancia.png" class="img-loja">
+            <h3>Melancia</h3><p>$120 sc</p>
+            <button class="btn-compra-verde" onclick="prepararCompra('sem_melancia', 'Semente de Melancia', 120)">Comprar</button>
+        </div>
+        <div class="item-loja">
+            <img src="/static/img/pimenta.png" class="img-loja">
+            <h3>Pimenta</h3><p>$300 sc</p>
+            <button class="btn-compra-verde" onclick="prepararCompra('sem_pimenta', 'Semente de Pimenta', 300)">Comprar</button>
+        </div>
+    </div>
+
+    <div class="loja-cat-title">💊 Saúde Animal</div>
+    <div class="grid-loja">
+        <div class="item-loja">
+            <img src="/static/img/vacina_aftosa.png" class="img-loja">
+            <h3>Vacina Aftosa</h3><p>$150 un</p>
+            <button class="btn-compra-verde" onclick="prepararCompra('vacina_aftosa', 'Vacina Aftosa', 150)">Comprar</button>
+        </div>
+        <div class="item-loja">
+            <img src="/static/img/medicamento_geral.png" class="img-loja">
+            <h3>Medicamento Geral</h3><p>$90 un</p>
+            <button class="btn-compra-verde" onclick="prepararCompra('medicamento_geral', 'Medicamento Geral', 90)">Comprar</button>
+        </div>
+        <div class="item-loja">
+            <img src="/static/img/vacina_brucelose.png" class="img-loja" onerror="this.src='/static/img/veneno.png'">
+            <h3>Vacina Brucelose</h3><p>$180 un</p>
+            <button class="btn-compra-verde" onclick="prepararCompra('vacina_brucelose', 'Vacina Brucelose', 180)">Comprar</button>
+        </div>
+        <div class="item-loja">
+            <img src="/static/img/suplemento.png" class="img-loja" onerror="this.src='/static/img/racao.png'">
+            <h3>Suplemento Engorda</h3><p>$120 un</p>
+            <button class="btn-compra-verde" onclick="prepararCompra('suplemento_engorda', 'Suplemento Engorda', 120)">Comprar</button>
+        </div>
+    </div>
+
+</div>
+
+<script src="{{ url_for('static', filename='js/loja.js') }}?v=1"></script>

@@ -1,0 +1,4 @@
+/* Força os alertas do SweetAlert a ficarem na frente do modal do curral */
+.swal2-container {
+    z-index: 999999 !important;
+}

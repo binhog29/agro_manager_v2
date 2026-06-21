@@ -1,0 +1,67 @@
+Pronto, agora na minha pasta img existe: 
+soja.png
+milho.png
+arroz.png
+feijao.png
+algodao.png
+cana.png
+mandioca.png
+cafe.png
+cacau.png
+acai.png
+cupuacu.png
+banana.png
+abacaxi.png
+melancia.png
+pimenta.png
+LOTE 2 – 🐄 Pecuária
+nelore.png
+angus.png
+girolando.png
+guzera.png
+brahman.png
+porco.png
+ovelha.png
+cabra.png
+galinha.png
+pato.png
+peru.png
+LOTE 3 – 🐟 Peixes
+tambaqui.png
+pirarucu.png
+pacu.png
+matrinxa.png
+jaraqui.png
+curimata.png
+surubim.png
+pintado.png
+cachara.png
+tucunare.png
+piau.png
+sal.png
+adubo.png
+veneno.png
+racao.png
+combustivel.png (tipo galão)
+cavalo.png
+represa.png
+cerca.png
+curral.png
+celeiro.png
+silo.png
+arvore.png
+pasto.png
+arado.png (terra arada)
+cocheira.png
+vacina_aftosa.png
+medicamento.png
+caminhãoboiadeiro.png
+pasto.png
+terra_arada.png
+mercado.png
+loja.png
+cultivo.png
+financas.png
+sede.png
+mapa.png
+ Quero adicionar tudo isso no jogo
