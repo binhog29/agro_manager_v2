@@ -1,4 +1,18 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // 0. Injeta o HTML do Modal de Avisos Customizado se ele ainda não existir na página
+    if (!document.getElementById('modal-aviso-custom')) {
+        const modalHtml = `
+        <div id="modal-aviso-custom" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); z-index: 99999; justify-content: center; align-items: center; font-family: sans-serif;">
+            <div style="background: #1e1e1e; border: 1px solid #333; border-radius: 12px; padding: 25px; width: 90%; max-width: 420px; color: #fff; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.6);">
+                <div style="font-size: 32px; margin-bottom: 10px;">⚠️</div>
+                <h3 style="margin: 0 0 15px 0; color: #ffcc00; font-size: 18px;">Acontecimentos na Fazenda</h3>
+                <div id="texto-aviso-custom" style="margin-bottom: 20px; font-size: 14px; color: #ccc; line-height: 1.6; text-align: left; max-height: 160px; overflow-y: auto; background: #252525; padding: 10px; border-radius: 6px;"></div>
+                <button onclick="window.fecharModalAvisoCustom()" style="background: #4caf50; color: white; border: none; padding: 11px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; transition: background 0.2s;">OK</button>
+            </div>
+        </div>`;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+
     // 1. Pega os dados que vieram do Banco de Dados (Python)
     let s_hora = window.TEMPO_SERVIDOR.hora;
     let s_dia = window.TEMPO_SERVIDOR.dia;
@@ -80,10 +94,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 1000); 
 });
 
+// Funções Globais de Controle do Modal de Avisos
+window.mostrarAvisoCustomizado = function(mensagem) {
+    const modal = document.getElementById('modal-aviso-custom');
+    const texto = document.getElementById('texto-aviso-custom');
+    if (modal && texto) {
+        texto.innerHTML = mensagem.replace(/\n/g, '<br>');
+        modal.style.display = 'flex';
+    }
+};
+
+window.fecharModalAvisoCustom = function() {
+    const modal = document.getElementById('modal-aviso-custom');
+    if (modal) {
+        modal.style.display = 'none';
+        location.reload(); // Recarrega para atualizar os dados da fazenda após fechar
+    }
+};
+
 // --- FUNÇÃO PARA AVANÇAR O TEMPO VIA SERVIDOR ---
 window.confirmarAvanco = function(horas, custo) {
-    // 1. Esconde o modal para evitar cliques duplos
-    document.getElementById('modal-tempo').style.display = 'none';
+    // 1. Esconde o modal de escolha de tempo para evitar cliques duplos
+    const modalTempo = document.getElementById('modal-tempo');
+    if (modalTempo) modalTempo.style.display = 'none';
     
     // 2. Envia a ordem para o backend
     fetch('/api/avancar_tempo', {
@@ -94,8 +127,12 @@ window.confirmarAvanco = function(horas, custo) {
     .then(r => r.json())
     .then(d => {
         if(d.sucesso) {
-            // Se deu certo, recarrega a página para puxar os dados novos
-            location.reload();
+            // Se houver avisos gerados pelo motor biológico (como mortes), exibe o modal elegante
+            if (d.avisos && d.avisos.length > 0) {
+                window.mostrarAvisoCustomizado(d.avisos.join("\n"));
+            } else {
+                location.reload();
+            }
         } else {
             // Se não tem dinheiro, mostra o erro
             alert("Erro: " + d.erro);

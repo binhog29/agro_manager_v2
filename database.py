@@ -4,6 +4,58 @@ import random
 
 db = SQLAlchemy()
 
+# =========================================================
+# DICIONÁRIOS DE GENÉTICA (O "DNA" DO MOTOR BIOLÓGICO)
+# =========================================================
+
+INFO_ESPECIES = {
+    'bovino_corte': {
+        'racas': ['nelore', 'angus', 'guzera', 'brahman'], 
+        'peso_jovem': 12.0, 'peso_adulto': 18.0, 'gestacao': 280, 'ganho_dia': 0.8, 'dieta': 'pasto'
+    },
+    'bovino_leite': {
+        'racas': ['girolando'], 
+        'peso_jovem': 10.0, 'peso_adulto': 15.0, 'gestacao': 280, 'ganho_dia': 0.6, 'dieta': 'pasto'
+    },
+    'equino': {
+        'racas': ['cavalo'], 
+        'peso_jovem': 15.0, 'peso_adulto': 25.0, 'gestacao': 340, 'ganho_dia': 0.5, 'dieta': 'pasto'
+    },
+    'suino': {
+        'racas': ['porco'], 
+        'peso_jovem': 2.0, 'peso_adulto': 6.0, 'gestacao': 114, 'ganho_dia': 0.3, 'dieta': 'racao'
+    },
+    'ave': {
+        'racas': ['galinha', 'pato', 'peru'], 
+        'peso_jovem': 0.05, 'peso_adulto': 0.15, 'gestacao': 21, 'ganho_dia': 0.01, 'dieta': 'racao'
+    },
+    'peixe_gigante': {
+        'racas': ['pirarucu', 'surubim', 'pintado', 'cachara'], 
+        'peso_jovem': 1.0, 'peso_adulto': 4.0, 'gestacao': 0, 'ganho_dia': 0.1, 'dieta': 'racao'
+    },
+    'peixe_medio': {
+        'racas': ['tambaqui', 'pacu', 'matrinxa', 'tucunare', 'curimata', 'piau', 'jaraqui'], 
+        'peso_jovem': 0.05, 'peso_adulto': 0.2, 'gestacao': 0, 'ganho_dia': 0.02, 'dieta': 'racao'
+    }
+}
+
+INFO_CULTIVOS = {
+    'feijao':   {'dias_semente': 8,  'dias_broto': 25,  'dias_colheita': 80,   'agua_necessaria': 30},
+    'melancia': {'dias_semente': 12, 'dias_broto': 35,  'dias_colheita': 85,   'agua_necessaria': 30},
+    'milho':    {'dias_semente': 10, 'dias_broto': 30,  'dias_colheita': 90,   'agua_necessaria': 40},
+    'soja':     {'dias_semente': 12, 'dias_broto': 35,  'dias_colheita': 110,  'agua_necessaria': 50},
+    'arroz':    {'dias_semente': 10, 'dias_broto': 40,  'dias_colheita': 120,  'agua_necessaria': 80},
+    'algodao':  {'dias_semente': 15, 'dias_broto': 50,  'dias_colheita': 150,  'agua_necessaria': 60},
+    'pimenta':  {'dias_semente': 20, 'dias_broto': 60,  'dias_colheita': 150,  'agua_necessaria': 40},
+    'mandioca': {'dias_semente': 20, 'dias_broto': 60,  'dias_colheita': 240,  'agua_necessaria': 20},
+    'banana':   {'dias_semente': 30, 'dias_broto': 120, 'dias_colheita': 330,  'agua_necessaria': 50},
+    'cana':     {'dias_semente': 30, 'dias_broto': 90,  'dias_colheita': 365,  'agua_necessaria': 50},
+    'cafe':     {'dias_semente': 60, 'dias_broto': 180, 'dias_colheita': 730,  'agua_necessaria': 40},
+    'cupuacu':  {'dias_semente': 90, 'dias_broto': 300, 'dias_colheita': 1095, 'agua_necessaria': 60},
+    'cacau':    {'dias_semente': 60, 'dias_broto': 200, 'dias_colheita': 1095, 'agua_necessaria': 60},
+    'acai':     {'dias_semente': 90, 'dias_broto': 365, 'dias_colheita': 1460, 'agua_necessaria': 70}
+}
+
 # ---------------------------------------------------------
 # TABELA 1: JOGADOR
 # ---------------------------------------------------------
@@ -17,47 +69,30 @@ class Jogador(db.Model):
     
     saldo = db.Column(db.Float, default=1000.0)
     nivel = db.Column(db.Integer, default=1)
-        # ... suas outras colunas (saldo, nivel, etc)
-    hora = db.Column(db.Integer, default=6) # Jogo começa às 06:00 da manhã
+    
+    hora = db.Column(db.Integer, default=6) 
     dia = db.Column(db.Integer, default=1)
     mes = db.Column(db.Integer, default=1)
     ano = db.Column(db.Integer, default=2026)
     
-    # --- RELÓGIO DO JOGADOR ---
-    hora = db.Column(db.Integer, default=6)
-    dia = db.Column(db.Integer, default=1)
-    mes = db.Column(db.Integer, default=1)
-    ano = db.Column(db.Integer, default=2026)
-    
-    # NOVO: Etiqueta especial para a conta CEO
     is_admin = db.Column(db.Boolean, default=False)
-    
     ultima_acao = db.Column(db.DateTime, default=datetime.utcnow)
     
-    # Relacionamento: Um jogador pode ter várias propriedades
     propriedades = db.relationship('Propriedade', backref='dono', lazy=True)
     
-# --- TABELA DE PREÇOS (O coração do mercado) ---
 TABELA_PRECOS = {
-    # --- BOVINOS & EQUINOS ---
     'nelore': {'filhote': 1000, 'adulto': 2500},
     'angus': {'filhote': 1500, 'adulto': 3500},
     'girolando': {'filhote': 1800, 'adulto': 4180},
     'guzera': {'filhote': 1700, 'adulto': 4000},
     'brahman': {'filhote': 2000, 'adulto': 4500},
     'cavalo': {'filhote': 3500, 'adulto': 8000},
-
-    # --- MÉDIOS E PEQUENOS ANIMAIS ---
     'porco': {'filhote': 400, 'adulto': 990},
     'ovelha': {'filhote': 450, 'adulto': 1100},
     'cabra': {'filhote': 420, 'adulto': 1050},
-
-    # --- AVES ---
     'galinha': {'filhote': 20, 'adulto': 60},
     'pato': {'filhote': 30, 'adulto': 75},
     'peru': {'filhote': 45, 'adulto': 110},
-
-    # --- PEIXES ---
     'tambaqui': {'filhote': 25, 'adulto': 60},
     'pirarucu': {'filhote': 150, 'adulto': 400},
     'pacu': {'filhote': 20, 'adulto': 55},
@@ -71,23 +106,18 @@ TABELA_PRECOS = {
     'piau': {'filhote': 20, 'adulto': 45}
 }
 
-
 # ---------------------------------------------------------
-# TABELA 2: PROPRIEDADE (O Mapa Compartilhado)
+# TABELA 2: PROPRIEDADE
 # ---------------------------------------------------------
 class Propriedade(db.Model):
     __tablename__ = 'propriedades'
 
-    # --- SUAS COISAS EXISTENTES (MANTIDAS INTACTAS) ---
     id = db.Column(db.Integer, primary_key=True)
-    nome = db.Column(db.String(100), nullable=False) # Ex: "Sítio Beira Rio 32"
+    nome = db.Column(db.String(100), nullable=False)
     preco = db.Column(db.Float, nullable=False)
-    tipo = db.Column(db.String(50), default="Sítio") # Sítio, Chácara, Fazenda
-    
-    # Se estiver NULO, a terra está à venda. Se tiver um ID, tem dono!
+    tipo = db.Column(db.String(50), default="Sítio")
     dono_id = db.Column(db.Integer, db.ForeignKey('jogadores.id'), nullable=True)
 
-    # --- NOVOS BOLSOS PARA O SILO E CURRAL FUNCIONAREM ---
     cap_silo = db.Column(db.Integer, default=500)
     cap_armazem = db.Column(db.Integer, default=200)
     cap_curral = db.Column(db.Integer, default=10)
@@ -95,7 +125,6 @@ class Propriedade(db.Model):
     tem_chiqueiro = db.Column(db.Boolean, default=False)
     tem_galinheiro = db.Column(db.Boolean, default=False)
 
-    # Estoque do Silo (Grãos)
     est_milho = db.Column(db.Integer, default=0)
     est_soja = db.Column(db.Integer, default=0)
     est_cafe = db.Column(db.Integer, default=0)
@@ -112,7 +141,6 @@ class Propriedade(db.Model):
     est_abacaxi = db.Column(db.Integer, default=0)
     est_melancia = db.Column(db.Integer, default=0)
 
-    # Estoque do Armazém e Saúde
     est_sal = db.Column(db.Integer, default=0)
     est_racao = db.Column(db.Integer, default=0)
     est_adubo = db.Column(db.Integer, default=0)
@@ -123,134 +151,219 @@ class Propriedade(db.Model):
     est_medicamento_geral = db.Column(db.Integer, default=0)
     est_suplemento_engorda = db.Column(db.Integer, default=0)
 
-    # Relacionamento: Uma fazenda possui vários lotes (hectares)
     lotes = db.relationship('Lote', backref='fazenda', lazy=True)
 
 # ---------------------------------------------------------
-# TABELA 3: LOTE (Os Hectares de terra dentro da Fazenda)
+# TABELA 3: LOTE
 # ---------------------------------------------------------
 class Lote(db.Model):
     __tablename__ = 'lotes'
 
     id = db.Column(db.Integer, primary_key=True)
-    
-    # A qual propriedade este pedaço de terra pertence
     fazenda_id = db.Column(db.Integer, db.ForeignKey('propriedades.id'), nullable=False)
-    
-    nome = db.Column(db.String(50), default="Hectare") # Ex: Hectare 1, Lote Norte
-    
-    # Status atual da terra: 'mato', 'limpo', 'arado', 'cercado', 'pasto', 'cultivo'
+    nome = db.Column(db.String(50), default="Hectare")
     status = db.Column(db.String(50), default='mato') 
     
-    # --- MECÂNICA DE PECUÁRIA (PASTO) ---
     tem_cerca = db.Column(db.Boolean, default=False)
     tem_cocho = db.Column(db.Boolean, default=False)
     tem_bebedouro = db.Column(db.Boolean, default=False)
-    tipo_capim = db.Column(db.String(50), nullable=True)  # ex: braquiaria, mombaca
-    qualidade_capim = db.Column(db.Integer, default=0)    # Vai de 0 a 100%
+    tipo_capim = db.Column(db.String(50), nullable=True)
+    qualidade_capim = db.Column(db.Integer, default=0) 
     
-    # --- MECÂNICA DE AGRICULTURA (CULTIVO) ---
-    tipo_cultivo = db.Column(db.String(50), nullable=True) # ex: cafe, cacau, soja
-    dias_crescimento = db.Column(db.Integer, default=0)    # Tempo para colheita
+    tipo_cultivo = db.Column(db.String(50), nullable=True)
+    dias_plantado = db.Column(db.Integer, default=0)
+    fase_planta = db.Column(db.String(20), default='Nenhuma') 
+    umidade_solo = db.Column(db.Integer, default=50) 
     
-    # MUDANÇA AQUI: Deixe o relacionamento básico
-    # O "animais" aqui será um método que busca os animais que correspondem ao status do lote
-    @property
-    def animais(self):
-        # Busca animais que estão no pasto correspondente a este lote
-        busca = f'pasto_{self.id}'
-        lista = Animal.query.filter(Animal.onde_esta == busca).all()
-        # Debug no console do Termux para você ver se ele está achando algo
-        print(f"DEBUG: Buscando animais para o {busca}. Encontrados: {len(lista)}")
-        return lista
+    animais_no_lote = db.relationship('Animal', backref='lote_atual', lazy=True)
 
+    def processar_biologia_vegetal(self, clima):
+        if self.status not in ['pasto', 'cultivo']:
+            return 
+            
+        if clima == 'chuva':
+            self.umidade_solo = min(100, self.umidade_solo + 20)
+        else:
+            self.umidade_solo = max(0, self.umidade_solo - 10)
+
+        if self.status == 'pasto' and self.tipo_capim:
+            if self.umidade_solo > 30:
+                self.qualidade_capim = min(100, self.qualidade_capim + 5)
+            else:
+                self.qualidade_capim = max(0, self.qualidade_capim - 3)
+
+        if self.status == 'cultivo' and self.tipo_cultivo:
+            dados_planta = INFO_CULTIVOS.get(self.tipo_cultivo.lower())
+            
+            if dados_planta:
+                if self.umidade_solo >= dados_planta['agua_necessaria']:
+                    self.dias_plantado += 1
+                
+                if self.dias_plantado < dados_planta['dias_semente']:
+                    self.fase_planta = 'Semente'
+                elif self.dias_plantado < dados_planta['dias_broto']:
+                    self.fase_planta = 'Broto'
+                elif self.dias_plantado < dados_planta['dias_colheita']:
+                    self.fase_planta = 'Crescimento'
+                else:
+                    self.fase_planta = 'Ponto de Colheita'
+
+# ---------------------------------------------------------
+# TABELA 4: ANIMAL
+# ---------------------------------------------------------
 class Animal(db.Model):
     __tablename__ = 'animais'
 
     id = db.Column(db.Integer, primary_key=True)
-    # A qual fazenda ele pertence (se for NULL, ele está no limbo do leilão)
     propriedade_id = db.Column(db.Integer, db.ForeignKey('propriedades.id'), nullable=True)
     
-    # Características
     raca = db.Column(db.String(50), nullable=False)
     sexo = db.Column(db.String(10), default='M')
-    fase = db.Column(db.String(20), default='Bezerro') # Bezerro, Adulto
+    fase = db.Column(db.String(20), default='Bezerro')
     peso = db.Column(db.Float, nullable=False)
     idade_meses = db.Column(db.Integer, default=0)
     
-    # Saúde e Localização
+    saude = db.Column(db.Integer, default=100) 
+    fome = db.Column(db.Integer, default=0)    
     prenha = db.Column(db.Boolean, default=False)
+    dias_gestacao = db.Column(db.Integer, default=0)
+    
     vacinado_aftosa = db.Column(db.Boolean, default=False)
     vacinado_brucelose = db.Column(db.Boolean, default=False)
     medicado = db.Column(db.Boolean, default=False)
+    suplementado = db.Column(db.Boolean, default=False) # Status de engorda via cocho
 
-    onde_esta = db.Column(db.String(50), default='curral') # curral, pasto, represa, chiqueiro, venda
+    onde_esta = db.Column(db.String(50), default='curral') 
     lote_id = db.Column(db.Integer, db.ForeignKey('lotes.id'), nullable=True)
     origem = db.Column(db.String(50), default='Mercado Oficial')
 
+    def obter_dna(self):
+        raca_lower = self.raca.lower()
+        for familia, dados in INFO_ESPECIES.items():
+            if raca_lower in dados['racas']:
+                return dados
+        return None 
+
+    def processar_biologia_animal(self, ambiente):
+        dna = self.obter_dna()
+        if not dna: return 
+
+        if self.onde_esta == 'pasto' and not ambiente.get('infra_completa', False):
+            self.fome = min(100, self.fome + 15)
+            self.saude = max(0, self.saude - 20)
+            self.peso = max(0.1, self.peso - (dna['ganho_dia'] * 1.5))
+            return
+
+        esta_alimentado = False
+        if dna['dieta'] == 'pasto' and ambiente.get('qualidade_pasto', 0) > 20:
+            esta_alimentado = True
+        elif dna['dieta'] == 'racao' and ambiente.get('tem_racao', False):
+            esta_alimentado = True
+            
+        if not esta_alimentado and not ambiente.get('tem_sal', False):
+            self.fome = min(100, self.fome + 15)
+            if self.fome == 100:
+                self.saude = max(0, self.saude - 25) 
+        else:
+            self.fome = max(0, self.fome - 20)
+            self.saude = min(100, self.saude + 10)
+
+        # ---------------------------------------------------------
+        # SISTEMA DE PESO (Com Suplemento/Engorda via Cocho)
+        # ---------------------------------------------------------
+        peso_maximo_genetico = dna['peso_adulto'] * 1.3 
+        
+        if self.fome > 50 or self.saude < 40:
+            self.peso = max(0.1, self.peso - (dna['ganho_dia'] * 1.5)) 
+        elif self.fome == 0 and self.saude > 80:
+            if self.peso < peso_maximo_genetico:
+                ganho_base = dna['ganho_dia']
+                if ambiente.get('tem_sal', False):
+                    ganho_base += (dna['ganho_dia'] * 0.5)
+                if self.suplementado:
+                    ganho_base *= 1.8 # Bônus forte de engorda com suplemento
+                
+                self.peso += ganho_base
+                    
+        self.peso = round(min(self.peso, peso_maximo_genetico), 2)
+                
+        if self.peso < dna['peso_jovem']:
+            self.fase = 'Filhote'
+        elif self.peso < dna['peso_adulto']:
+            self.fase = 'Jovem'
+        else:
+            self.fase = 'Adulto'
+            
+        if self.prenha and dna['gestacao'] > 0:
+            self.dias_gestacao += 1
+
+# ---------------------------------------------------------
+# OUTRAS TABELAS (Anúncios, Transações e MORTES)
+# ---------------------------------------------------------
 class Anuncio(db.Model):
     __tablename__ = 'anuncios'
-
     id = db.Column(db.Integer, primary_key=True)
     vendedor_id = db.Column(db.Integer, db.ForeignKey('jogadores.id'), nullable=False)
     animal_id = db.Column(db.Integer, db.ForeignKey('animais.id'), nullable=False)
-    
     valor = db.Column(db.Float, nullable=False)
     data_anuncio = db.Column(db.DateTime, default=db.func.now())
     
-    # Ligações automáticas para facilitar a busca no Python
     vendedor = db.relationship('Jogador', backref='meus_anuncios')
     animal = db.relationship('Animal', backref='meu_anuncio', uselist=False)
 
 class Transacao(db.Model):
+    __tablename__ = 'transacoes'
     id = db.Column(db.Integer, primary_key=True)
-    # A MUDANÇA ESTÁ AQUI: apontando para 'jogadores.id'
     jogador_id = db.Column(db.Integer, db.ForeignKey('jogadores.id'), nullable=False)
-    tipo = db.Column(db.String(10), nullable=False) # 'entrada' ou 'saida'
+    tipo = db.Column(db.String(10), nullable=False) 
     valor = db.Column(db.Float, nullable=False)
     descricao = db.Column(db.String(255), nullable=False)
     data = db.Column(db.DateTime, default=datetime.utcnow)
 
     jogador = db.relationship('Jogador', backref=db.backref('transacoes', lazy=True))
 
+class HistoricoMorte(db.Model):
+    __tablename__ = 'historico_mortes'
+    id = db.Column(db.Integer, primary_key=True)
+    propriedade_id = db.Column(db.Integer, db.ForeignKey('propriedades.id'), nullable=True)
+    raca = db.Column(db.String(50), nullable=False)
+    fase = db.Column(db.String(20), nullable=False)
+    causa = db.Column(db.String(100), default="Maus tratos / Fome")
+    data_morte = db.Column(db.DateTime, default=datetime.utcnow)
+
+    propriedade = db.relationship('Propriedade', backref='mortes_registradas', lazy=True)
+
+
 def popular_mapa_inicial():
-    """Cria os terrenos iniciais do jogo usando os nomes originais se o banco estiver vazio"""
     if Propriedade.query.first():
         return
 
-    print("Povoando o mapa de Rondônia com as propriedades originais...")
-    
-    # Listas exatas fornecidas para a identidade do jogo
     NOMES_FAZENDA = ["Estrela do Norte", "Rio Madeira", "Santa Fé", "Boa Esperança", "Nova Vida", "São João"]
     NOMES_SITIO = ["Sítio Recanto", "Sítio Sossego", "Sítio Primavera", "Sítio Beira Rio"]
     NOMES_CHACARA = ["Chácara Vovó Ana", "Chácara Bela Vista", "Chácara Paraíso"]
     
     propriedades_para_criar = []
     
-        # Gera as 50 propriedades numeradas para o mapa compartilhado
     for i in range(1, 51):
         sorteio_tipo = random.choice(["Chácara", "Sítio", "Fazenda"])
         
         if sorteio_tipo == "Chácara":
             nome_base = random.choice(NOMES_CHACARA)
             preco = 5000.0
-            qtd_hectares = 2  # Chácara começa com 2 lotes
+            qtd_hectares = 2
         elif sorteio_tipo == "Sítio":
             nome_base = random.choice(NOMES_SITIO)
             preco = 25000.0
-            qtd_hectares = 5  # Sítio começa com 5 lotes
+            qtd_hectares = 5
         else:
             nome_base = random.choice(NOMES_FAZENDA)
-            preco = 100000.0  # Fazenda
-            qtd_hectares = 10 # Fazenda começa com 10 lotes
+            preco = 100000.0
+            qtd_hectares = 10
             
         nome_final = f"{nome_base} {i}"
-        
         nova_terra = Propriedade(nome=nome_final, preco=preco, tipo=sorteio_tipo, dono_id=None)
         
-        # A MÁGICA AQUI: Gera os hectares de mato para a propriedade!
         for j in range(1, qtd_hectares + 1):
-            from database import Lote # Garante a importação
             novo_lote = Lote(nome=f"Hectare {j}", status='mato')
             nova_terra.lotes.append(novo_lote)
             
@@ -258,6 +371,3 @@ def popular_mapa_inicial():
         
     db.session.add_all(propriedades_para_criar)
     db.session.commit()
-    print("Mapa povoado com sucesso, agora com lotes de mato!")
-
-    

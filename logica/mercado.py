@@ -114,7 +114,7 @@ def comprar_ia():
 
     animais_para_adicionar = []
     for _ in range(quantidade):
-        peso_inicial = 30.0 if fase == 'filhote' else 300.0 
+        peso_inicial = 6.0 if fase == 'filhote' else 18.0 
         novo_animal = Animal(
             propriedade_id=propriedade.id, raca=raca, fase=fase.capitalize(),
             sexo=sexo, peso=peso_inicial, onde_esta=habitat, origem='Mercado Oficial'

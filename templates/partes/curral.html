@@ -21,19 +21,17 @@
             </button>
         </div>
 
+        <!-- BOTÕES DE ATALHO PARA TRATAMENTO EM LOTE (CORRIGIDO O TAMANHO DA FONTE) -->
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px;">
-            <div style="background:#1e3a8a; padding:8px; border-radius:10px; font-size:11px; border:1px solid #1e40af; color:#fff;">
-                <b>💉 Aftosa:</b> {{ fazenda.est_vacina_aftosa }} un
-            </div>
-            <div style="background:#78350f; padding:8px; border-radius:10px; font-size:11px; border:1px solid #92400e; color:#fff;">
-                <b>🧪 Brucelose:</b> {{ fazenda.est_vacina_brucelose }} un
-            </div>
-            <div style="background:#14532d; padding:8px; border-radius:10px; font-size:11px; border:1px solid #166534; color:#fff;">
-                <b>🌽 Suplemento:</b> {{ fazenda.est_suplemento_engorda }} un
-            </div>
-            <div style="background:#4a044e; padding:8px; border-radius:10px; font-size:11px; border:1px solid #701a75; color:#fff;">
-                <b>💊 Med. Geral:</b> {{ fazenda.est_medicamento_geral }} un
-            </div>
+            <button onclick="abrirSelecaoVacinaLote('aftosa')" style="background:#1e3a8a; padding:8px; border-radius:10px; font-size:11px; border:1px solid #1e40af; color:#fff; cursor:pointer; text-align:left; font-weight:bold;">
+                💉 Aftosa: {{ fazenda.est_vacina_aftosa }} un <span style="float:right; font-size:9px; background:#1d4ed8; padding:2px 5px; border-radius:4px;">Aplicar Lote</span>
+            </button>
+            <button onclick="abrirSelecaoVacinaLote('brucelose')" style="background:#78350f; padding:8px; border-radius:10px; font-size:11px; border:1px solid #92400e; color:#fff; cursor:pointer; text-align:left; font-weight:bold;">
+                🧪 Brucelose: {{ fazenda.est_vacina_brucelose }} un <span style="float:right; font-size:9px; background:#b45309; padding:2px 5px; border-radius:4px;">Aplicar Lote</span>
+            </button>
+            <button onclick="abrirSelecaoVacinaLote('medicamento')" style="background:#4a044e; padding:8px; border-radius:10px; font-size:11px; border:1px solid #701a75; color:#fff; cursor:pointer; text-align:left; font-weight:bold; grid-column: span 2;">
+                💊 Med. Geral: {{ fazenda.est_medicamento_geral }} un <span style="float:right; font-size:9px; background:#7e22ce; padding:2px 5px; border-radius:4px;">Aplicar Lote</span>
+            </button>
         </div>
 
         <div style="background: #450a0a; border: 1px solid #7f1d1d; padding: 12px; border-radius: 12px; margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between;">
@@ -75,10 +73,8 @@
                             <button onclick="aplicarManejo({{ animal.id }}, 'brucelose')" style="background:#b91c1c; color:white; border:none; padding:8px; border-radius:6px; font-size:10px; font-weight:bold; box-shadow: 0 3px 0 #7f1d1d;">🧪 BRUCELOSE</button>
                             
                             <button onclick="aplicarManejo({{ animal.id }}, 'medicamento')" style="background:#701a75; color:white; border:none; padding:8px; border-radius:6px; font-size:10px; font-weight:bold; box-shadow: 0 3px 0 #4a044e;">💊 MED. GERAL</button>
-                            
-                            <button onclick="aplicarManejo({{ animal.id }}, 'suplemento')" style="background:#2e7d32; color:white; border:none; padding:8px; border-radius:6px; font-size:10px; font-weight:bold; box-shadow: 0 3px 0 #1b5e20;">🌽 ENGORDA</button>
 
-                            <button onclick="prepararApartamento({{ animal.id }})" style="background:#455a64; color:white; border:none; padding:8px; border-radius:6px; font-size:10px; font-weight:bold; box-shadow: 0 3px 0 #263238;">🚚 APARTAR</button>
+                            <button onclick="prepararApartamento({{ animal.id }})" style="background:#455a64; color:white; border:none; padding:8px; border-radius:6px; font-size:10px; font-weight:bold; box-shadow: 0 3px 0 #263238; grid-column: span 2;">🚚 APARTAR</button>
                             
                             <button onclick="abrirVendaLeilao('{{ animal.id }}', '{{ animal.raca }}')" style="background:#e65100; color:white; border:none; padding:8px; border-radius:6px; font-size:10px; font-weight:bold; box-shadow: 0 3px 0 #e65100;">💰 VENDER</button>
                         </div>

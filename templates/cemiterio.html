@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cemitério - {{ fazenda.nome }}</title>
+    
+    <!-- Estilos baseados no tema escuro do seu projeto -->
+    <style>
+        body { 
+            background-color: #121212; 
+            color: #ffffff; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0; 
+            padding: 20px; 
+        }
+        .container { 
+            max-width: 600px; 
+            margin: 0 auto; 
+        }
+        .cabecalho { 
+            text-align: center; 
+            margin-bottom: 30px; 
+        }
+        .cabecalho h2 {
+            margin: 0;
+            color: #e53935;
+        }
+        .cabecalho p {
+            color: #9e9e9e;
+            margin-top: 5px;
+        }
+        
+        /* Cartão de Animal Morto */
+        .card-morte { 
+            background-color: #1e1e1e; 
+            border-radius: 12px; 
+            padding: 15px 20px; 
+            margin-bottom: 15px; 
+            border-left: 6px solid #e53935; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .card-morte h3 { 
+            font-size: 1.2em; 
+            margin: 0 0 10px 0; 
+            color: #ffcdd2; 
+        }
+        .info { 
+            margin: 4px 0; 
+            color: #bdbdbd; 
+            font-size: 0.95em;
+        }
+        .destaque {
+            color: #ef5350;
+            font-weight: bold;
+        }
+
+        /* Mensagem de sucesso (nenhuma morte) */
+        .sucesso { 
+            text-align: center; 
+            color: #81c784; 
+            font-size: 1.1em; 
+            padding: 40px 20px; 
+            background-color: #1e1e1e; 
+            border-radius: 12px; 
+            border: 2px dashed #4caf50;
+        }
+
+        /* Botão de Voltar */
+        .btn-voltar { 
+            display: block; 
+            width: 100%; 
+            text-align: center; 
+            background-color: #5c6bc0; 
+            color: white; 
+            padding: 14px; 
+            text-decoration: none; 
+            border-radius: 10px; 
+            margin-top: 30px; 
+            font-weight: bold;
+            font-size: 1.1em;
+            box-sizing: border-box;
+        }
+        .btn-voltar:hover { 
+            background-color: #3f51b5; 
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="cabecalho">
+            <h2>Cemitério da Propriedade</h2>
+            <p>{{ fazenda.nome }}</p>
+        </div>
+
+        <!-- O Jinja verifica se existe alguma morte registrada -->
+        {% if mortes %}
+            {% for morto in mortes %}
+            <div class="card-morte">
+                <h3>✝ {{ morto.raca|capitalize }} ({{ morto.fase }})</h3>
+                <p class="info"><strong>Causa:</strong> <span class="destaque">{{ morto.causa }}</span></p>
+                <p class="info"><strong>Data da perda:</strong> {{ morto.data_morte.strftime('%d/%m/%Y - %H:%M') }}</p>
+            </div>
+            {% endfor %}
+        {% else %}
+            <!-- Se a lista estiver vazia, mostra a mensagem de bom manejo -->
+            <div class="sucesso">
+                <p>🎉 Excelente! Nenhum animal morreu por inanição ou falta de cuidados nesta propriedade.</p>
+            </div>
+        {% endif %}
+
+        <!-- Botão para retornar à tela da fazenda -->
+        <a href="{{ url_for('fazenda', prop_id=fazenda.id) }}" class="btn-voltar">
+            ⬅ Voltar para a Fazenda
+        </a>
+    </div>
+
+</body>
+</html>

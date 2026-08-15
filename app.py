@@ -4,7 +4,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, ses
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # Importa o banco e as tabelas
-from database import db, Jogador, Propriedade, Animal
+from database import db, Jogador, Propriedade, Animal, HistoricoMorte
 
 # =======================================================
 # IMPORTAÇÃO DOS MÓDULOS SEPARADOS (BLUEPRINTS)
@@ -89,7 +89,7 @@ def autenticar():
             elif dificuldade == 'medio':
                 saldo_inicial = 25000.0
             else:
-                saldo_inicial = 10000.0 
+                saldo_inicial = 10050.0 
             
         senha_segura = generate_password_hash(senha)
         novo_jogador = Jogador(username=username, senha_hash=senha_segura, saldo=saldo_inicial, is_admin=is_admin)
@@ -209,6 +209,31 @@ def fazenda(prop_id):
                            user=jogador, 
                            fazenda=propriedade, 
                            gado_curral=animais_no_curral) # <--- ENVIA A LISTA REAL AQUI
+                           
+@app.route('/cemiterio/<int:prop_id>')
+def cemiterio(prop_id):
+    if 'usuario' not in session:
+        return redirect(url_for('login'))
+    
+    jogador = Jogador.query.filter_by(username=session['usuario']).first()
+    
+    if not jogador:
+        session.pop('usuario', None)
+        return redirect(url_for('login'))
+
+    propriedade = Propriedade.query.get(prop_id)
+
+    if not propriedade or propriedade.dono_id != jogador.id:
+        return redirect(url_for('mapa'))
+
+    # Busca o histórico ordenando da morte mais recente para a mais antiga
+    mortes = HistoricoMorte.query.filter_by(propriedade_id=prop_id).order_by(HistoricoMorte.data_morte.desc()).all()
+
+    return render_template('cemiterio.html', 
+                           jogador=jogador, 
+                           user=jogador, 
+                           fazenda=propriedade, 
+                           mortes=mortes)
                            
 if __name__ == '__main__':
     app.run(debug=True)

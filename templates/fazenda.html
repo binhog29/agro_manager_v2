@@ -74,7 +74,10 @@
         <div class="menu-item" id="btn-loja" onclick="trocarAba('loja', this)">
             <img src="/static/img/loja.png" style="width: 22px; height: 22px; object-fit: contain; margin-right: 5px;"> Loja
         </div>
-        
+        <div class="menu-item" onclick="window.location.href='{{ url_for('cemiterio', prop_id=fazenda.id) }}'" style="cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;">
+            <img src="/static/img/cemiterio.png" style="width: 22px; height: 22px; object-fit: contain; margin-right: 5px;"> Cemitério
+        </div>
+
         <div class="menu-item" id="btn-caixa" onclick="window.location.href='/financeiro'">
             <img src="/static/img/financas.png" style="width: 22px; height: 22px; object-fit: contain; margin-right: 5px;"> Caixa
         </div>

@@ -10,7 +10,6 @@ window.confirmarExpansaoCurral = function() {
 };
 
 window.aplicarManejo = function(animal_id, acao) {
-    // CORREÇÃO: Apontando para a rota de insumos, não de movimento!
     fetch('/api/animal/aplicar_insumo', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ animal_id: animal_id, acao: acao })
@@ -20,9 +19,131 @@ window.aplicarManejo = function(animal_id, acao) {
     });
 };
 
+// ==========================================
+// VACINAÇÃO/TRATAMENTO EM LOTE NO CURRAL
+// ==========================================
+window.abrirSelecaoVacinaLote = async function(tipoTratamento) {
+    let tituloMap = {
+        'aftosa': 'Vacinação contra Aftosa (Lote)',
+        'brucelose': 'Vacinação contra Brucelose (Lote)',
+        'medicamento': 'Aplicação de Medicamento Geral (Lote)'
+    };
+
+    const resposta = await fetch('/api/pecuaria/listar_curral');
+    const dados = await resposta.json();
+
+    if (!dados.animais || dados.animais.length === 0) {
+        Swal.fire('Aviso', 'Nenhum animal no curral para tratar.', 'info');
+        return;
+    }
+
+    let htmlCheckboxes = `
+        <div style="text-align: left; max-height: 50vh; overflow-y: auto; padding: 5px;">
+            <div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                <label style="cursor: pointer; font-size: 13px; color: #4caf50; font-weight: bold;">
+                    <input type="checkbox" id="selecionar-todos-lote" onclick="toggleSelecionarTodos(this)"> Selecionar Todos
+                </label>
+                <span style="font-size: 11px; color: #aaa;">Total: ${dados.animais.length} animais</span>
+            </div>
+    `;
+
+    dados.animais.forEach(a => {
+        // Verifica se o animal JÁ POSSUI o tratamento atual
+        let jaTemTratamento = false;
+        if (tipoTratamento === 'aftosa' && a.vacinado_aftosa) jaTemTratamento = true;
+        if (tipoTratamento === 'brucelose' && a.vacinado_brucelose) jaTemTratamento = true;
+        if (tipoTratamento === 'medicamento' && a.medicado) jaTemTratamento = true;
+
+        // Cores dos ícones de saúde
+        const cAft = a.vacinado_aftosa ? '#2196f3' : '#444';
+        const cBruc = a.vacinado_brucelose ? '#f44336' : '#444';
+        const cMed = a.medicado ? '#9c27b0' : '#444';
+        const cSup = a.suplementado ? '#4caf50' : '#444';
+
+        // Se já tem, mostra um checkmark em vez da caixinha clicável
+        let checkboxHtml = jaTemTratamento 
+            ? `<i class="fas fa-check-circle" style="color: #4caf50; font-size: 18px; width: 18px; text-align: center; margin-right: 5px;" title="Já aplicado"></i>`
+            : `<input type="checkbox" class="chk-animal-lote" value="${a.id}" style="width: 18px; height: 18px; cursor: pointer; flex-shrink: 0; margin-right: 5px;">`;
+
+        let opacidade = jaTemTratamento ? 'opacity: 0.6;' : 'opacity: 1;';
+        let pointer = jaTemTratamento ? 'cursor: not-allowed;' : 'cursor: pointer;';
+
+        htmlCheckboxes += `
+            <label style="display: flex; align-items: center; justify-content: space-between; background: #222; padding: 10px; margin-bottom: 6px; border-radius: 6px; cursor: ${pointer}; border: 1px solid #444; ${opacidade}">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    ${checkboxHtml}
+                    <div>
+                        <div style="font-weight: bold; font-size: 14px; color: #fff; text-transform: capitalize;">${a.raca} (${a.fase})</div>
+                        <span style="font-size: 11px; color: #888;">ID: #${a.id} | Sexo: ${a.sexo} | Peso: ${a.peso}@</span>
+                    </div>
+                </div>
+                
+                <!-- MOSTRAR AS BADGES VISUAIS (A B M S) IGUAL NA TELA PRINCIPAL -->
+                <div style="display: flex; gap: 4px;">
+                    <div style="width: 20px; height: 20px; background: ${cAft}; color: white; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; border-radius: 3px;" title="Aftosa">A</div>
+                    <div style="width: 20px; height: 20px; background: ${cBruc}; color: white; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; border-radius: 3px;" title="Brucelose">B</div>
+                    <div style="width: 20px; height: 20px; background: ${cMed}; color: white; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; border-radius: 3px;" title="Med. Geral">M</div>
+                    <div style="width: 20px; height: 20px; background: ${cSup}; color: white; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; border-radius: 3px;" title="Suplemento">S</div>
+                </div>
+            </label>
+        `;
+    });
+
+    htmlCheckboxes += `</div>`;
+
+    Swal.fire({
+        title: tituloMap[tipoTratamento],
+        html: htmlCheckboxes,
+        background: '#1a1a1a',
+        color: '#fff',
+        showCancelButton: true,
+        confirmButtonText: 'Aplicar no Lote',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#2e7d32',
+        preConfirm: () => {
+            const checkboxes = document.querySelectorAll('.chk-animal-lote:checked');
+            const ids = Array.from(checkboxes).map(chk => parseInt(chk.value));
+            if (ids.length === 0) {
+                Swal.showValidationMessage('Selecione pelo menos um animal!');
+            }
+            return ids;
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            executarTratamentoLote(result.value, tipoTratamento);
+        }
+    });
+};
+
+window.toggleSelecionarTodos = function(masterCheckbox) {
+    // Como a caixinha só é criada para os animais não vacinados, o "Selecionar Todos" vai marcar exatamente os corretos!
+    const checkboxes = document.querySelectorAll('.chk-animal-lote');
+    checkboxes.forEach(chk => chk.checked = masterCheckbox.checked);
+};
+
+window.executarTratamentoLote = function(animalIds, tipo) {
+    Swal.fire({ title: 'Aplicando tratamento...', didOpen: () => Swal.showLoading() });
+
+    fetch('/api/animal/tratamento_lote', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ animal_ids: animalIds, tipo: tipo })
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.sucesso) {
+            Swal.fire('Sucesso!', res.msg, 'success').then(() => location.reload());
+        } else {
+            Swal.fire('Atenção', res.erro, 'warning');
+        }
+    })
+    .catch(e => {
+        console.error(e);
+        Swal.fire('Erro', 'Falha na comunicação com o servidor.', 'error');
+    });
+};
+
 window.prepararApartamento = async function(animal_id) {
-    console.log("Apartar chamado para o animal:", animal_id);
-    
     try {
         const response = await fetch('/api/pecuaria/listar_pastos_disponiveis');
         const data = await response.json();
@@ -59,7 +180,7 @@ window.prepararApartamento = async function(animal_id) {
 };
 
 // ==========================================
-// CALCULADORAS DE LOTE EM TEMPO REAL
+// CALCULADORAS DE LOTE EM TEMPO REAL E VENDAS
 // ==========================================
 window.atualizarTotalLeilao = function() {
     const qtd = parseInt(document.getElementById('swal-qtd').value) || 0;
@@ -83,9 +204,6 @@ window.atualizarTotalFrigorifico = function() {
     document.getElementById('txt-total-frig').innerText = total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
 
-// ==========================================
-// VENDAS (INDIVIDUAL E EM LOTE)
-// ==========================================
 window.prepararVendaComercial = function(id, peso, raca) { abrirVendaLeilao(id, raca); }; 
 
 window.abrirVendaLeilao = function(id_animal, raca) {

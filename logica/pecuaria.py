@@ -88,18 +88,38 @@ def manejar_lote():
     return jsonify({'sucesso': True, 'msg': f'{movidos} animais movidos.'})
 
 # ==========================================
-# LISTAGENS E INSUMOS (MANTIDOS IGUAIS)
+# LISTAGENS E INSUMOS (AGORA COM DADOS DE SAÚDE)
 # ==========================================
 @pecuaria_bp.route('/api/pecuaria/listar_curral', methods=['GET'])
 def listar_curral():
     animais = Animal.query.filter_by(onde_esta='curral').all()
-    return jsonify({'animais': [{'id': a.id, 'raca': a.raca, 'fase': getattr(a, 'fase', 'Adulto'), 'sexo': getattr(a, 'sexo', 'M'), 'peso': getattr(a, 'peso', 0.0)} for a in animais]})
+    return jsonify({'animais': [{
+        'id': a.id, 
+        'raca': a.raca, 
+        'fase': getattr(a, 'fase', 'Adulto'), 
+        'sexo': getattr(a, 'sexo', 'M'), 
+        'peso': getattr(a, 'peso', 0.0),
+        'vacinado_aftosa': getattr(a, 'vacinado_aftosa', False),
+        'vacinado_brucelose': getattr(a, 'vacinado_brucelose', False),
+        'medicado': getattr(a, 'medicado', False),
+        'suplementado': getattr(a, 'suplementado', False)
+    } for a in animais]})
 
 @pecuaria_bp.route('/api/pecuaria/listar_pasto', methods=['GET'])
 def listar_pasto():
     pasto_id = request.args.get('pasto_id')
-    animais = Animal.query.filter_by(lote_id=pasto_id).all() # Busca pelo lote_id para ser preciso
-    return jsonify({'animais': [{'id': a.id, 'raca': a.raca, 'fase': getattr(a, 'fase', 'Adulto'), 'sexo': getattr(a, 'sexo', 'M'), 'peso': getattr(a, 'peso', 0.0)} for a in animais]})
+    animais = Animal.query.filter_by(lote_id=pasto_id).all() 
+    return jsonify({'animais': [{
+        'id': a.id, 
+        'raca': a.raca, 
+        'fase': getattr(a, 'fase', 'Adulto'), 
+        'sexo': getattr(a, 'sexo', 'M'), 
+        'peso': getattr(a, 'peso', 0.0),
+        'vacinado_aftosa': getattr(a, 'vacinado_aftosa', False),
+        'vacinado_brucelose': getattr(a, 'vacinado_brucelose', False),
+        'medicado': getattr(a, 'medicado', False),
+        'suplementado': getattr(a, 'suplementado', False)
+    } for a in animais]})
 
 @pecuaria_bp.route('/api/animal/aplicar_insumo', methods=['POST'])
 def aplicar_insumo():
@@ -120,24 +140,21 @@ def aplicar_insumo():
 
     if acao not in insumos: return jsonify({'sucesso': False, 'erro': 'Ação inválida.'})
     
-    # --- VERIFICAÇÃO DE SAÚDE (BLOQUEIO) ---
     if acao == 'aftosa' and animal.vacinado_aftosa:
         return jsonify({'sucesso': False, 'erro': 'Animal já vacinado contra Aftosa!'})
     if acao == 'brucelose' and animal.vacinado_brucelose:
         return jsonify({'sucesso': False, 'erro': 'Animal já vacinado contra Brucelose!'})
     if acao == 'medicamento' and animal.medicado:
         return jsonify({'sucesso': False, 'erro': 'Animal já medicado!'})
-    if acao == 'suplemento' and animal.suplementado:
+    if acao == 'suplemento' and getattr(animal, 'suplementado', False):
         return jsonify({'sucesso': False, 'erro': 'Animal já suplementado!'})
     
     coluna, nome = insumos[acao]
     if getattr(fazenda, coluna) <= 0:
         return jsonify({'sucesso': False, 'erro': f'Sem {nome} no armazém!'})
     
-    # Atualiza o estoque
     setattr(fazenda, coluna, getattr(fazenda, coluna) - 1)
     
-    # Atualiza o estado de saúde do animal
     if acao == 'aftosa':
         animal.vacinado_aftosa = True
     elif acao == 'brucelose':
@@ -151,6 +168,66 @@ def aplicar_insumo():
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': f'{animal.raca} recebeu {nome}!'})
 
+@pecuaria_bp.route('/api/animal/tratamento_lote', methods=['POST'])
+def tratamento_lote():
+    if 'usuario' not in session:
+        return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
+        
+    dados = request.get_json()
+    animal_ids = dados.get('animal_ids', [])
+    tipo = dados.get('tipo')
+    
+    if not animal_ids:
+        return jsonify({'sucesso': False, 'erro': 'Nenhum animal selecionado.'})
+        
+    jogador = Jogador.query.filter_by(username=session.get('usuario')).first()
+    fazenda = Propriedade.query.filter_by(dono_id=jogador.id).first()
+    
+    animais = Animal.query.filter(Animal.id.in_(animal_ids)).all()
+    animais_para_tratar = []
+    
+    for animal in animais:
+        if tipo == 'aftosa' and not animal.vacinado_aftosa:
+            animais_para_tratar.append(animal)
+        elif tipo == 'brucelose' and not animal.vacinado_brucelose:
+            animais_para_tratar.append(animal)
+        elif tipo == 'medicamento' and not animal.medicado:
+            animais_para_tratar.append(animal)
+            
+    qtd_necessaria = len(animais_para_tratar)
+    
+    if qtd_necessaria == 0:
+        return jsonify({'sucesso': False, 'erro': 'Todos os animais selecionados já receberam este tratamento!'})
+        
+    if tipo == 'aftosa':
+        if getattr(fazenda, 'est_vacina_aftosa', 0) < qtd_necessaria:
+            return jsonify({'sucesso': False, 'erro': 'Sem Vacina Aftosa no armazém!'})
+        fazenda.est_vacina_aftosa -= qtd_necessaria
+        
+    elif tipo == 'brucelose':
+        if getattr(fazenda, 'est_vacina_brucelose', 0) < qtd_necessaria:
+            return jsonify({'sucesso': False, 'erro': 'Sem Vacina Brucelose no armazém!'})
+        fazenda.est_vacina_brucelose -= qtd_necessaria
+        
+    elif tipo == 'medicamento':
+        if getattr(fazenda, 'est_medicamento_geral', 0) < qtd_necessaria:
+            return jsonify({'sucesso': False, 'erro': 'Sem Medicamento Geral no armazém!'})
+        fazenda.est_medicamento_geral -= qtd_necessaria
+    else:
+        return jsonify({'sucesso': False, 'erro': 'Tipo de tratamento inválido.'})
+        
+    for animal in animais_para_tratar:
+        if tipo == 'aftosa':
+            animal.vacinado_aftosa = True
+        elif tipo == 'brucelose':
+            animal.vacinado_brucelose = True
+        elif tipo == 'medicamento':
+            animal.medicado = True
+            animal.saude = min(100, animal.saude + 30) 
+            
+    db.session.commit()
+    return jsonify({'sucesso': True, 'msg': f'Tratamento aplicado com sucesso em {qtd_necessaria} animais!'})
+
 @pecuaria_bp.route('/api/fazenda/expandir_curral', methods=['POST'])
 def expandir_curral():
     jogador = Jogador.query.filter_by(username=session.get('usuario')).first()
@@ -162,15 +239,11 @@ def expandir_curral():
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': 'Curral expandido!'})
 
-# ==========================================
-# 7. ROTA PARA LISTAR PASTOS DISPONÍVEIS
-# ==========================================
 @pecuaria_bp.route('/api/pecuaria/listar_pastos_disponiveis', methods=['GET'])
 def listar_pastos_disponiveis():
     pastos = Lote.query.filter_by(status='pasto').all()
     lista_pastos = []
     for p in pastos:
-        # Conta usando a string 'pasto_ID' que você já usa no 'onde_esta'
         destino_pasto = f'pasto_{p.id}'
         animais_no_pasto = Animal.query.filter_by(onde_esta=destino_pasto).count()
         
@@ -181,17 +254,12 @@ def listar_pastos_disponiveis():
 
 @pecuaria_bp.route('/api/pecuaria/verificar_saude', methods=['POST'])
 def verificar_saude_pastos():
-    # Busca todos os lotes que são pastos
     lotes = Lote.query.filter_by(status='pasto').all()
-    
     for lote in lotes:
-        # Se faltar qualquer um dos dois, o gado sofre
         if not lote.tem_cocho or not lote.tem_bebedouro:
             animais = Animal.query.filter_by(lote_id=lote.id).all()
             for animal in animais:
-                # Penalidade de 2 arrobas por turno de negligência
                 if animal.peso > 10: 
                     animal.peso -= 2.0
-        
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': 'Saúde do gado atualizada.'})
