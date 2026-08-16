@@ -88,7 +88,7 @@ def manejar_lote():
     return jsonify({'sucesso': True, 'msg': f'{movidos} animais movidos.'})
 
 # ==========================================
-# LISTAGENS E INSUMOS (AGORA COM DADOS DE SAÚDE)
+# LISTAGENS E INSUMOS
 # ==========================================
 @pecuaria_bp.route('/api/pecuaria/listar_curral', methods=['GET'])
 def listar_curral():
@@ -227,6 +227,59 @@ def tratamento_lote():
             
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': f'Tratamento aplicado com sucesso em {qtd_necessaria} animais!'})
+
+# ==========================================
+# NOVA ROTA: REABASTECER COCHO NO PASTO
+# ==========================================
+@pecuaria_bp.route('/api/pasto/reabastecer', methods=['POST'])
+def reabastecer_pasto():
+    if 'usuario' not in session:
+        return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
+        
+    dados = request.get_json()
+    lote_id = dados.get('lote_id')
+    tipo = dados.get('tipo')
+    quantidade = int(dados.get('quantidade', 5))
+    
+    jogador = Jogador.query.filter_by(username=session.get('usuario')).first()
+    fazenda = Propriedade.query.filter_by(dono_id=jogador.id).first()
+    lote = Lote.query.get(lote_id)
+    
+    if not lote:
+        return jsonify({'sucesso': False, 'erro': 'Pasto não encontrado.'})
+        
+    animais_no_pasto = Animal.query.filter_by(lote_id=lote_id).all()
+    
+    if not animais_no_pasto:
+        return jsonify({'sucesso': False, 'erro': 'O pasto está vazio! Traga o gado antes de colocar insumos.'})
+        
+    if tipo == 'sal':
+        if getattr(fazenda, 'est_sal', 0) < quantidade:
+            return jsonify({'sucesso': False, 'erro': f'Sem Sal no armazém! Necessário: {quantidade} un.'})
+        fazenda.est_sal -= quantidade
+        
+        for animal in animais_no_pasto:
+            animal.fome = max(0, animal.fome - 20)
+            animal.saude = min(100, animal.saude + 10)
+            
+        msg = 'Sal fornecido no cocho com sucesso!'
+        
+    elif tipo == 'suplemento':
+        if getattr(fazenda, 'est_suplemento_engorda', 0) < quantidade:
+            return jsonify({'sucesso': False, 'erro': f'Sem Suplemento no armazém! Necessário: {quantidade} un.'})
+        fazenda.est_suplemento_engorda -= quantidade
+        
+        for animal in animais_no_pasto:
+            if not getattr(animal, 'suplementado', False):
+                animal.suplementado = True
+                animal.peso += 2.0 
+                
+        msg = 'Suplemento de engorda colocado no cocho!'
+    else:
+        return jsonify({'sucesso': False, 'erro': 'Insumo inválido.'})
+        
+    db.session.commit()
+    return jsonify({'sucesso': True, 'msg': msg})
 
 @pecuaria_bp.route('/api/fazenda/expandir_curral', methods=['POST'])
 def expandir_curral():
