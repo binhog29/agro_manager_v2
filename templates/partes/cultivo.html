@@ -1,38 +1,60 @@
 <div id="view-cultivo" class="view-section">
     <div style="display: grid; grid-template-columns: 1fr; gap: 15px; padding: 10px;">
         
+        {% set ns = namespace(tem_cultivo=false) %}
+        
         {% for lote in fazenda.lotes %}
-            {% if lote.status == 'arado' or lote.status == 'plantado' or lote.status == 'colhendo' %}
-            <div class="card cultivo-card" onclick="abrirGerenciamentoCultivo({{ lote.id }}, '{{ lote.status }}', '{{ lote.tipo_cultivo|default('') }}')" style="background: #1a1a1a; border: 1px solid #fbc02d; border-left: 5px solid #fbc02d; border-radius: 12px; padding: 15px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.4); display: flex; flex-direction: column; gap: 10px;">
-                
-                <div style="display: flex; align-items: center; gap: 12px;">
-                    <img src="/static/img/{{ 'arado' if lote.status == 'arado' else lote.tipo_cultivo }}.png" width="50" style="border-radius: 8px; background: #333; padding: 5px;" onerror="this.src='/static/img/arado.png'">
-                    <div>
-                        <h3 style="margin: 0; color: #fff; font-size: 16px;">{{ lote.nome }}</h3>
-                        <div style="color: #fbc02d; font-size: 13px; font-weight: bold; text-transform: capitalize;">
-                            {{ 'Pronto para Plantio' if lote.status == 'arado' else lote.tipo_cultivo }}
+            {% if lote.status in ['arado', 'coveado', 'plantado', 'colhendo'] %}
+                {% set ns.tem_cultivo = true %}
+                <div class="card cultivo-card" onclick="abrirGerenciamentoCultivo({{ lote.id }}, '{{ lote.status }}', '{{ lote.tipo_cultivo|default('') }}')" style="background: #1a1a1a; border: 1px solid #fbc02d; border-left: 5px solid #fbc02d; border-radius: 12px; padding: 15px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.4); display: flex; flex-direction: column; gap: 10px;">
+                    
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        {% set img_nome = 'arado' %}
+                        {% if lote.status == 'coveado' %}
+                            {% set img_nome = 'arvore' %}
+                        {% elif lote.tipo_cultivo %}
+                            {% set img_nome = lote.tipo_cultivo %}
+                        {% endif %}
+                        <img src="/static/img/{{ img_nome }}.png" width="50" style="border-radius: 8px; background: #333; padding: 5px; object-fit: contain;" onerror="this.src='/static/img/arado.png'">
+                        
+                        <div style="flex: 1;">
+                            <h3 style="margin: 0; color: #fff; font-size: 16px;">{{ lote.nome }}</h3>
+                            <div style="color: #fbc02d; font-size: 13px; font-weight: bold; text-transform: capitalize;">
+                                {% if lote.status in ['arado', 'coveado'] %}
+                                    Pronto para Plantio
+                                {% else %}
+                                    {{ lote.tipo_cultivo }}
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div style="text-align: right;">
+                            <b style="color: #4caf50; font-size: 18px;">{{ lote.produtividade_atual|default(100) }}%</b>
+                            <div style="font-size: 10px; color: #aaa;">Produtividade</div>
                         </div>
                     </div>
-                </div>
 
-                <div style="background: #222; padding: 8px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
-                    <span style="color: #aaa; font-size: 12px;">Status da Terra</span>
-                    <span style="color: #fff; font-weight: bold; font-size: 14px; text-transform: capitalize;">{{ lote.status }}</span>
+                    {% if lote.status in ['plantado', 'colhendo'] %}
+                    <div style="display: flex; gap: 4px; margin-top: 5px;">
+                        <div style="flex: 1; background: {% if lote.fertilidade_solo|default(100) > 50 %}#2e7d32{% else %}#c62828{% endif %}; color: white; text-align: center; font-size: 11px; padding: 4px; border-radius: 4px; font-weight: bold;">
+                            🌱 Solo: {{ lote.fertilidade_solo|default(100) }}%
+                        </div>
+                        <div style="flex: 1; background: {% if lote.nivel_pragas|default(0) < 30 %}#444{% else %}#c62828{% endif %}; color: white; text-align: center; font-size: 11px; padding: 4px; border-radius: 4px; font-weight: bold;">
+                            🐛 Pragas: {{ lote.nivel_pragas|default(0) }}%
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div style="background: #222; padding: 8px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; margin-top: 5px;">
+                        <span style="color: #aaa; font-size: 12px;">Status da Terra</span>
+                        <span style="color: #fff; font-weight: bold; font-size: 14px; text-transform: capitalize;">{{ lote.status }}</span>
+                    </div>
                 </div>
-            </div>
             {% endif %}
         {% endfor %}
 
-        {% set tem_cultivo = false %}
-        {% for lote in fazenda.lotes %}
-            {% if lote.status in ['arado', 'plantado', 'colhendo'] %}
-                {% set tem_cultivo = true %}
-            {% endif %}
-        {% endfor %}
-        
-        {% if not tem_cultivo %}
+        {% if not ns.tem_cultivo %}
         <div style="text-align: center; color: #888; padding: 20px; font-style: italic;">
-            Você não tem terras aradas ou cultivadas.<br>Vá até a aba "Terras" e use o trator!
+            Você não tem terras aradas ou cultivadas.<br>Vá até a aba "Terras" e prepare o solo!
         </div>
         {% endif %}
 

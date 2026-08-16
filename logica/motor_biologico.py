@@ -1,5 +1,6 @@
 from database import db, Animal, Lote, Propriedade, HistoricoMorte
 import random
+from logica.cultivo import CATALOGO_CULTIVOS
 
 class MotorBiologico:
     def __init__(self, clima_atual='chuva'):
@@ -9,12 +10,46 @@ class MotorBiologico:
         dias = horas_avancadas / 24.0
         avisos_turno = []
         
+        # =======================================================
         # 1. A NATUREZA AGE: Atualizar todos os Lotes (Plantas e Pastos)
+        # =======================================================
         lotes = Lote.query.all()
         for lote in lotes:
-            lote.processar_biologia_vegetal(self.clima_atual)
+            # Mantém a função original de biologia vegetal rodando
+            if hasattr(lote, 'processar_biologia_vegetal'):
+                lote.processar_biologia_vegetal(self.clima_atual)
+                
+        # Ciclo realista de Agricultura
+        lotes_plantados = Lote.query.filter(Lote.status.in_(['plantado', 'colhendo'])).all()
+        for lote in lotes_plantados:
+            tempo_anterior = getattr(lote, 'dias_plantado', 0)
+            lote.dias_plantado = tempo_anterior + dias
 
+            if lote.status == 'plantado':
+                # A) Chance de ataque de pragas
+                if random.random() < (0.15 * dias): 
+                    lote.nivel_pragas = min(100, getattr(lote, 'nivel_pragas', 0) + 20)
+                    avisos_turno.append(f"⚠️ Alerta: Pragas detectadas na lavoura {lote.nome}!")
+                
+                # B) Solo fraco destrói a produtividade
+                if getattr(lote, 'fertilidade_solo', 100) < 40:
+                    lote.produtividade_atual = max(10, getattr(lote, 'produtividade_atual', 100) - (5 * dias))
+                    
+                # C) Pragas destroem a produtividade
+                if getattr(lote, 'nivel_pragas', 0) > 30:
+                    lote.produtividade_atual = max(10, getattr(lote, 'produtividade_atual', 100) - (10 * dias))
+                
+                # D) Ponto de Colheita (Agora usando a Orientação a Objetos)
+                dna_planta = CATALOGO_CULTIVOS.get(lote.tipo_cultivo)
+                
+                if dna_planta:
+                    if lote.dias_plantado >= dna_planta.tempo_colheita:
+                        lote.status = 'colhendo'
+                        avisos_turno.append(f"🌾 A safra de {dna_planta.nome} em {lote.nome} está pronta para colher!")
+
+        # =======================================================
         # 2. A FAUNA AGE: Atualizar todos os Animais
+        # =======================================================
         animais = Animal.query.all()
         for animal in animais:
             qualidade_pasto = 0
@@ -26,7 +61,7 @@ class MotorBiologico:
             if animal.propriedade_id:
                 fazenda = Propriedade.query.get(animal.propriedade_id)
                 
-                if fazenda and fazenda.est_racao > 0 and animal.onde_esta != 'pasto':
+                if fazenda and getattr(fazenda, 'est_racao', 0) > 0 and animal.onde_esta != 'pasto':
                     tem_racao = True
                     fazenda.est_racao -= 1 
             
@@ -40,7 +75,7 @@ class MotorBiologico:
                         infra_completa = True
                     
                     # Consumo de sal no cocho integrado com estoque da fazenda
-                    if pasto.tem_cocho and fazenda and fazenda.est_sal > 0:
+                    if pasto.tem_cocho and fazenda and getattr(fazenda, 'est_sal', 0) > 0:
                         tem_sal = True
                         fazenda.est_sal -= 1 
 

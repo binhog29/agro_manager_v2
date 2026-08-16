@@ -170,8 +170,12 @@ class Lote(db.Model):
     tipo_capim = db.Column(db.String(50), nullable=True)
     qualidade_capim = db.Column(db.Integer, default=0) 
     
+    # ... (outras colunas que já existem na classe Lote) ...
+    fertilidade_solo = db.Column(db.Integer, default=100)
+    nivel_pragas = db.Column(db.Integer, default=0)
+    produtividade_atual = db.Column(db.Integer, default=100)
+    dias_plantado = db.Column(db.Float, default=0.0)
     tipo_cultivo = db.Column(db.String(50), nullable=True)
-    dias_plantado = db.Column(db.Integer, default=0)
     fase_planta = db.Column(db.String(20), default='Nenhuma') 
     umidade_solo = db.Column(db.Integer, default=50) 
     
