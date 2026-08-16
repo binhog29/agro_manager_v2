@@ -2,6 +2,8 @@ import re
 import os
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 # Importa o banco e as tabelas
 from database import db, Jogador, Propriedade, Animal, HistoricoMorte
@@ -31,6 +33,14 @@ app.secret_key = 'chave_super_secreta_para_sessoes'
 # Inicializa o banco de dados no app
 db.init_app(app)
 
+# 🔒 CAMADA DE SEGURANÇA 1: RATE LIMITING GLOBAL
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["1000 per day", "200 per hour"], # Limite global
+    storage_uri="memory://"
+)
+
 # =======================================================
 # REGISTRO DOS MÓDULOS NO APP PRINCIPAL
 # =======================================================
@@ -59,7 +69,9 @@ with app.app_context():
 def login():
     return render_template('login.html')
 
+# 🔒 APLICA O LIMITE NA ROTA DE AUTENTICAÇÃO
 @app.route('/autenticar', methods=['POST'])
+@limiter.limit("10 per minute")
 def autenticar():
     acao = request.form.get('acao')
     username = request.form.get('usuario').strip()
@@ -201,14 +213,13 @@ def fazenda(prop_id):
     if not propriedade or propriedade.dono_id != jogador.id:
         return redirect(url_for('mapa'))
 
-    # BUSCA NO BANCO: Pega todos os animais que são desta fazenda e estão no curral
     animais_no_curral = Animal.query.filter_by(propriedade_id=prop_id, onde_esta='curral').all()
 
     return render_template('fazenda.html', 
                            jogador=jogador, 
                            user=jogador, 
                            fazenda=propriedade, 
-                           gado_curral=animais_no_curral) # <--- ENVIA A LISTA REAL AQUI
+                           gado_curral=animais_no_curral) 
                            
 @app.route('/cemiterio/<int:prop_id>')
 def cemiterio(prop_id):
@@ -226,7 +237,6 @@ def cemiterio(prop_id):
     if not propriedade or propriedade.dono_id != jogador.id:
         return redirect(url_for('mapa'))
 
-    # Busca o histórico ordenando da morte mais recente para a mais antiga
     mortes = HistoricoMorte.query.filter_by(propriedade_id=prop_id).order_by(HistoricoMorte.data_morte.desc()).all()
 
     return render_template('cemiterio.html', 

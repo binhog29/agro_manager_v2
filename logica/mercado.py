@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, session, redirect, url_for, request, jsonify
 from sqlalchemy import func
 from database import db, Jogador, Anuncio, Propriedade, Animal, TABELA_PRECOS
-from logica.economia import registrar_transacao  # Importando nossa função de caixa
+from logica.economia import registrar_transacao  
 
 mercado_bp = Blueprint('mercado', __name__)
 
@@ -40,7 +40,15 @@ def comprar_ia():
     raca = dados.get('raca')
     fase = dados.get('fase')
     sexo = dados.get('sexo')
-    quantidade = int(dados.get('quantidade', 1))
+    
+    # 🔒 TRAVA DE SEGURANÇA
+    try:
+        quantidade = int(dados.get('quantidade', 1))
+        if quantidade <= 0:
+            return jsonify({'sucesso': False, 'erro': 'Quantidade inválida.'})
+    except ValueError:
+        return jsonify({'sucesso': False, 'erro': 'Quantidade inválida.'})
+        
     destino_id = dados.get('destino_id')
 
     # Configurações de Logística Regional
@@ -84,16 +92,11 @@ def comprar_ia():
             
     elif raca_lower in ['tambaqui', 'pirarucu', 'pacu', 'matrinxa', 'jaraqui', 'curimata', 'surubim', 'pintado', 'cachara', 'tucunare', 'piau']:
         habitat = 'represa'
-        # AQUI ESTÁ A TRAVA DO PEIXE
         if getattr(propriedade, 'tem_represa_geral', False) == False:
             return jsonify({'sucesso': False, 'erro': 'Você precisa construir uma Represa nesta propriedade primeiro!'})
             
     else:
         habitat = 'curral' 
-        
-    # Trava de lotação do curral (Mantenha o que você já tem abaixo daqui)
-    if habitat == 'curral':
-        animais_atuais = Animal.query.filter_by(propriedade_id=propriedade.id, onde_esta='curral').count()
         
     if habitat == 'curral':
         animais_atuais = Animal.query.filter_by(propriedade_id=propriedade.id, onde_esta='curral').count()
@@ -132,8 +135,21 @@ def vender_lote_curral():
     usuario = Jogador.query.filter_by(username=session['usuario']).first()
     dados = request.get_json()
     raca_alvo = dados.get('raca', '').lower()
-    quantidade = int(dados.get('quantidade', 1))
+    
+    # 🔒 TRAVA DE SEGURANÇA E TIPO DE DADO
+    try:
+        quantidade = int(dados.get('quantidade', 1))
+        if quantidade <= 0:
+            return jsonify({'sucesso': False, 'erro': 'Quantidade inválida!'})
+    except ValueError:
+         return jsonify({'sucesso': False, 'erro': 'Quantidade inválida!'})
+         
     propriedade_id = dados.get('fazenda_id')
+    
+    # 🔒 TRAVA IDOR: Verifica se o cara é dono da fazenda antes de vender os bois dela!
+    prop = Propriedade.query.get(propriedade_id)
+    if not prop or prop.dono_id != usuario.id:
+        return jsonify({'sucesso': False, 'erro': 'Tentativa de roubo bloqueada! Esta fazenda não é sua.'})
     
     animais = Animal.query.filter(
         Animal.propriedade_id == propriedade_id,
@@ -151,7 +167,6 @@ def vender_lote_curral():
         
     usuario.saldo += valor_total
     
-    # --- REGISTRA NO FLUXO DE CAIXA ---
     registrar_transacao(
         jogador_id=usuario.id, 
         tipo='entrada', 
@@ -170,7 +185,6 @@ def anunciar_leilao():
     usuario = Jogador.query.filter_by(username=session['usuario']).first()
     dados = request.get_json()
 
-    # O int() garante que o Python não se confunda com o ID
     animal_id = int(dados.get('animal_id', 0))
     valor = float(dados.get('valor', 0))
 
@@ -184,13 +198,25 @@ def anunciar_leilao():
     # ==========================================
     if animal_id == 0:
         raca = dados.get('raca', '').lower()
-        quantidade = int(dados.get('quantidade', 1))
+        
+        # 🔒 TRAVA DE SEGURANÇA PARA A QUANTIDADE
+        try:
+            quantidade = int(dados.get('quantidade', 1))
+            if quantidade <= 0:
+                return jsonify({'sucesso': False, 'erro': 'Quantidade inválida!'})
+        except ValueError:
+            return jsonify({'sucesso': False, 'erro': 'Quantidade inválida!'})
+            
         fazenda_id = int(dados.get('fazenda_id', 0))
 
         if not fazenda_id: 
             return jsonify({'sucesso': False, 'erro': 'Fazenda não identificada.'})
+            
+        # 🔒 TRAVA IDOR DE PROTEÇÃO
+        prop = Propriedade.query.get(fazenda_id)
+        if not prop or prop.dono_id != usuario.id:
+             return jsonify({'sucesso': False, 'erro': 'Acesso negado. A propriedade não é sua.'})
 
-        # Puxa do curral exatamente a quantidade solicitada
         animais_disponiveis = Animal.query.filter(
             Animal.propriedade_id == fazenda_id,
             func.lower(Animal.raca) == raca,
@@ -200,7 +226,6 @@ def anunciar_leilao():
         if len(animais_disponiveis) < quantidade:
             return jsonify({'sucesso': False, 'erro': f'Você só tem {len(animais_disponiveis)} {raca.capitalize()}(s) no tronco!'})
 
-        # Manda a boiada para o Leilão
         for a in animais_disponiveis:
             a.onde_esta = 'leilao'
             novo = Anuncio(vendedor_id=usuario.id, animal_id=a.id, valor=valor)
@@ -216,12 +241,10 @@ def anunciar_leilao():
     if not animal: 
         return jsonify({'sucesso': False, 'erro': 'Animal não encontrado.'})
     
-    # Confere se a propriedade onde o animal está pertence ao jogador
     prop = Propriedade.query.get(animal.propriedade_id)
     if not prop or prop.dono_id != usuario.id:
         return jsonify({'sucesso': False, 'erro': 'Este animal não pertence às suas terras.'})
 
-    # Tira do curral e anuncia
     animal.onde_esta = 'leilao'
     novo_anuncio = Anuncio(vendedor_id=usuario.id, animal_id=animal.id, valor=valor)
     
@@ -245,7 +268,6 @@ def cancelar_anuncio():
     if not anuncio or anuncio.vendedor_id != usuario.id:
         return jsonify({'sucesso': False, 'erro': 'Anúncio não encontrado ou não é seu.'})
 
-    # Devolve o animal em segurança para o curral
     animal = Animal.query.get(anuncio.animal_id)
     if animal:
         animal.onde_esta = 'curral' 
@@ -269,7 +291,6 @@ def comprar_leilao():
     anuncio_id = dados.get('anuncio_id')
     fazenda_id = dados.get('fazenda_id')
 
-    # Se o jogador novo não tiver terras, a compra não passa
     if not fazenda_id:
         return jsonify({'sucesso': False, 'erro': 'Você precisa comprar uma fazenda no mapa para receber o animal.'})
             
@@ -277,7 +298,6 @@ def comprar_leilao():
     if not anuncio:
         return jsonify({'sucesso': False, 'erro': 'Este animal já foi arrematado por outro jogador!'})
 
-    # Evita que o jogador compre dele mesmo
     if anuncio.vendedor_id == usuario.id:
         return jsonify({'sucesso': False, 'erro': 'Você não pode comprar seu próprio animal.'})
 
@@ -289,9 +309,6 @@ def comprar_leilao():
     if not animal:
         return jsonify({'sucesso': False, 'erro': 'Erro de registro. Animal não encontrado.'})
 
-    # ========================================
-    # CHECAGEM DE HABITAT E INFRAESTRUTURA
-    # ========================================
     raca_lower = animal.raca.lower()
     if raca_lower in ['galinha', 'pato', 'peru']:
         habitat = 'galinheiro'
@@ -311,7 +328,6 @@ def comprar_leilao():
     else:
         habitat = 'curral'
 
-    # Trava de Lotação do Curral
     if habitat == 'curral':
         animais_atuais = Animal.query.filter_by(propriedade_id=propriedade.id, onde_esta='curral').count()
         limite = propriedade.cap_curral if hasattr(propriedade, 'cap_curral') else 10
@@ -320,9 +336,6 @@ def comprar_leilao():
 
     valor_compra = anuncio.valor
 
-    # ========================================
-    # TRANSFERÊNCIA FINANCEIRA (P2P)
-    # ========================================
     if usuario.saldo < valor_compra:
         return jsonify({'sucesso': False, 'erro': 'Seu saldo é insuficiente.'})
 
@@ -344,14 +357,10 @@ def comprar_leilao():
         descricao=f'Compra Leilão: {animal.raca.capitalize()}'
     )
 
-    # ========================================
-    # TRANSFERÊNCIA DO ANIMAL
-    # ========================================
     animal.propriedade_id = propriedade.id
     animal.onde_esta = habitat
     animal.origem = 'Comunidade'
     
-    # Remove a placa de venda
     db.session.delete(anuncio)
     db.session.commit()
 

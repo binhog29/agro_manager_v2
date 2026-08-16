@@ -1,5 +1,4 @@
 from flask import Blueprint, jsonify, request, session
-# IMPORTANTE: Não esqueça de adicionar a Transacao aqui no import!
 from database import db, Jogador, Propriedade, Transacao
 
 loja_bp = Blueprint('loja', __name__)
@@ -10,13 +9,21 @@ def comprar_item():
         return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
 
     dados = request.get_json()
-    item_chave = dados.get('item') # ex: 'sem_milho'
-    quantidade = int(dados.get('quantidade', 1))
-    preco_unidade = float(dados.get('preco', 0))
+    item_chave = dados.get('item') 
     
-    # TRADUÇÃO DE CHAVES: Remove o 'sem_' para bater com o banco de dados
+    # 🔒 CAMADA DE SEGURANÇA 2: Bloqueio de Injeção de Valores (Front-end)
+    try:
+        quantidade = int(dados.get('quantidade', 1))
+        preco_unidade = float(dados.get('preco', 0))
+        
+        if quantidade <= 0:
+            return jsonify({'sucesso': False, 'erro': 'A quantidade deve ser maior que zero!'})
+        if preco_unidade < 0:
+            return jsonify({'sucesso': False, 'erro': 'Preço inválido detectado!'})
+    except ValueError:
+        return jsonify({'sucesso': False, 'erro': 'Valores numéricos corrompidos.'})
+    
     nome_banco = item_chave.replace('sem_', '') 
-    
     custo_total = quantidade * preco_unidade
     usuario_sessao = session['usuario']
     
@@ -30,14 +37,12 @@ def comprar_item():
         return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente!'})
 
     try:
-        # Usa o nome limpo (ex: 'milho') para buscar a coluna 'est_milho'
         nome_coluna = f'est_{nome_banco}'
         estoque_atual = getattr(fazenda, nome_coluna)
         
         setattr(fazenda, nome_coluna, estoque_atual + quantidade)
         jogador.saldo -= custo_total
         
-        # Registra a transação
         nova_transacao = Transacao(
             jogador_id=jogador.id,
             tipo='saida',
