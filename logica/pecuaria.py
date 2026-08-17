@@ -92,7 +92,6 @@ def manejar_lote():
 # ==========================================
 @pecuaria_bp.route('/api/pecuaria/listar_curral', methods=['GET'])
 def listar_curral():
-    # --- CORREÇÃO CIRÚRGICA AQUI ---
     if 'usuario' not in session: 
         return jsonify({'animais': []})
     
@@ -104,9 +103,7 @@ def listar_curral():
     if not fazenda: 
         return jsonify({'animais': []})
     
-    # O filtro agora pega apenas os animais DESTA fazenda que estão no curral
     animais = Animal.query.filter_by(propriedade_id=fazenda.id, onde_esta='curral').all()
-    # --------------------------------
     
     return jsonify({'animais': [{
         'id': a.id, 
@@ -198,10 +195,7 @@ def tratamento_lote():
     jogador = Jogador.query.filter_by(username=session.get('usuario')).first()
     fazenda = Propriedade.query.filter_by(dono_id=jogador.id).first()
     
-    # --- TRAVA DE SEGURANÇA ADICIONADA AQUI ---
-    # Só trata os animais que realmente pertencem à sua fazenda
     animais = Animal.query.filter(Animal.id.in_(animal_ids), Animal.propriedade_id == fazenda.id).all()
-    # ------------------------------------------
     
     animais_para_tratar = []
     
@@ -313,7 +307,22 @@ def expandir_curral():
 
 @pecuaria_bp.route('/api/pecuaria/listar_pastos_disponiveis', methods=['GET'])
 def listar_pastos_disponiveis():
-    pastos = Lote.query.filter_by(status='pasto').all()
+    # --- CORREÇÃO CIRÚRGICA AQUI ---
+    if 'usuario' not in session: 
+        return jsonify({'pastos': []})
+        
+    jogador = Jogador.query.filter_by(username=session.get('usuario')).first()
+    if not jogador: 
+        return jsonify({'pastos': []})
+        
+    fazenda = Propriedade.query.filter_by(dono_id=jogador.id).first()
+    if not fazenda: 
+        return jsonify({'pastos': []})
+        
+    # Puxa apenas os lotes de pasto vinculados a esta fazenda específica
+    pastos = Lote.query.filter_by(fazenda_id=fazenda.id, status='pasto').all()
+    # -------------------------------
+
     lista_pastos = []
     for p in pastos:
         destino_pasto = f'pasto_{p.id}'
