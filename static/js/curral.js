@@ -4,7 +4,12 @@
 window.confirmarExpansaoCurral = function() {
     fetch('/api/fazenda/expandir_curral', { method: 'POST' })
     .then(r => r.json()).then(d => {
-        if(d.sucesso) { Swal.fire('Sucesso!', d.msg, 'success').then(()=>location.reload()); }
+        if(d.sucesso) { 
+            Swal.fire('Sucesso!', d.msg, 'success').then(()=> {
+                localStorage.setItem('modal_aberto_fazenda', 'modal-curral');
+                location.reload();
+            }); 
+        }
         else { Swal.fire('Erro', d.erro, 'error'); }
     });
 };
@@ -14,7 +19,12 @@ window.aplicarManejo = function(animal_id, acao) {
         method: 'POST', headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ animal_id: animal_id, acao: acao })
     }).then(r => r.json()).then(d => {
-        if(d.sucesso) { Swal.fire('Feito!', d.msg, 'success').then(()=>location.reload()); }
+        if(d.sucesso) { 
+            Swal.fire('Feito!', d.msg, 'success').then(()=> {
+                localStorage.setItem('modal_aberto_fazenda', 'modal-curral');
+                location.reload();
+            }); 
+        }
         else { Swal.fire('Atenção', d.erro, 'warning'); }
     });
 };
@@ -48,19 +58,16 @@ window.abrirSelecaoVacinaLote = async function(tipoTratamento) {
     `;
 
     dados.animais.forEach(a => {
-        // Verifica se o animal JÁ POSSUI o tratamento atual
         let jaTemTratamento = false;
         if (tipoTratamento === 'aftosa' && a.vacinado_aftosa) jaTemTratamento = true;
         if (tipoTratamento === 'brucelose' && a.vacinado_brucelose) jaTemTratamento = true;
         if (tipoTratamento === 'medicamento' && a.medicado) jaTemTratamento = true;
 
-        // Cores dos ícones de saúde
         const cAft = a.vacinado_aftosa ? '#2196f3' : '#444';
         const cBruc = a.vacinado_brucelose ? '#f44336' : '#444';
         const cMed = a.medicado ? '#9c27b0' : '#444';
         const cSup = a.suplementado ? '#4caf50' : '#444';
 
-        // Se já tem, mostra um checkmark em vez da caixinha clicável
         let checkboxHtml = jaTemTratamento 
             ? `<i class="fas fa-check-circle" style="color: #4caf50; font-size: 18px; width: 18px; text-align: center; margin-right: 5px;" title="Já aplicado"></i>`
             : `<input type="checkbox" class="chk-animal-lote" value="${a.id}" style="width: 18px; height: 18px; cursor: pointer; flex-shrink: 0; margin-right: 5px;">`;
@@ -78,7 +85,6 @@ window.abrirSelecaoVacinaLote = async function(tipoTratamento) {
                     </div>
                 </div>
                 
-                <!-- MOSTRAR AS BADGES VISUAIS (A B M S) IGUAL NA TELA PRINCIPAL -->
                 <div style="display: flex; gap: 4px;">
                     <div style="width: 20px; height: 20px; background: ${cAft}; color: white; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; border-radius: 3px;" title="Aftosa">A</div>
                     <div style="width: 20px; height: 20px; background: ${cBruc}; color: white; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; border-radius: 3px;" title="Brucelose">B</div>
@@ -116,7 +122,6 @@ window.abrirSelecaoVacinaLote = async function(tipoTratamento) {
 };
 
 window.toggleSelecionarTodos = function(masterCheckbox) {
-    // Como a caixinha só é criada para os animais não vacinados, o "Selecionar Todos" vai marcar exatamente os corretos!
     const checkboxes = document.querySelectorAll('.chk-animal-lote');
     checkboxes.forEach(chk => chk.checked = masterCheckbox.checked);
 };
@@ -132,7 +137,10 @@ window.executarTratamentoLote = function(animalIds, tipo) {
     .then(r => r.json())
     .then(res => {
         if (res.sucesso) {
-            Swal.fire('Sucesso!', res.msg, 'success').then(() => location.reload());
+            Swal.fire('Sucesso!', res.msg, 'success').then(() => {
+                localStorage.setItem('modal_aberto_fazenda', 'modal-curral');
+                location.reload();
+            });
         } else {
             Swal.fire('Atenção', res.erro, 'warning');
         }
@@ -170,8 +178,14 @@ window.prepararApartamento = async function(animal_id) {
                 body: JSON.stringify({ animal_id: animal_id, destino: 'pasto_' + result.value })
             });
             const d = await res.json();
-            if(d.sucesso) Swal.fire('Sucesso!', d.msg, 'success').then(() => location.reload());
-            else Swal.fire('Erro', d.erro, 'error');
+            if(d.sucesso) {
+                Swal.fire('Sucesso!', d.msg, 'success').then(() => {
+                    localStorage.setItem('modal_aberto_fazenda', 'modal-curral');
+                    location.reload();
+                });
+            } else {
+                Swal.fire('Erro', d.erro, 'error');
+            }
         }
     } catch (e) {
         console.error("Erro no Apartar:", e);
@@ -237,7 +251,10 @@ window.abrirVendaLeilao = function(id_animal, raca) {
             .then(res => res.json())
             .then(d => {
                 if(d.sucesso) {
-                    Swal.fire({title: 'No Ar! 📢', text: d.msg, icon: 'success', background: '#2a2a2a', color: '#fff', confirmButtonColor: '#2e7d32'}).then(() => location.reload());
+                    Swal.fire({title: 'No Ar! 📢', text: d.msg, icon: 'success', background: '#2a2a2a', color: '#fff', confirmButtonColor: '#2e7d32'}).then(() => {
+                        localStorage.setItem('modal_aberto_fazenda', 'modal-curral');
+                        location.reload();
+                    });
                 } else {
                     Swal.fire({title: 'Erro', text: d.erro, icon: 'error', background: '#2a2a2a', color: '#fff', confirmButtonColor: '#f44336'});
                 }
@@ -297,8 +314,13 @@ window.abrirModalLoteLeilao = function() {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ animal_id: 0, raca: r.value.raca, quantidade: r.value.quantidade, valor: r.value.preco, fazenda_id: r.value.fazendaId })
             }).then(res => res.json()).then(d => {
-                if(d.sucesso) Swal.fire('Sucesso!', d.msg, 'success').then(()=>location.reload());
-                else Swal.fire('Erro', d.erro, 'error');
+                if(d.sucesso) {
+                    Swal.fire('Sucesso!', d.msg, 'success').then(()=> {
+                        localStorage.setItem('modal_aberto_fazenda', 'modal-curral');
+                        location.reload();
+                    });
+                }
+                else { Swal.fire('Erro', d.erro, 'error'); }
             });
         }
     });
@@ -339,8 +361,13 @@ window.abrirModalLoteFrigorifico = function() {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(r.value)
             }).then(res => res.json()).then(d => {
-                if(d.sucesso) Swal.fire('Vendido!', d.msg, 'success').then(()=>location.reload());
-                else Swal.fire('Erro', d.erro, 'error');
+                if(d.sucesso) {
+                    Swal.fire('Vendido!', d.msg, 'success').then(()=> {
+                        localStorage.setItem('modal_aberto_fazenda', 'modal-curral');
+                        location.reload();
+                    });
+                }
+                else { Swal.fire('Erro', d.erro, 'error'); }
             });
         }
     });

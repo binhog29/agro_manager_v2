@@ -36,11 +36,14 @@ window.abrirGerenciamentoPasto = async function(loteId, tipoCapim, temCocho, tem
                     <p style="margin: 2px 0;">Infra: ${temCocho ? '✅ Cocho' : '❌'} | ${temBebedouro ? '✅ Água' : '❌'}</p>
                 </div>
                 
-                <!-- BOTÃO DE REABASTECER SAL (Ligado ao Armazém) -->
+                <!-- BOTÕES DE REABASTECER COCHO (SAL E RAÇÃO) -->
                 ${temCocho ? `
-                <div style="margin-bottom: 10px;">
-                    <button class="swal2-styled" style="background: #ff9800; width: 100%; margin: 0 0 8px 0; font-size: 12px; font-weight: bold;" onclick="reabastecerSalPasto(${loteId})">
+                <div style="margin-bottom: 10px; display: flex; flex-direction: column; gap: 6px;">
+                    <button class="swal2-styled" style="background: #ff9800; width: 100%; margin: 0; font-size: 12px; font-weight: bold;" onclick="reabastecerCochoPasto(${loteId}, 'sal')">
                         <i class="fas fa-box-open"></i> Reabastecer Cocho com Sal (Armazém)
+                    </button>
+                    <button class="swal2-styled" style="background: #8d6e63; width: 100%; margin: 0; font-size: 12px; font-weight: bold;" onclick="reabastecerCochoPasto(${loteId}, 'racao')">
+                        <i class="fas fa-seedling"></i> Reabastecer Cocho com Ração (Armazém)
                     </button>
                 </div>` : ''}
 
@@ -62,19 +65,22 @@ window.abrirGerenciamentoPasto = async function(loteId, tipoCapim, temCocho, tem
     });
 };
 
-// --- NOVA FUNÇÃO: REABASTECER SAL DO PASTO USANDO O ARMAZÉM ---
-window.reabastecerSalPasto = function(loteId) {
+// --- FUNÇÃO UNIFICADA PARA REABASTECER SAL OU RAÇÃO NO PASTO ---
+window.reabastecerCochoPasto = function(loteId, tipoInsumo) {
     Swal.fire({ title: 'Reabastecendo cocho...', didOpen: () => Swal.showLoading() });
     
     fetch('/api/pasto/reabastecer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lote_id: loteId, tipo: 'sal', quantidade: 5 })
+        body: JSON.stringify({ lote_id: loteId, tipo: tipoInsumo, quantidade: 5 })
     })
     .then(r => r.json())
     .then(res => {
         if (res.sucesso) {
-            Swal.fire('Sucesso!', res.msg, 'success').then(() => location.reload());
+            Swal.fire('Sucesso!', res.msg, 'success').then(() => {
+                localStorage.setItem('aba_ativa_fazenda', 'pastos');
+                location.reload();
+            });
         } else {
             Swal.fire('Atenção', res.erro, 'warning');
         }
@@ -208,7 +214,10 @@ window.confirmarMovimentacaoLote = function(animalIds, destinoFinal) {
         body: JSON.stringify({ animal_ids: animalIds, destino: destinoFinal })
     }).then(r => r.json()).then(result => { 
         if(result.sucesso) {
-            Swal.fire('Sucesso!', result.msg, 'success').then(() => location.reload());
+            Swal.fire('Sucesso!', result.msg, 'success').then(() => {
+                localStorage.setItem('aba_ativa_fazenda', 'pastos');
+                location.reload();
+            });
         } else {
             Swal.fire('Atenção', result.erro, 'warning');
         }
@@ -233,7 +242,10 @@ window.confirmarMovimentacao = function(animalId, destinoFinal) {
                 icon: 'success',
                 timer: 1500,
                 showConfirmButton: false
-            }).then(() => location.reload());
+            }).then(() => {
+                localStorage.setItem('aba_ativa_fazenda', 'pastos');
+                location.reload();
+            });
         } else {
             Swal.fire('Erro', result.erro, 'error');
         }
@@ -261,7 +273,10 @@ window.reverterPasto = function(loteId) {
             .then(r => r.json())
             .then(d => {
                 if(d.sucesso) {
-                    Swal.fire('Sucesso!', d.msg, 'success').then(() => location.reload());
+                    Swal.fire('Sucesso!', d.msg, 'success').then(() => {
+                        localStorage.setItem('aba_ativa_fazenda', 'pastos');
+                        location.reload();
+                    });
                 } else {
                     Swal.fire('Atenção', d.erro, 'warning');
                 }
@@ -282,7 +297,13 @@ window.comprarInfraPasto = function(loteId, tipoObra) {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ lote_id: loteId, obra: tipoObra })
     }).then(r => r.json()).then(d => {
-        if(d.sucesso) Swal.fire('Sucesso!', d.msg, 'success').then(() => location.reload());
-        else Swal.fire('Atenção', d.erro, 'warning');
+        if(d.sucesso) {
+            Swal.fire('Sucesso!', d.msg, 'success').then(() => {
+                localStorage.setItem('aba_ativa_fazenda', 'pastos');
+                location.reload();
+            });
+        } else {
+            Swal.fire('Atenção', d.erro, 'warning');
+        }
     }).catch(e => Swal.fire('Erro', 'Falha na comunicação.', 'error'));
 };

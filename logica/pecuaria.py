@@ -275,7 +275,19 @@ def reabastecer_pasto():
             animal.fome = max(0, animal.fome - 20)
             animal.saude = min(100, animal.saude + 10)
             
-        msg = 'Sal fornecido no cocho com sucesso!'
+        msg = 'Sal fornecido no cocho com sucesso! (Saúde e manutenção)'
+        
+    elif tipo == 'racao':
+        if getattr(fazenda, 'est_racao', 0) < quantidade:
+            return jsonify({'sucesso': False, 'erro': f'Sem Ração no armazém! Necessário: {quantidade} un.'})
+        fazenda.est_racao -= quantidade
+        
+        for animal in animais_no_pasto:
+            animal.fome = 0  # Saciedade máxima
+            animal.saude = min(100, animal.saude + 15)
+            animal.peso += 1.5  # Bônus de engorda forte com ração
+            
+        msg = 'Ração fornecida no cocho! Gado saciado e ganhando peso extra!'
         
     elif tipo == 'suplemento':
         if getattr(fazenda, 'est_suplemento_engorda', 0) < quantidade:
