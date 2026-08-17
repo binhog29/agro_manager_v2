@@ -8,21 +8,26 @@ pecuaria_bp = Blueprint('pecuaria', __name__)
 # ==========================================
 @pecuaria_bp.route('/api/animal/manejo_curral', methods=['POST'])
 def manejar_curral():
+    if 'usuario' not in session:
+        return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
+    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    fazenda = Propriedade.query.filter_by(dono_id=usuario.id).first()
+    
     dados = request.get_json()
     animal_id = dados.get('animal_id')
     destino = dados.get('destino') 
     
     animal = Animal.query.get(animal_id)
-    if not animal:
-        return jsonify({'sucesso': False, 'erro': 'Animal não encontrado.'})
+    if not animal or animal.propriedade_id != fazenda.id:
+        return jsonify({'sucesso': False, 'erro': 'Animal não encontrado ou não pertence à sua fazenda.'})
     
     if destino.startswith('pasto_'):
         try:
             id_do_lote = int(destino.split('_')[1])
             lote = Lote.query.get(id_do_lote)
             
-            if not lote or lote.status != 'pasto':
-                return jsonify({'sucesso': False, 'erro': f'O Lote {id_do_lote} não existe ou não está formado como pasto!'})
+            if not lote or lote.propriedade_id != fazenda.id or lote.status != 'pasto':
+                return jsonify({'sucesso': False, 'erro': f'O Lote não existe, não pertence à sua fazenda ou não está formado como pasto!'})
             
             animais_no_pasto = Animal.query.filter_by(lote_id=id_do_lote).count()
             if animais_no_pasto >= 10:
@@ -48,6 +53,11 @@ def manejar_curral():
 # ==========================================
 @pecuaria_bp.route('/api/animal/manejo_lote', methods=['POST'])
 def manejar_lote():
+    if 'usuario' not in session:
+        return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
+    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    fazenda = Propriedade.query.filter_by(dono_id=usuario.id).first()
+
     dados = request.get_json()
     animal_ids = dados.get('animal_ids', [])
     destino = dados.get('destino')
@@ -55,7 +65,7 @@ def manejar_lote():
     if not animal_ids:
         return jsonify({'sucesso': False, 'erro': 'Nenhum animal selecionado.'})
 
-    animais = Animal.query.filter(Animal.id.in_(animal_ids)).all()
+    animais = Animal.query.filter(Animal.id.in_(animal_ids), Animal.propriedade_id == fazenda.id).all()
     movidos = 0
     novo_lote_id = None
 
@@ -63,8 +73,8 @@ def manejar_lote():
         try:
             id_do_lote = int(destino.split('_')[1])
             lote = Lote.query.get(id_do_lote)
-            if not lote or lote.status != 'pasto':
-                return jsonify({'sucesso': False, 'erro': 'Pasto não formado!'})
+            if not lote or lote.propriedade_id != fazenda.id or lote.status != 'pasto':
+                return jsonify({'sucesso': False, 'erro': 'Pasto inválido ou não pertence à sua fazenda!'})
             
             animais_no_pasto = Animal.query.filter_by(lote_id=id_do_lote).count()
             vagas_livres = 10 - animais_no_pasto
@@ -92,7 +102,17 @@ def manejar_lote():
 # ==========================================
 @pecuaria_bp.route('/api/pecuaria/listar_curral', methods=['GET'])
 def listar_curral():
-    animais = Animal.query.filter_by(onde_esta='curral').all()
+    if 'usuario' not in session:
+        return jsonify({'animais': []})
+    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    if not usuario:
+        return jsonify({'animais': []})
+    fazenda = Propriedade.query.filter_by(dono_id=usuario.id).first()
+    if not fazenda:
+        return jsonify({'animais': []})
+
+    # CORREÇÃO DO BUG: Filtra estritamente pelos animais da fazenda logada no curral
+    animais = Animal.query.filter_by(propriedade_id=fazenda.id, onde_esta='curral').all()
     return jsonify({'animais': [{
         'id': a.id, 
         'raca': a.raca, 
@@ -107,7 +127,20 @@ def listar_curral():
 
 @pecuaria_bp.route('/api/pecuaria/listar_pasto', methods=['GET'])
 def listar_pasto():
+    if 'usuario' not in session:
+        return jsonify({'animais': []})
+    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    if not usuario:
+        return jsonify({'animais': []})
+    fazenda = Propriedade.query.filter_by(dono_id=usuario.id).first()
+    if not fazenda:
+        return jsonify({'animais': []})
+
     pasto_id = request.args.get('pasto_id')
+    lote = Lote.query.get(pasto_id)
+    if not lote or lote.propriedade_id != fazenda.id:
+        return jsonify({'animais': []})
+
     animais = Animal.query.filter_by(lote_id=pasto_id).all() 
     return jsonify({'animais': [{
         'id': a.id, 
@@ -123,12 +156,16 @@ def listar_pasto():
 
 @pecuaria_bp.route('/api/animal/aplicar_insumo', methods=['POST'])
 def aplicar_insumo():
+    if 'usuario' not in session:
+        return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
     dados = request.get_json()
-    animal = Animal.query.get(dados.get('animal_id'))
-    if not animal: return jsonify({'sucesso': False, 'erro': 'Animal não encontrado.'})
-    
     jogador = Jogador.query.filter_by(username=session.get('usuario')).first()
     fazenda = Propriedade.query.filter_by(dono_id=jogador.id).first()
+
+    animal = Animal.query.get(dados.get('animal_id'))
+    if not animal or animal.propriedade_id != fazenda.id:
+        return jsonify({'sucesso': False, 'erro': 'Animal não encontrado ou não pertence à sua fazenda.'})
+    
     acao = dados.get('acao')
 
     insumos = {
@@ -183,7 +220,7 @@ def tratamento_lote():
     jogador = Jogador.query.filter_by(username=session.get('usuario')).first()
     fazenda = Propriedade.query.filter_by(dono_id=jogador.id).first()
     
-    animais = Animal.query.filter(Animal.id.in_(animal_ids)).all()
+    animais = Animal.query.filter(Animal.id.in_(animal_ids), Animal.propriedade_id == fazenda.id).all()
     animais_para_tratar = []
     
     for animal in animais:
@@ -229,7 +266,7 @@ def tratamento_lote():
     return jsonify({'sucesso': True, 'msg': f'Tratamento aplicado com sucesso em {qtd_necessaria} animais!'})
 
 # ==========================================
-# NOVA ROTA: REABASTECER COCHO NO PASTO
+# ROTA: REABASTECER COCHO NO PASTO
 # ==========================================
 @pecuaria_bp.route('/api/pasto/reabastecer', methods=['POST'])
 def reabastecer_pasto():
@@ -245,8 +282,8 @@ def reabastecer_pasto():
     fazenda = Propriedade.query.filter_by(dono_id=jogador.id).first()
     lote = Lote.query.get(lote_id)
     
-    if not lote:
-        return jsonify({'sucesso': False, 'erro': 'Pasto não encontrado.'})
+    if not lote or lote.propriedade_id != fazenda.id:
+        return jsonify({'sucesso': False, 'erro': 'Pasto não encontrado ou não pertence à sua fazenda.'})
         
     animais_no_pasto = Animal.query.filter_by(lote_id=lote_id).all()
     
@@ -283,6 +320,8 @@ def reabastecer_pasto():
 
 @pecuaria_bp.route('/api/fazenda/expandir_curral', methods=['POST'])
 def expandir_curral():
+    if 'usuario' not in session:
+        return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
     jogador = Jogador.query.filter_by(username=session.get('usuario')).first()
     fazenda = Propriedade.query.filter_by(dono_id=jogador.id).first()
     if jogador.saldo < 6000: return jsonify({'sucesso': False, 'erro': 'Saldo insuficiente.'})
@@ -294,7 +333,16 @@ def expandir_curral():
 
 @pecuaria_bp.route('/api/pecuaria/listar_pastos_disponiveis', methods=['GET'])
 def listar_pastos_disponiveis():
-    pastos = Lote.query.filter_by(status='pasto').all()
+    if 'usuario' not in session:
+        return jsonify({'pastos': []})
+    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    if not usuario:
+        return jsonify({'pastos': []})
+    fazenda = Propriedade.query.filter_by(dono_id=usuario.id).first()
+    if not fazenda:
+        return jsonify({'pastos': []})
+
+    pastos = Lote.query.filter_by(propriedade_id=fazenda.id, status='pasto').all()
     lista_pastos = []
     for p in pastos:
         destino_pasto = f'pasto_{p.id}'
