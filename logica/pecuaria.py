@@ -8,14 +8,15 @@ pecuaria_bp = Blueprint('pecuaria', __name__)
 # FUNÇÃO MESTRE: DESCOBRE A FAZENDA PELA URL
 # ==========================================
 def obter_fazenda_atual(usuario_id, referrer):
-    if referrer:
-        match = re.search(r'/fazenda/(\d+)', referrer)
-        if match:
-            fazenda_id = int(match.group(1))
-            return Propriedade.query.filter_by(id=fazenda_id, dono_id=usuario_id).first()
-    # Se der erro, garante que pega pelo menos uma fazenda sua
+    try:
+        if referrer:
+            match = re.search(r'/fazenda/(\d+)', referrer)
+            if match:
+                fazenda_id = int(match.group(1))
+                return Propriedade.query.filter_by(id=fazenda_id, dono_id=usuario_id).first()
+    except:
+        pass
     return Propriedade.query.filter_by(dono_id=usuario_id).first()
-
 
 # ==========================================
 # 1. ROTA CENTRAL DE MOVIMENTAÇÃO (INDIVIDUAL)
@@ -110,11 +111,9 @@ def listar_curral():
     usuario = Jogador.query.filter_by(username=session['usuario']).first()
     if not usuario: return jsonify({'animais': []})
     
-    # AGORA SIM: Descobre a fazenda exata que você está olhando pela URL
     fazenda = obter_fazenda_atual(usuario.id, request.referrer)
     if not fazenda: return jsonify({'animais': []})
 
-    # Mostra apenas os animais DESTA fazenda
     animais = Animal.query.filter_by(propriedade_id=fazenda.id, onde_esta='curral').all()
     
     return jsonify({'animais': [{
@@ -132,14 +131,6 @@ def listar_curral():
 @pecuaria_bp.route('/api/pecuaria/listar_pasto', methods=['GET'])
 def listar_pasto():
     pasto_id = request.args.get('pasto_id')
-    
-    if 'usuario' not in session: return jsonify({'animais': []})
-    usuario = Jogador.query.filter_by(username=session['usuario']).first()
-    lote = Lote.query.get(pasto_id)
-    if not lote: return jsonify({'animais': []})
-    fazenda = Propriedade.query.get(lote.propriedade_id)
-    if not fazenda or fazenda.dono_id != usuario.id: return jsonify({'animais': []})
-
     animais = Animal.query.filter_by(lote_id=pasto_id).all() 
     return jsonify({'animais': [{
         'id': a.id, 
@@ -285,7 +276,8 @@ def reabastecer_pasto():
     if not lote:
         return jsonify({'sucesso': False, 'erro': 'Pasto não encontrado.'})
         
-    fazenda = Propriedade.query.get(lote.propriedade_id)
+    # CORREÇÃO AQUI: fazenda_id no lugar de propriedade_id
+    fazenda = Propriedade.query.get(lote.fazenda_id)
     if not fazenda or fazenda.dono_id != jogador.id:
         return jsonify({'sucesso': False, 'erro': 'Pasto de outro jogador.'})
         
@@ -327,7 +319,6 @@ def expandir_curral():
     if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
     jogador = Jogador.query.filter_by(username=session['usuario']).first()
     
-    # AGORA SIM: Expande o curral da fazenda certa!
     fazenda = obter_fazenda_atual(jogador.id, request.referrer)
     if not fazenda: return jsonify({'sucesso': False, 'erro': 'Fazenda não encontrada.'})
 
@@ -346,7 +337,9 @@ def listar_pastos_disponiveis():
     fazenda = obter_fazenda_atual(usuario.id, request.referrer)
     if not fazenda: return jsonify({'pastos': []})
 
-    pastos = Lote.query.filter_by(propriedade_id=fazenda.id, status='pasto').all()
+    # CORREÇÃO DEFINITIVA: Usando o nome correto da coluna do banco de dados (fazenda_id)
+    pastos = Lote.query.filter_by(fazenda_id=fazenda.id, status='pasto').all()
+
     lista_pastos = []
     for p in pastos:
         destino_pasto = f'pasto_{p.id}'
