@@ -92,7 +92,22 @@ def manejar_lote():
 # ==========================================
 @pecuaria_bp.route('/api/pecuaria/listar_curral', methods=['GET'])
 def listar_curral():
-    animais = Animal.query.filter_by(onde_esta='curral').all()
+    # --- CORREÇÃO CIRÚRGICA AQUI ---
+    if 'usuario' not in session: 
+        return jsonify({'animais': []})
+    
+    jogador = Jogador.query.filter_by(username=session.get('usuario')).first()
+    if not jogador: 
+        return jsonify({'animais': []})
+        
+    fazenda = Propriedade.query.filter_by(dono_id=jogador.id).first()
+    if not fazenda: 
+        return jsonify({'animais': []})
+    
+    # O filtro agora pega apenas os animais DESTA fazenda que estão no curral
+    animais = Animal.query.filter_by(propriedade_id=fazenda.id, onde_esta='curral').all()
+    # --------------------------------
+    
     return jsonify({'animais': [{
         'id': a.id, 
         'raca': a.raca, 
@@ -183,7 +198,11 @@ def tratamento_lote():
     jogador = Jogador.query.filter_by(username=session.get('usuario')).first()
     fazenda = Propriedade.query.filter_by(dono_id=jogador.id).first()
     
-    animais = Animal.query.filter(Animal.id.in_(animal_ids)).all()
+    # --- TRAVA DE SEGURANÇA ADICIONADA AQUI ---
+    # Só trata os animais que realmente pertencem à sua fazenda
+    animais = Animal.query.filter(Animal.id.in_(animal_ids), Animal.propriedade_id == fazenda.id).all()
+    # ------------------------------------------
+    
     animais_para_tratar = []
     
     for animal in animais:
