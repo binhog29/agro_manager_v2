@@ -8,7 +8,6 @@ import random
 tempo_bp = Blueprint('tempo', __name__)
 
 class GerenciadorTempo:
-    # 1 minuto na vida real = 1 hora no jogo
     MINUTOS_POR_HORA_JOGO = 1.0
 
     ESTACOES = {
@@ -65,7 +64,8 @@ class GerenciadorTempo:
 
         cls._atualizar_clima_e_estacao(jogador)
 
-        motor = MotorBiologico(clima_atual=getattr(jogador, 'clima_atual', 'sol'))
+        # 🔒 ENVIANDO O JOGADOR PARA O MOTOR BIOLÓGICO PROCESSAR APENAS AS TERRAS DELE
+        motor = MotorBiologico(clima_atual=getattr(jogador, 'clima_atual', 'sol'), jogador=jogador)
         avisos = motor.processar_turno(horas)
         return avisos
 
