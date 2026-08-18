@@ -37,13 +37,26 @@ def comprar_item():
         return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente!'})
 
     try:
-        # 🔒 CAMADA DE SEGURANÇA 2: Verificação do Limite do Armazém
+        # 🔒 DIVISÃO DE CATEGORIAS REALISTAS: O que vai pra onde?
         itens_armazem = ['sal', 'racao', 'adubo', 'veneno', 'combustivel', 'vacina_aftosa', 'vacina_brucelose', 'medicamento_geral', 'suplemento_engorda']
-        total_atual = sum(getattr(fazenda, f'est_{i}', 0) for i in itens_armazem if hasattr(fazenda, f'est_{i}'))
+        itens_silo_graos = ['soja', 'milho', 'arroz', 'feijao'] 
+        itens_galpao = ['algodao', 'cana', 'mandioca', 'cafe', 'cacau', 'acai', 'cupuacu', 'pimenta', 'banana', 'abacaxi', 'melancia']
         
-        if (total_atual + quantidade) > fazenda.cap_armazem:
-            espaco_livre = fazenda.cap_armazem - total_atual
-            return jsonify({'sucesso': False, 'erro': f'Armazém lotado! Você só tem espaço livre para mais {espaco_livre} un.'})
+        # 1. Checa limite do Armazém se for insumo
+        if nome_banco in itens_armazem:
+            total_atual = sum(getattr(fazenda, f'est_{i}', 0) for i in itens_armazem if hasattr(fazenda, f'est_{i}'))
+            if (total_atual + quantidade) > fazenda.cap_armazem:
+                espaco_livre = fazenda.cap_armazem - total_atual
+                return jsonify({'sucesso': False, 'erro': f'Armazém lotado! Você só tem espaço livre para mais {espaco_livre} un.'})
+                
+        # 2. Checa limite do Silo APENAS para grãos
+        elif nome_banco in itens_silo_graos:
+            total_silo = sum(getattr(fazenda, f'est_{i}', 0) for i in itens_silo_graos if hasattr(fazenda, f'est_{i}'))
+            if (total_silo + quantidade) > fazenda.cap_silo:
+                espaco_livre = fazenda.cap_silo - total_silo
+                return jsonify({'sucesso': False, 'erro': f'Silo de Grãos cheio! Você só tem {espaco_livre} kg de espaço. Expanda-o primeiro!'})
+
+        # 3. Os itens de Galpão passam livres da trava do Silo.
 
         # Processa a compra se passou na fiscalização
         nome_coluna = f'est_{nome_banco}'
@@ -56,7 +69,7 @@ def comprar_item():
             jogador_id=jogador.id,
             tipo='saida',
             valor=custo_total,
-            descricao=f"Compra na loja: {quantidade}x {nome_banco}"
+            descricao=f"Compra na loja: {quantidade}x {nome_banco.capitalize()}"
         )
         db.session.add(nova_transacao)
         

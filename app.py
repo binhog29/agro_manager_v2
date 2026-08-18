@@ -161,6 +161,13 @@ def perfil():
     jogador_atual = Jogador.query.filter_by(username=session['usuario']).first()
     return render_template('perfil.html', jogador=jogador_atual)
 
+@app.route('/ajuda')
+def ajuda():
+    if 'usuario' not in session:
+        return redirect(url_for('login'))
+    jogador_atual = Jogador.query.filter_by(username=session['usuario']).first()
+    return render_template('ajuda.html', jogador=jogador_atual)
+
 @app.route('/api/perfil/atualizar', methods=['POST'])
 def atualizar_perfil():
     if 'usuario' not in session:

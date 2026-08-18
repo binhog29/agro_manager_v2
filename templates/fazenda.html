@@ -94,8 +94,16 @@
                 <div class="sede-card">
                     <img src="/static/img/silo.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2829/2829803.png'">
                     <h4>Silo de Grãos</h4>
-                    <p>Estoque da Colheita</p>
+                    <p>Apenas Grãos</p>
                     <button class="btn-abrir" onclick="abrirModal('modal-silo')">ABRIR 📦</button>
+                </div>
+
+                <!-- NOVO CARD DO GALPÃO -->
+                <div class="sede-card">
+                    <img src="/static/img/celeiro.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2829/2829839.png'">
+                    <h4>Galpão Agrícola</h4>
+                    <p>Frutas, Raízes e Fibras</p>
+                    <button class="btn-abrir" style="background-color: #8d6e63;" onclick="abrirModal('modal-galpao')">ABRIR 🛖</button>
                 </div>
 
                 <div class="sede-card">
@@ -162,7 +170,9 @@
             </div>
         </section>
     </main>
+
     {% include 'partes/silo.html' %}
+    {% include 'partes/galpao.html' %}
     {% include 'partes/curral.html' %}
     {% include 'partes/armazem.html' %}
     {% include 'partes/relogio.html' %}

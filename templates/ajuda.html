@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <title>Agro Manager - Guia do Fazendeiro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { background-color: #121212; color: #fff; font-family: 'Exo 2', sans-serif; margin: 0; padding: 0; padding-bottom: 80px; }
+        .header { background: #1b5e20; padding: 20px; text-align: center; border-bottom: 3px solid #2e7d32; }
+        .header h1 { margin: 0; font-size: 22px; }
+        .header p { margin: 5px 0 0 0; font-size: 14px; color: #a5d6a7; }
+        
+        .container { padding: 15px; }
+        
+        /* Estilo Sanfona (Accordion) */
+        details { background: #1e1e1e; border: 1px solid #333; border-radius: 8px; margin-bottom: 12px; overflow: hidden; }
+        summary { padding: 15px; font-weight: bold; font-size: 16px; cursor: pointer; color: #4caf50; display: flex; align-items: center; gap: 10px; outline: none; }
+        summary::-webkit-details-marker { display: none; } /* Remove setinha nativa */
+        
+        .conteudo { padding: 15px; border-top: 1px solid #333; font-size: 14px; line-height: 1.6; color: #ddd; background: #181818; }
+        .conteudo strong { color: #fff; }
+        .destaque { color: #ffb300; font-weight: bold; }
+        
+        /* Tabela simples */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+        th, td { border: 1px solid #444; padding: 8px; text-align: left; }
+        th { background: #2e7d32; color: white; }
+        
+        .btn-voltar { display: block; width: calc(100% - 40px); margin: 20px auto; background: #e53935; color: white; text-align: center; padding: 15px; border-radius: 8px; text-decoration: none; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1><i class="fas fa-book"></i> Guia do Fazendeiro</h1>
+        <p>Tudo o que você precisa saber para não falir</p>
+    </div>
+
+    <div class="container">
+
+        <details>
+            <summary><i class="fas fa-seedling"></i> 1. Agricultura e Tipos de Plantas</summary>
+            <div class="conteudo">
+                Existem 3 tipos de plantas no jogo e cada uma se comporta de um jeito diferente na hora de colher:<br><br>
+                <strong>🌱 Culturas Anuais (Soja, Milho, Arroz, etc):</strong> Plantou, cresceu, colheu. A planta morre após a colheita e a terra fica limpa para o próximo plantio.<br><br>
+                <strong>🌳 Culturas Perenes (Banana, Cacau, etc):</strong> São árvores! Após a primeira colheita, elas entram em um <strong>período de descanso</strong> (dias de pausa) e voltam a produzir sem você precisar plantar de novo. Mas atenção: conforme você colhe, elas <strong>envelhecem</strong> e a produção cai!<br><br>
+                <strong>🍂 Culturas Sazonais (Café):</strong> Funciona como a perene, mas é exigente com o clima. Ela só libera os frutos na estação certa (Ex: Outono e Inverno).
+            </div>
+        </details>
+
+        <details>
+            <summary><i class="fas fa-tractor"></i> 2. Tempos de Colheita e Preparo</summary>
+            <div class="conteudo">
+                Cada planta exige um preparo de solo diferente. O maquinário errado não planta!
+                <table>
+                    <tr><th>Cultura</th><th>Preparo</th><th>Tempo (Aprox.)</th></tr>
+                    <tr><td>Soja / Milho</td><td>Arado</td><td>90 a 100 dias</td></tr>
+                    <tr><td>Arroz / Feijão</td><td>Arado</td><td>80 a 110 dias</td></tr>
+                    <tr><td>Tomate / Melancia</td><td>Arado/Cova</td><td>85 a 90 dias</td></tr>
+                    <tr><td>Algodão / Mandioca</td><td>Arado</td><td>150 a 240 dias</td></tr>
+                    <tr><td>Banana / Abacaxi</td><td>Coveado</td><td>300 a 400 dias</td></tr>
+                    <tr><td>Café / Cacau</td><td>Coveado</td><td>365 a 500 dias</td></tr>
+                    <tr><td>Açaí / Cupuaçu</td><td>Coveado</td><td>+700 dias</td></tr>
+                </table>
+            </div>
+        </details>
+
+        <details>
+            <summary><i class="fas fa-cow"></i> 3. Pecuária: Como não perder o Gado</summary>
+            <div class="conteudo">
+                O motor biológico dos animais é rigoroso. Se você não cuidar, eles morrem!<br><br>
+                <strong>No Curral (Tronco):</strong> O gado não tem acesso a pasto. Eles dependem 100% que você abasteça a fazenda com comida manual. Se esquecer os animais aqui muito tempo, a saúde cai rapidamente e eles vão para o cemitério.<br><br>
+                <strong>No Pasto:</strong> Para o gado sobreviver bem, o lote precisa ter a infraestrutura completa (<span class="destaque">Cerca, Bebedouro e Cocho</span>). E não basta ter o cocho, você precisa enchê-lo de <strong>Sal Mineral</strong> e garantir que a qualidade do Capim esteja alta.
+            </div>
+        </details>
+
+        <details>
+            <summary><i class="fas fa-warehouse"></i> 4. Limites de Estoque</summary>
+            <div class="conteudo">
+                Fique de olho na capacidade da sua infraestrutura:<br><br>
+                <strong>📦 Armazém:</strong> Guarda seus insumos (Sal, Ração, Adubo, Vacinas). Se lotar, você não conseguirá comprar mais nada na loja.<br><br>
+                <strong>🌾 Silo:</strong> Guarda a sua produção agrícola. Se o Silo estiver cheio na hora em que o seu trator estiver colhendo, a colheita será interrompida! Lembre-se de sempre vender seus grãos no mercado para liberar espaço.
+            </div>
+        </details>
+
+    </div>
+
+    <a href="/mapa" class="btn-voltar"><i class="fas fa-arrow-left"></i> Voltar para o Mapa</a>
+
+</body>
+</html>

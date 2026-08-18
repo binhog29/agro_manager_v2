@@ -5,7 +5,7 @@ from logica.economia import registrar_transacao
 cultivo_bp = Blueprint('cultivo', __name__)
 
 # =======================================================
-# ARQUITETURA OOP: AS 3 CLASSES DA BIOLOGIA VEGETAL
+# ARQUITETURA OOP: AS 3 CLASSES DA BIOLOGIA VEGETAL (CORRIGIDAS)
 # =======================================================
 class Cultura:
     def __init__(self, nome, custo_semente, producao_kg, tempo_colheita, preparo_exigido, custo_maquina_plantio, custo_maquina_colheita):
@@ -27,6 +27,7 @@ class Cultura:
 
 class CulturaPerene(Cultura):
     def __init__(self, nome, custo_semente, producao_kg, tempo_colheita, preparo_exigido, custo_maquina_plantio, custo_maquina_colheita, tempo_descanso, max_ciclos):
+        # Correção AQUI: A classe pai (Cultura) só recebe 7 características
         super().__init__(nome, custo_semente, producao_kg, tempo_colheita, preparo_exigido, custo_maquina_plantio, custo_maquina_colheita)
         self.tipo_biologia = 'perene'
         self.tempo_descanso = tempo_descanso
@@ -46,6 +47,7 @@ class CulturaPerene(Cultura):
 
 class CulturaSazonal(CulturaPerene):
     def __init__(self, nome, custo_semente, producao_kg, tempo_colheita, preparo_exigido, custo_maquina_plantio, custo_maquina_colheita, tempo_descanso, max_ciclos, estacoes_fruto):
+        # A CulturaPerene recebe as 9 características normalmente
         super().__init__(nome, custo_semente, producao_kg, tempo_colheita, preparo_exigido, custo_maquina_plantio, custo_maquina_colheita, tempo_descanso, max_ciclos)
         self.tipo_biologia = 'sazonal'
         self.estacoes_fruto = estacoes_fruto
@@ -208,21 +210,23 @@ def colher():
         registrar_transacao(usuario.id, 'entrada', valor_venda, f'Venda Direta na Roça ({dna_planta.nome})')
         msg_final = f'Colheita Expressa! {kg_colhidos} kg de {dna_planta.nome} vendidos por R$ {valor_venda:,.2f}!'
     else:
-        # 🔒 TRAVA DE SEGURANÇA: Limite do Silo
-        itens_silo = ['soja', 'milho', 'arroz', 'feijao', 'algodao', 'cana', 'mandioca', 'cafe', 'cacau', 'acai', 'cupuacu', 'pimenta']
-        total_silo = sum(getattr(fazenda, f'est_{i}', 0) for i in itens_silo if hasattr(fazenda, f'est_{i}'))
+        # 🔒 TRAVA DE SEGURANÇA: Limite do Silo (APENAS GRÃOS)
+        itens_silo_graos = ['soja', 'milho', 'arroz', 'feijao']
         
-        if (total_silo + kg_colhidos) > fazenda.cap_silo:
-            espaco_livre = fazenda.cap_silo - total_silo
-            return jsonify({'sucesso': False, 'erro': f'Silo cheio! Você só tem {espaco_livre} kg de espaço. Expanda-o primeiro!'})
-            
+        if tipo in itens_silo_graos:
+            total_silo = sum(getattr(fazenda, f'est_{i}', 0) for i in itens_silo_graos if hasattr(fazenda, f'est_{i}'))
+            if (total_silo + kg_colhidos) > fazenda.cap_silo:
+                espaco_livre = fazenda.cap_silo - total_silo
+                return jsonify({'sucesso': False, 'erro': f'Silo de Grãos cheio! Você só tem {espaco_livre} kg de espaço.'})
+                
+        # Salva na coluna (seja grão com espaço livre, ou fibra que vai pro galpão)
         coluna_silo = f'est_{tipo}'
         try:
             estoque_atual = getattr(fazenda, coluna_silo, 0)
             setattr(fazenda, coluna_silo, estoque_atual + kg_colhidos)
         except AttributeError:
-            return jsonify({'sucesso': False, 'erro': 'Este item ainda não tem espaço configurado no Silo.'})
-        msg_final = f'Colheita finalizada! {kg_colhidos} kg de {dna_planta.nome} foram para o Silo.'
+            return jsonify({'sucesso': False, 'erro': 'Este item ainda não tem espaço configurado.'})
+        msg_final = f'Colheita finalizada! {kg_colhidos} kg de {dna_planta.nome} armazenados.'
     
     usuario.saldo -= custo_colheita
     lote.fertilidade_solo = max(0, getattr(lote, 'fertilidade_solo', 100) - 30)

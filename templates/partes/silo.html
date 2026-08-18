@@ -10,11 +10,11 @@
         <img src="/static/img/silo.png" class="img-modal-destaque" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2829/2829803.png'">
         
         <div style="background: #111; border-radius: 10px; height: 24px; margin: 15px 0; position: relative; overflow: hidden; border: 1px solid #333;">
-            {% set total_estoque = (fazenda.est_milho + fazenda.est_soja + fazenda.est_cafe + fazenda.est_arroz + fazenda.est_feijao + fazenda.est_algodao + fazenda.est_cana + fazenda.est_mandioca + fazenda.est_pimenta + fazenda.est_cacau + fazenda.est_acai + fazenda.est_cupuacu + fazenda.est_banana + fazenda.est_abacaxi + fazenda.est_melancia) %}
-            {% set porcentagem = (total_estoque / fazenda.cap_silo) * 100 if fazenda.cap_silo > 0 else 0 %}
+            {% set total_silo = (fazenda.est_milho + fazenda.est_soja + fazenda.est_arroz + fazenda.est_feijao) %}
+            {% set porcentagem = (total_silo / fazenda.cap_silo) * 100 if fazenda.cap_silo > 0 else 0 %}
             <div style="width: {{ porcentagem }}%; background: #fbc02d; height: 100%; transition: width 0.5s;"></div>
             <small style="position: absolute; width: 100%; left: 0; top: 0; line-height: 24px; font-weight: bold; color: #fff; text-shadow: 1px 1px 2px #000;">
-                {{ total_estoque }} / {{ fazenda.cap_silo }} kg
+                {{ total_silo }} / {{ fazenda.cap_silo }} kg
             </small>
         </div>
 
@@ -29,8 +29,8 @@
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-            {% set lista_completa = [('milho', 'Milho'), ('soja', 'Soja'), ('cafe', 'Café'), ('arroz', 'Arroz'), ('feijao', 'Feijão'), ('algodao', 'Algodão'), ('cana', 'Cana'), ('mandioca', 'Mandioca'), ('pimenta', 'Pimenta'), ('cacau', 'Cacau'), ('acai', 'Açaí'), ('cupuacu', 'Cupuaçu'), ('banana', 'Banana'), ('abacaxi', 'Abacaxi'), ('melancia', 'Melancia')] %}
-            {% for tipo, nome in lista_completa %}
+            {% set lista_graos = [('milho', 'Milho'), ('soja', 'Soja'), ('arroz', 'Arroz'), ('feijao', 'Feijão')] %}
+            {% for tipo, nome in lista_graos %}
                 {% set qtd = fazenda['est_' ~ tipo] %}
                 {% if qtd > 0 %}
                 <div style="background: #222; padding: 12px; border-radius: 12px; border: 1px solid #444; display: flex; flex-direction: column; align-items: center;">
@@ -42,8 +42,8 @@
                 {% endif %}
             {% endfor %}
         </div>
-        {% if total_estoque == 0 %}
-            <span style="color: #888; font-style: italic; margin-top: 20px; display: block;">O Silo está vazio! Plante algo. 🌱</span>
+        {% if total_silo == 0 %}
+            <span style="color: #888; font-style: italic; margin-top: 20px; display: block;">O Silo de Grãos está vazio! 🌾</span>
         {% endif %}
     </div>
     <script src="{{ url_for('static', filename='js/silo.js') }}?v=1"></script>
