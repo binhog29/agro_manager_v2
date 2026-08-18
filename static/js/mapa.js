@@ -1,5 +1,32 @@
+// CONTROLE DE ATUALIZAÇÕES DO JOGO (Altere a versão para forçar o aviso aos players)
+const VERSAO_ATUAL = "1.1"; 
+
 document.addEventListener('DOMContentLoaded', function() {
     
+    // ==========================================
+    // SISTEMA DE AVISO DE PATCH NOTES (NOVIDADES)
+    // ==========================================
+    if (localStorage.getItem('versao_agro_manager') !== VERSAO_ATUAL) {
+        setTimeout(() => {
+            showSweet(
+                "🚀 Atualização " + VERSAO_ATUAL,
+                `<div style="text-align: left; font-size: 14px; line-height: 1.6; color: #444;">
+                    <b style="color: #111;">Novidades do Jogo:</b><br><br>
+                    📦 <b style="color: #2e7d32;">Limites Reais:</b> O Silo e o Armazém agora respeitam suas capacidades máximas. Controle seu estoque!<br><br>
+                    🗺️ <b style="color: #2e7d32;">Mundo Vivo:</b> O nome dos fazendeiros agora aparece no mapa global nas terras compradas.<br><br>
+                    🌱 <b style="color: #2e7d32;">Biologia 2.0:</b> Novo sistema de envelhecimento de plantas (Cacau, Banana) e Sazonalidade (Café).
+                </div>`,
+                `<button class="sweet-btn" style="background: #2e7d32; color: white;" onclick="fecharAvisoAtualizacao()">Continuar Jogando</button>`
+            );
+        }, 1000);
+    }
+
+    window.fecharAvisoAtualizacao = function() {
+        localStorage.setItem('versao_agro_manager', VERSAO_ATUAL);
+        closeModal();
+    }
+    // ==========================================
+
     // 1. Configuração do Mapa Leaflet
     const imageHeight = 2000; 
     const imageWidth = 2000; 
@@ -13,7 +40,6 @@ document.addEventListener('DOMContentLoaded', function() {
         attributionControl: false 
     });
     
-    // ATENÇÃO: Verifique se o nome da sua imagem está correto aqui!
     L.imageOverlay('/static/img/mapa_rondonia.png', mapBounds).addTo(map);
     map.fitBounds(mapBounds);
 
@@ -42,7 +68,6 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('sweet-modal').style.display = 'flex';
     }
 
-        // Funções para montar os modais exatamente como nos seus prints
     function abrirModalCompra(f) {
         showSweet(
             f.tipo, 
@@ -60,37 +85,32 @@ document.addEventListener('DOMContentLoaded', function() {
         );
     }
 
-    // Lógica real que conversa com o servidor
     window.comprar = function(id) {
         fetch(`/api/comprar_fazenda/${id}`, {method:'POST'})
         .then(r => r.json())
         .then(d => {
             if(d.sucesso) {
-                location.reload(); // Recarrega a página para descontar o saldo e pintar o pino
+                location.reload(); 
             } else {
                 alert(d.erro);
             }
         });
     }
 
-        window.renomear = function(id) {
-        // Cria a caixa de texto com o nosso design
+    window.renomear = function(id) {
         const inputHtml = `
             <p style="margin-bottom: 10px; font-size: 13px; color: #666;">Digite o novo nome da propriedade:</p>
             <input type="text" id="input-novo-nome" placeholder="Novo nome..." style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; outline: none; font-family: 'Poppins', sans-serif; box-sizing: border-box;">
         `;
         
-        // Cria os botões do modal
         const btnHtml = `
             <button class="sweet-btn" style="background: #2e7d32; color: white;" onclick="confirmarRenomear(${id})">SALVAR</button>
             <button class="sweet-btn sweet-btn-sec" onclick="closeModal()">CANCELAR</button>
         `;
         
-        // Chama a nossa tela bonita
         showSweet("Renomear Fazenda", inputHtml, btnHtml);
     }
 
-    // Função que é ativada quando o jogador clica em SALVAR no modal novo
     window.confirmarRenomear = function(id) {
         let novo = document.getElementById('input-novo-nome').value;
         
@@ -103,7 +123,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // 4. Criação dos Pinos
+    // 4. Criação dos Pinos (COM OS NOMES DOS JOGADORES)
     function createCustomIcon(f) {
         let icon = 'fa-map-marker-alt'; 
         let colorClass = 'c-livre';
@@ -111,7 +131,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let subLabel = `R$ ${f.preco.toLocaleString('pt-BR')}`;
         
         if (f.dono_id) {
-            subLabel = "Comprado"; 
+            subLabel = `<span style="color:#ffb300;">Dono:</span> ${f.dono_nome}`;
             if (f.tipo.includes('Chácara')) { icon='fa-home'; colorClass='c-chacara'; }
             else if (f.tipo.includes('Sítio')) { icon='fa-warehouse'; colorClass='c-sitio'; }
             else { icon='fa-industry'; colorClass='c-fazenda'; }
@@ -131,8 +151,6 @@ document.addEventListener('DOMContentLoaded', function() {
     fetch('/api/mapa_global')
         .then(r => r.json())
         .then(data => {
-            
-            // Configuração da Grade
             const colunas = 6; 
             const margemEsquerda = 250; 
             const espacoX = (imageWidth - 500) / colunas; 
@@ -142,7 +160,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 let linha = Math.floor(index / colunas);
                 let coluna = index % colunas;
 
-                // Efeito Zigue-Zague
                 let offsetZigueZague = (linha % 2 === 0) ? 0 : (espacoX / 2);
 
                 let posX = margemEsquerda + (coluna * espacoX) + offsetZigueZague;
@@ -153,7 +170,7 @@ document.addEventListener('DOMContentLoaded', function() {
                  .on('click', () => {
                      if(!f.dono_id) abrirModalCompra(f);
                      else if(f.e_minha) abrirModalDono(f);
-                     else showSweet(f.nome, "Propriedade de outro jogador", "");
+                     else showSweet(f.nome, `Propriedade de ${f.dono_nome}`, ""); 
                  });
             });
         })

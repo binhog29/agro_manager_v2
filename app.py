@@ -128,8 +128,13 @@ def api_mapa_global():
     
     for p in propriedades:
         e_minha = False
-        if usuario_logado and p.dono_id == usuario_logado.id:
-            e_minha = True
+        dono_nome = None # Puxa o nome de quem comprou
+        
+        if p.dono_id:
+            dono = Jogador.query.get(p.dono_id)
+            dono_nome = dono.username if dono else "Desconhecido"
+            if usuario_logado and p.dono_id == usuario_logado.id:
+                e_minha = True
             
         lista_props.append({
             'id': p.id,
@@ -137,6 +142,7 @@ def api_mapa_global():
             'preco': p.preco,
             'tipo': p.tipo,
             'dono_id': p.dono_id,
+            'dono_nome': dono_nome, # Enviando o nome para o Visual
             'e_minha': e_minha
         })
         

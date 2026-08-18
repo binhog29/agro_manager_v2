@@ -1,4 +1,4 @@
-from database import db, Animal, Lote, Propriedade, HistoricoMorte
+from database import db, Animal, Lote, Propriedade, HistoricoMorte, Jogador # <-- Importação do Jogador adicionada para ler o clima
 import random
 from logica.cultivo import CATALOGO_CULTIVOS
 
@@ -18,13 +18,24 @@ class MotorBiologico:
             if hasattr(lote, 'processar_biologia_vegetal'):
                 lote.processar_biologia_vegetal(self.clima_atual)
                 
-        # Ciclo realista de Agricultura (COM NÚMEROS INTEIROS REDONDOS)
+        # Ciclo realista de Agricultura (OOP + Sazonalidade)
         lotes_plantados = Lote.query.filter(Lote.status.in_(['plantado', 'colhendo'])).all()
         for lote in lotes_plantados:
-            tempo_anterior = getattr(lote, 'dias_plantado', 0)
-            lote.dias_plantado = tempo_anterior + dias
+            dna_planta = CATALOGO_CULTIVOS.get(lote.tipo_cultivo)
+            if not dna_planta:
+                continue
 
+            # A) Tratamento de Descanso (Culturas Perenes)
+            descanso = getattr(lote, 'dias_descanso', 0.0)
+            if descanso > 0:
+                lote.dias_descanso = max(0.0, descanso - dias)
+                continue # Enquanto descansa, a planta não cresce nem sofre ataques agudos
+                
+            # B) Crescimento Normal
             if lote.status == 'plantado':
+                tempo_anterior = getattr(lote, 'dias_plantado', 0)
+                lote.dias_plantado = tempo_anterior + dias
+
                 if random.random() < (0.15 * dias): 
                     lote.nivel_pragas = int(min(100, getattr(lote, 'nivel_pragas', 0) + 20))
                     avisos_turno.append(f"⚠️ Alerta: Pragas detetadas na lavoura {lote.nome}!")
@@ -35,9 +46,23 @@ class MotorBiologico:
                 if getattr(lote, 'nivel_pragas', 0) > 30:
                     lote.produtividade_atual = int(max(10, getattr(lote, 'produtividade_atual', 100) - (10 * dias)))
                 
-                dna_planta = CATALOGO_CULTIVOS.get(lote.tipo_cultivo)
-                if dna_planta:
-                    if lote.dias_plantado >= dna_planta.tempo_colheita:
+                # C) Ponto de Colheita e Sazonalidade (OOP em ação)
+                if lote.dias_plantado >= dna_planta.tempo_colheita:
+                    lote.dias_plantado = dna_planta.tempo_colheita # Trava no máximo
+                    
+                    pode_colher = True
+                    
+                    # Se for planta sazonal (ex: Café), exige a estação correta para dar frutos
+                    if getattr(dna_planta, 'tipo_biologia', 'anual') == 'sazonal':
+                        fazenda = Propriedade.query.get(lote.fazenda_id)
+                        if fazenda:
+                            dono = Jogador.query.get(fazenda.dono_id)
+                            estacao_atual = getattr(dono, 'estacao_atual', 'primavera') if dono else 'primavera'
+                            
+                            if estacao_atual not in getattr(dna_planta, 'estacoes_fruto', []):
+                                pode_colher = False # Trava a colheita, a planta fica esperando a estação chegar
+                    
+                    if pode_colher:
                         lote.status = 'colhendo'
                         avisos_turno.append(f"🌾 A safra de {dna_planta.nome} em {lote.nome} está pronta para colher!")
 

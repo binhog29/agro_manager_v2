@@ -5,40 +5,73 @@ from logica.economia import registrar_transacao
 cultivo_bp = Blueprint('cultivo', __name__)
 
 # =======================================================
-# ARQUITETURA OOP: O "DNA" DE CADA PLANTA
+# ARQUITETURA OOP: AS 3 CLASSES DA BIOLOGIA VEGETAL
 # =======================================================
-class CultivoBase:
-    def __init__(self, nome, ciclo, custo_semente, producao_kg, tempo_colheita, preparo_exigido, custo_maquina_plantio, custo_maquina_colheita):
+class Cultura:
+    def __init__(self, nome, custo_semente, producao_kg, tempo_colheita, preparo_exigido, custo_maquina_plantio, custo_maquina_colheita):
         self.nome = nome
-        self.ciclo = ciclo # 'temporario' (morre após colher) ou 'perene' (rebrota/continua)
         self.custo_semente = custo_semente
         self.producao_kg = producao_kg
-        self.tempo_colheita = tempo_colheita # em dias reais de jogo
-        self.preparo_exigido = preparo_exigido # 'arado' ou 'coveado'
+        self.tempo_colheita = tempo_colheita 
+        self.preparo_exigido = preparo_exigido 
         self.custo_maquina_plantio = custo_maquina_plantio
         self.custo_maquina_colheita = custo_maquina_colheita
+        self.tipo_biologia = 'anual'
 
-# Catálogo oficial integrando os itens da sua loja e do silo
+    def processar_pos_colheita(self, lote):
+        lote.status = 'limpo'
+        lote.tipo_cultivo = None
+        lote.dias_plantado = 0.0
+        lote.ciclos_colhidos = 0
+        lote.dias_descanso = 0.0
+
+class CulturaPerene(Cultura):
+    def __init__(self, nome, custo_semente, producao_kg, tempo_colheita, preparo_exigido, custo_maquina_plantio, custo_maquina_colheita, tempo_descanso, max_ciclos):
+        super().__init__(nome, custo_semente, producao_kg, tempo_colheita, preparo_exigido, custo_maquina_plantio, custo_maquina_colheita)
+        self.tipo_biologia = 'perene'
+        self.tempo_descanso = tempo_descanso
+        self.max_ciclos = max_ciclos
+
+    def processar_pos_colheita(self, lote):
+        lote.ciclos_colhidos = getattr(lote, 'ciclos_colhidos', 0) + 1
+        
+        if lote.ciclos_colhidos >= self.max_ciclos:
+            lote.produtividade_atual = 20
+        else:
+            lote.produtividade_atual = 100
+            
+        lote.status = 'plantado'
+        lote.dias_plantado = self.tempo_colheita
+        lote.dias_descanso = self.tempo_descanso
+
+class CulturaSazonal(CulturaPerene):
+    def __init__(self, nome, custo_semente, producao_kg, tempo_colheita, preparo_exigido, custo_maquina_plantio, custo_maquina_colheita, tempo_descanso, max_ciclos, estacoes_fruto):
+        super().__init__(nome, custo_semente, producao_kg, tempo_colheita, preparo_exigido, custo_maquina_plantio, custo_maquina_colheita, tempo_descanso, max_ciclos)
+        self.tipo_biologia = 'sazonal'
+        self.estacoes_fruto = estacoes_fruto
+
+# =======================================================
+# CATÁLOGO DE PLANTAS
+# =======================================================
 CATALOGO_CULTIVOS = {
-    # GRÃOS E CEREAIS (Plantio Direto/Arado - Morrem após colher)
-    'soja': CultivoBase('Soja', 'temporario', 350, 3600, 100, 'arado', 300, 500),
-    'milho': CultivoBase('Milho', 'temporario', 200, 6000, 90, 'arado', 300, 500),
-    'arroz': CultivoBase('Arroz', 'temporario', 180, 4200, 110, 'arado', 300, 500),
-    'feijao': CultivoBase('Feijão', 'temporario', 250, 2000, 80, 'arado', 300, 500),
-    'algodao': CultivoBase('Algodão', 'temporario', 400, 3000, 150, 'arado', 400, 700),
-    'cana': CultivoBase('Cana-de-Açúcar', 'perene', 300, 80000, 360, 'arado', 300, 600), 
-    'mandioca': CultivoBase('Mandioca', 'temporario', 150, 20000, 240, 'arado', 100, 200),
-    'tomate': CultivoBase('Tomate', 'temporario', 15, 6000, 90, 'arado', 100, 150),
+    'soja': Cultura('Soja', 350, 3600, 100, 'arado', 300, 500),
+    'milho': Cultura('Milho', 200, 6000, 90, 'arado', 300, 500),
+    'arroz': Cultura('Arroz', 180, 4200, 110, 'arado', 300, 500),
+    'feijao': Cultura('Feijão', 250, 2000, 80, 'arado', 300, 500),
+    'algodao': Cultura('Algodão', 400, 3000, 150, 'arado', 400, 700),
+    'mandioca': Cultura('Mandioca', 150, 20000, 240, 'arado', 100, 200),
+    'tomate': Cultura('Tomate', 15, 6000, 90, 'arado', 100, 150),
+    'abacaxi': Cultura('Abacaxi', 250, 25000, 400, 'coveado', 100, 150),
+    'melancia': Cultura('Melancia', 50, 15000, 85, 'coveado', 100, 150),
     
-    # POMARES E FRUTAS (Covas - Perenes, continuam vivos após a colheita)
-    'cafe': CultivoBase('Café Clonal', 'perene', 500, 4000, 365, 'coveado', 150, 300), 
-    'cacau': CultivoBase('Cacau', 'perene', 600, 1500, 500, 'coveado', 150, 200),
-    'acai': CultivoBase('Açaí', 'perene', 450, 5000, 730, 'coveado', 150, 200),
-    'cupuacu': CultivoBase('Cupuaçu', 'perene', 400, 2000, 730, 'coveado', 150, 200),
-    'banana': CultivoBase('Banana', 'perene', 200, 15000, 300, 'coveado', 100, 150),
-    'abacaxi': CultivoBase('Abacaxi', 'temporario', 250, 25000, 400, 'coveado', 100, 150),
-    'melancia': CultivoBase('Melancia', 'temporario', 50, 15000, 85, 'coveado', 100, 150),
-    'pimenta': CultivoBase('Pimenta', 'perene', 300, 2500, 120, 'coveado', 100, 150)
+    'cana': CulturaPerene('Cana-de-Açúcar', 300, 80000, 360, 'arado', 300, 600, tempo_descanso=30, max_ciclos=5), 
+    'banana': CulturaPerene('Banana', 200, 15000, 300, 'coveado', 100, 150, tempo_descanso=15, max_ciclos=8),
+    'cacau': CulturaPerene('Cacau', 600, 1500, 500, 'coveado', 150, 200, tempo_descanso=45, max_ciclos=15),
+    'acai': CulturaPerene('Açaí', 450, 5000, 730, 'coveado', 150, 200, tempo_descanso=30, max_ciclos=12),
+    'cupuacu': CulturaPerene('Cupuaçu', 400, 2000, 730, 'coveado', 150, 200, tempo_descanso=30, max_ciclos=10),
+    'pimenta': CulturaPerene('Pimenta', 300, 2500, 120, 'coveado', 100, 150, tempo_descanso=20, max_ciclos=6),
+
+    'cafe': CulturaSazonal('Café Clonal', 500, 4000, 365, 'coveado', 150, 300, tempo_descanso=90, max_ciclos=10, estacoes_fruto=['outono', 'inverno'])
 }
 
 @cultivo_bp.route('/api/cultivo/detalhes', methods=['GET'])
@@ -56,7 +89,9 @@ def detalhes_cultivo():
         'pragas': getattr(lote, 'nivel_pragas', 0),
         'produtividade': getattr(lote, 'produtividade_atual', 100),
         'est_adubo': getattr(fazenda, 'est_adubo', 0),
-        'est_veneno': getattr(fazenda, 'est_veneno', 0)
+        'est_veneno': getattr(fazenda, 'est_veneno', 0),
+        'ciclos': getattr(lote, 'ciclos_colhidos', 0),
+        'descanso': getattr(lote, 'dias_descanso', 0.0)
     })
 
 @cultivo_bp.route('/api/cultivo/plantar', methods=['POST'])
@@ -86,9 +121,10 @@ def plantar():
     lote.status = 'plantado'
     lote.tipo_cultivo = tipo
     lote.dias_plantado = 0
+    lote.ciclos_colhidos = 0
+    lote.dias_descanso = 0.0
     lote.produtividade_atual = 100
     lote.nivel_pragas = 0
-    # Plantar consome nutrientes iniciais
     lote.fertilidade_solo = max(0, getattr(lote, 'fertilidade_solo', 100) - 20)
 
     registrar_transacao(usuario.id, 'saida', custo_total, f'Plantio de {dna_planta.nome} ({lote.nome})')
@@ -153,25 +189,33 @@ def colher():
     produtividade = getattr(lote, 'produtividade_atual', 100)
     kg_colhidos = int(dna_planta.producao_kg * (produtividade / 100.0))
 
-    # =================================================================
-    # AJUSTE CIRÚRGICO: LISTA DE VENDA DIRETA (Não vão para o Silo)
-    # =================================================================
     PRECOS_VENDA_DIRETA = {
         'tomate': 4.50,
         'melancia': 2.00,
         'mandioca': 1.50,
         'banana': 2.50,
-        'abacaxi': 3.00
+        'abacaxi': 3.00,
+        'cafe': 12.00,
+        'cacau': 15.00,
+        'acai': 5.00,
+        'cupuacu': 4.00,
+        'pimenta': 8.00
     }
 
     if tipo in PRECOS_VENDA_DIRETA:
-        # Vende direto na roça (CEASA)
         valor_venda = kg_colhidos * PRECOS_VENDA_DIRETA[tipo]
         usuario.saldo += valor_venda
         registrar_transacao(usuario.id, 'entrada', valor_venda, f'Venda Direta na Roça ({dna_planta.nome})')
         msg_final = f'Colheita Expressa! {kg_colhidos} kg de {dna_planta.nome} vendidos por R$ {valor_venda:,.2f}!'
     else:
-        # Grãos e culturas de estocagem vão para o Silo normalmente
+        # 🔒 TRAVA DE SEGURANÇA: Limite do Silo
+        itens_silo = ['soja', 'milho', 'arroz', 'feijao', 'algodao', 'cana', 'mandioca', 'cafe', 'cacau', 'acai', 'cupuacu', 'pimenta']
+        total_silo = sum(getattr(fazenda, f'est_{i}', 0) for i in itens_silo if hasattr(fazenda, f'est_{i}'))
+        
+        if (total_silo + kg_colhidos) > fazenda.cap_silo:
+            espaco_livre = fazenda.cap_silo - total_silo
+            return jsonify({'sucesso': False, 'erro': f'Silo cheio! Você só tem {espaco_livre} kg de espaço. Expanda-o primeiro!'})
+            
         coluna_silo = f'est_{tipo}'
         try:
             estoque_atual = getattr(fazenda, coluna_silo, 0)
@@ -179,23 +223,18 @@ def colher():
         except AttributeError:
             return jsonify({'sucesso': False, 'erro': 'Este item ainda não tem espaço configurado no Silo.'})
         msg_final = f'Colheita finalizada! {kg_colhidos} kg de {dna_planta.nome} foram para o Silo.'
-    # =================================================================
-
-    usuario.saldo -= custo_colheita
     
-    # OOP EM AÇÃO: Verifica o Ciclo da Planta!
-    if dna_planta.ciclo == 'perene':
-        lote.status = 'plantado'
-        lote.dias_plantado = int(dna_planta.tempo_colheita * 0.4) 
-        lote.produtividade_atual = 100 
-    else:
-        lote.status = 'limpo'
-        lote.tipo_cultivo = None
-
+    usuario.saldo -= custo_colheita
     lote.fertilidade_solo = max(0, getattr(lote, 'fertilidade_solo', 100) - 30)
     registrar_transacao(usuario.id, 'saida', custo_colheita, f'Custos de Colheita ({lote.nome})')
+
+    dna_planta.processar_pos_colheita(lote)
+
     db.session.commit()
     
+    if getattr(lote, 'ciclos_colhidos', 0) >= getattr(dna_planta, 'max_ciclos', 99):
+        msg_final += f"\n⚠️ Alerta: Este pé de {dna_planta.nome} ficou velho. A produtividade da próxima safra será drástica!"
+
     return jsonify({'sucesso': True, 'msg': msg_final})
 
 @cultivo_bp.route('/api/cultivo/abandonar', methods=['POST'])
@@ -207,7 +246,9 @@ def abandonar_terra():
     if lote:
         lote.status = 'mato'
         lote.tipo_cultivo = None
-        lote.fase_planta = None
+        lote.dias_plantado = 0
+        lote.ciclos_colhidos = 0
+        lote.dias_descanso = 0
         db.session.commit()
         return jsonify({'sucesso': True, 'msg': 'A terra foi abandonada e o mato tomou conta.'})
     return jsonify({'sucesso': False, 'erro': 'Lote não encontrado.'})

@@ -11,7 +11,7 @@ def comprar_item():
     dados = request.get_json()
     item_chave = dados.get('item') 
     
-    # 🔒 CAMADA DE SEGURANÇA 2: Bloqueio de Injeção de Valores (Front-end)
+    # 🔒 CAMADA DE SEGURANÇA 1: Bloqueio de Injeção de Valores
     try:
         quantidade = int(dados.get('quantidade', 1))
         preco_unidade = float(dados.get('preco', 0))
@@ -37,6 +37,15 @@ def comprar_item():
         return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente!'})
 
     try:
+        # 🔒 CAMADA DE SEGURANÇA 2: Verificação do Limite do Armazém
+        itens_armazem = ['sal', 'racao', 'adubo', 'veneno', 'combustivel', 'vacina_aftosa', 'vacina_brucelose', 'medicamento_geral', 'suplemento_engorda']
+        total_atual = sum(getattr(fazenda, f'est_{i}', 0) for i in itens_armazem if hasattr(fazenda, f'est_{i}'))
+        
+        if (total_atual + quantidade) > fazenda.cap_armazem:
+            espaco_livre = fazenda.cap_armazem - total_atual
+            return jsonify({'sucesso': False, 'erro': f'Armazém lotado! Você só tem espaço livre para mais {espaco_livre} un.'})
+
+        # Processa a compra se passou na fiscalização
         nome_coluna = f'est_{nome_banco}'
         estoque_atual = getattr(fazenda, nome_coluna)
         
