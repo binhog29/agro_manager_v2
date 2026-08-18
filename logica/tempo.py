@@ -1,14 +1,92 @@
 from flask import Blueprint, request, jsonify, session
 from database import db, Jogador
 from logica.economia import registrar_transacao
-
-# 1. NOVO IMPORT: Puxando o motor da pasta logica
-from logica.motor_biologico import MotorBiologico 
+from logica.motor_biologico import MotorBiologico
+from datetime import datetime
+import random
 
 tempo_bp = Blueprint('tempo', __name__)
 
+class GerenciadorTempo:
+    # 1 minuto na vida real = 1 hora no jogo
+    MINUTOS_POR_HORA_JOGO = 1.0
+
+    ESTACOES = {
+        1: 'verao', 2: 'verao', 3: 'verao',             
+        4: 'outono', 5: 'outono', 6: 'outono',          
+        7: 'inverno', 8: 'inverno', 9: 'inverno',       
+        10: 'primavera', 11: 'primavera', 12: 'primavera' 
+    }
+
+    @classmethod
+    def calcular_progresso_offline(cls, jogador):
+        agora = datetime.utcnow()
+        if not jogador.ultima_acao:
+            jogador.ultima_acao = agora
+            db.session.commit()
+            return 0
+
+        delta = agora - jogador.ultima_acao
+        minutos_passados = delta.total_seconds() / 60.0
+
+        if minutos_passados < cls.MINUTOS_POR_HORA_JOGO:
+            return 0 
+
+        horas_jogo_passadas = int(minutos_passados // cls.MINUTOS_POR_HORA_JOGO)
+
+        if horas_jogo_passadas > 0:
+            cls.avancar_tempo(jogador, horas_jogo_passadas)
+            jogador.ultima_acao = agora
+            db.session.commit()
+
+        return horas_jogo_passadas
+
+    @classmethod
+    def avancar_tempo(cls, jogador, horas):
+        jogador.hora += horas
+
+        dias_passados = jogador.hora // 24
+        jogador.hora = jogador.hora % 24
+
+        if dias_passados > 0:
+            jogador.dia += dias_passados
+            meses_passados = jogador.dia // 30
+            jogador.dia = (jogador.dia % 30)
+            if jogador.dia == 0: jogador.dia = 1
+
+            if meses_passados > 0:
+                jogador.mes += meses_passados
+                anos_passados = jogador.mes // 12
+                jogador.mes = (jogador.mes % 12)
+                if jogador.mes == 0: jogador.mes = 1
+
+                if anos_passados > 0:
+                    jogador.ano += anos_passados
+
+        cls._atualizar_clima_e_estacao(jogador)
+
+        motor = MotorBiologico(clima_atual=getattr(jogador, 'clima_atual', 'sol'))
+        avisos = motor.processar_turno(horas)
+        return avisos
+
+    @classmethod
+    def _atualizar_clima_e_estacao(cls, jogador):
+        jogador.estacao_atual = cls.ESTACOES.get(jogador.mes, 'primavera')
+
+        chances_chuva = {
+            'verao': 0.70,      
+            'outono': 0.40,     
+            'inverno': 0.05,    
+            'primavera': 0.30   
+        }
+
+        if random.random() < chances_chuva.get(jogador.estacao_atual, 0.30):
+            jogador.clima_atual = 'chuva'
+        else:
+            jogador.clima_atual = 'sol'
+
 @tempo_bp.route('/api/avancar_tempo', methods=['POST'])
-def avancar_tempo():
+def avancar_tempo_manual():
     if 'usuario' not in session: 
         return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
 
@@ -21,7 +99,6 @@ def avancar_tempo():
     if usuario.saldo < custo:
         return jsonify({'sucesso': False, 'erro': 'Saldo insuficiente para pagar os custos deste período.'})
 
-    # 1. Desconta o custo e registra no Histórico Financeiro
     if custo > 0:
         usuario.saldo -= custo
         registrar_transacao(
@@ -31,33 +108,13 @@ def avancar_tempo():
             descricao=f'Despesas de Tempo ({horas_avancar}h)'
         )
 
-    # 2. Matemática do Relógio (Meses de 30 dias padronizados)
-    usuario.hora += horas_avancar
-
-    dias_adicionais = usuario.hora // 24
-    usuario.hora = usuario.hora % 24  
-    usuario.dia += dias_adicionais
-
-    while usuario.dia > 30:
-        usuario.dia -= 30
-        usuario.mes += 1
-
-    while usuario.mes > 12:
-        usuario.mes -= 12
-        usuario.ano += 1
-
-    # ==========================================================
-    # 3. A MÁGICA DA OOP: ACIONANDO O MOTOR BIOLÓGICO
-    # ==========================================================
     avisos_motor = []
     if horas_avancar > 0:
-        # Instancia o motor, processa o turno e captura os avisos (mortes, nascimentos, etc.)
-        motor = MotorBiologico()
-        avisos_motor = motor.processar_turno(horas_avancar)
+        avisos_motor = GerenciadorTempo.avancar_tempo(usuario, horas_avancar)
+        usuario.ultima_acao = datetime.utcnow()
 
     db.session.commit()
     
-    # Retorna o sucesso junto com os avisos gerados pelo motor biológico
     return jsonify({
         'sucesso': True, 
         'msg': 'O tempo avançou e a natureza seguiu seu curso!',
@@ -76,5 +133,7 @@ def tempo_atual():
         'hora': usuario.hora,
         'dia': usuario.dia,
         'mes': usuario.mes,
-        'ano': usuario.ano
+        'ano': usuario.ano,
+        'clima': getattr(usuario, 'clima_atual', 'sol'),
+        'estacao': getattr(usuario, 'estacao_atual', 'primavera')
     })

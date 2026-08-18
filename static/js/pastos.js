@@ -1,10 +1,14 @@
-// static/js/pastos.js
-
-window.abrirGerenciamentoPasto = async function(loteId, tipoCapim, temCocho, temBebedouro) {
+window.abrirGerenciamentoPasto = async function(loteId, tipoCapim, temCocho, temBebedouro, temCochoRacao, qtdSal, qtdRacao) {
     const response = await fetch(`/api/pecuaria/listar_pasto?pasto_id=${loteId}`);
     const data = await response.json();
     
-    // Lista de animais mais compacta
+    // Mostra o status realista da infraestrutura usando as variáveis novas separadas
+    let infoCocho = '';
+    if(temCocho) { infoCocho += `✅ Sal (${Math.round(qtdSal)}/10 un) | `; } else { infoCocho += `❌ Sal | `; }
+    if(temCochoRacao) { infoCocho += `✅ Ração (${Math.round(qtdRacao)}/20 un) | `; } else { infoCocho += `❌ Ração | `; }
+    infoCocho += temBebedouro ? `✅ Água` : `❌ Água`;
+    
+    // Lista de animais mais compacta (e com o peso protegido para 1 casa decimal)
     let animaisHtml = data.animais.map(a => {
         const cAft = a.vacinado_aftosa ? '#2196f3' : '#444';
         const cBruc = a.vacinado_brucelose ? '#f44336' : '#444';
@@ -15,7 +19,7 @@ window.abrirGerenciamentoPasto = async function(loteId, tipoCapim, temCocho, tem
         <div style="background: #222; padding: 8px; margin-bottom: 6px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between; border-left: 3px solid #555;">
             <div style="text-align: left;">
                 <div style="font-weight: bold; font-size: 13px; color: #fff;">${a.raca}</div>
-                <div style="font-size: 10px; color: #888;">ID: #${a.id} | ${a.peso}@</div>
+                <div style="font-size: 10px; color: #888;">ID: #${a.id} | ${parseFloat(a.peso).toFixed(1)}@</div>
             </div>
             
             <div style="display: flex; gap: 4px;">
@@ -33,19 +37,11 @@ window.abrirGerenciamentoPasto = async function(loteId, tipoCapim, temCocho, tem
             <div style="text-align: left; font-size: 14px;">
                 <div style="margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #444;">
                     <p style="margin: 2px 0;">Capim: <b>${tipoCapim.toUpperCase()}</b></p>
-                    <p style="margin: 2px 0;">Infra: ${temCocho ? '✅ Cocho' : '❌'} | ${temBebedouro ? '✅ Água' : '❌'}</p>
+                    <p style="margin: 2px 0;">Infra: ${infoCocho}</p>
                 </div>
                 
-                <!-- BOTÕES DE REABASTECER COCHO (SAL E RAÇÃO) -->
-                ${temCocho ? `
-                <div style="margin-bottom: 10px; display: flex; flex-direction: column; gap: 6px;">
-                    <button class="swal2-styled" style="background: #ff9800; width: 100%; margin: 0; font-size: 12px; font-weight: bold;" onclick="reabastecerCochoPasto(${loteId}, 'sal')">
-                        <i class="fas fa-box-open"></i> Reabastecer Cocho com Sal (Armazém)
-                    </button>
-                    <button class="swal2-styled" style="background: #8d6e63; width: 100%; margin: 0; font-size: 12px; font-weight: bold;" onclick="reabastecerCochoPasto(${loteId}, 'racao')">
-                        <i class="fas fa-seedling"></i> Reabastecer Cocho com Ração (Armazém)
-                    </button>
-                </div>` : ''}
+                ${temCocho ? `<button class="swal2-styled" style="background: #ff9800; width: 100%; margin: 0 0 6px 0; font-size: 12px; font-weight: bold;" onclick="reabastecerCochoPasto(${loteId}, 'sal')"><i class="fas fa-cube"></i> Reabastecer Cocho de Sal</button>` : ''}
+                ${temCochoRacao ? `<button class="swal2-styled" style="background: #8d6e63; width: 100%; margin: 0 0 10px 0; font-size: 12px; font-weight: bold;" onclick="reabastecerCochoPasto(${loteId}, 'racao')"><i class="fas fa-bars"></i> Reabastecer Linha de Ração</button>` : ''}
 
                 <div style="max-height: 35vh; overflow-y: auto; margin-bottom: 10px;">
                     ${animaisHtml}
@@ -54,7 +50,12 @@ window.abrirGerenciamentoPasto = async function(loteId, tipoCapim, temCocho, tem
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
                 <button class="swal2-styled" style="background: #2e7d32; margin:0;" onclick="abrirSeletorAnimais(${loteId}, 'curral_para_pasto')">Trazer</button>
                 <button class="swal2-styled" style="background: #2e7d32; margin:0;" onclick="abrirSeletorAnimais(${loteId}, 'pasto_para_curral')">Levar</button>
-                <button class="swal2-styled" style="background: #0288d1; grid-column: span 2; margin:0;" onclick="abrirLojaInfra(${loteId}, ${temCocho}, ${temBebedouro})">Manutenção</button>
+                <button class="swal2-styled" style="background: #0288d1; grid-column: span 2; margin:0;" onclick="abrirLojaInfra(${loteId}, ${temCocho}, ${temBebedouro}, ${temCochoRacao})">Manutenção</button>
+                
+                <!-- O BOTÃO DE DESTRUIR PASTO ESTÁ AQUI AGORA -->
+                <button class="swal2-styled" style="background: #c62828; color: #fff; grid-column: span 2; margin:0; font-weight: bold;" onclick="reverterPasto(${loteId})">
+                    <i class="fas fa-tractor"></i> Passar Trator (Destruir Pasto)
+                </button>
             </div>
         `,
         background: '#1a1a1a',
@@ -65,47 +66,80 @@ window.abrirGerenciamentoPasto = async function(loteId, tipoCapim, temCocho, tem
     });
 };
 
-// --- FUNÇÃO UNIFICADA PARA REABASTECER SAL OU RAÇÃO NO PASTO ---
-window.reabastecerCochoPasto = function(loteId, tipoInsumo) {
-    Swal.fire({ title: 'Reabastecendo cocho...', didOpen: () => Swal.showLoading() });
-    
-    fetch('/api/pasto/reabastecer', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lote_id: loteId, tipo: tipoInsumo, quantidade: 5 })
-    })
-    .then(r => r.json())
-    .then(res => {
-        if (res.sucesso) {
-            Swal.fire('Sucesso!', res.msg, 'success').then(() => {
-                localStorage.setItem('aba_ativa_fazenda', 'pastos');
-                location.reload();
-            });
-        } else {
-            Swal.fire('Atenção', res.erro, 'warning');
-        }
-    })
-    .catch(e => {
-        console.error(e);
-        Swal.fire('Erro', 'Falha na comunicação com o servidor.', 'error');
+window.reabastecerCochoPasto = async function(loteId, tipoInsumo) {
+    const nomeInsumo = tipoInsumo === 'sal' ? 'Sal' : 'Ração';
+    const capMax = tipoInsumo === 'sal' ? 10 : 20;
+
+    const { value: quantidade } = await Swal.fire({
+        title: `Abastecer ${nomeInsumo}`,
+        input: 'number',
+        inputLabel: `Quantos sacos deseja colocar? (Máx: ${capMax})`,
+        inputAttributes: {
+            min: 1,
+            max: capMax,
+            step: 1
+        },
+        showCancelButton: true,
+        confirmButtonText: 'Despejar',
+        cancelButtonText: 'Cancelar',
+        background: '#2a2a2a',
+        color: '#fff'
     });
+
+    if (quantidade) {
+        Swal.fire({ title: 'Reabastecendo cocho...', didOpen: () => Swal.showLoading() });
+        
+        fetch('/api/pasto/reabastecer', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lote_id: loteId, tipo: tipoInsumo, quantidade: parseInt(quantidade) })
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (res.sucesso) {
+                Swal.fire('Sucesso!', res.msg, 'success').then(() => {
+                    localStorage.setItem('aba_ativa_fazenda', 'pastos');
+                    location.reload();
+                });
+            } else {
+                Swal.fire('Atenção', res.erro, 'warning');
+            }
+        })
+        .catch(e => {
+            console.error(e);
+            Swal.fire('Erro', 'Falha na comunicação com o servidor.', 'error');
+        });
+    }
 };
 
-// --- O MENU DE COMPRAS DE INFRAESTRUTURA ---
-window.abrirLojaInfra = function(loteId, temCocho, temBebedouro) {
+window.abrirLojaInfra = function(loteId, temCocho, temBebedouro, temCochoRacao) {
     let htmlBotoes = '<div style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">';
     
     if (!temCocho) {
         htmlBotoes += `
             <button class="swal2-styled" style="background: #f57c00; width: 100%; font-weight: bold;" onclick="comprarInfraPasto(${loteId}, 'cocho')">
                 <img src="/static/img/cocheira.png" style="width: 20px; vertical-align: middle; margin-right: 8px;">
-                <i class="fas fa-box-open"></i> Construir Cocho (R$ 400)
+                <i class="fas fa-cube"></i> Construir Cocho Mineral (R$ 400)
             </button>`;
     } else {
         htmlBotoes += `
             <button class="swal2-styled" style="background: #4caf50; width: 100%; opacity: 0.7;" disabled>
                 <img src="/static/img/cocheira.png" style="width: 20px; vertical-align: middle; margin-right: 8px;">
-                <i class="fas fa-check"></i> Cocho Instalado
+                <i class="fas fa-check"></i> Cocho Mineral Instalado
+            </button>`;
+    }
+
+    if (!temCochoRacao) {
+        htmlBotoes += `
+            <button class="swal2-styled" style="background: #8d6e63; width: 100%; font-weight: bold;" onclick="comprarInfraPasto(${loteId}, 'cocho_racao')">
+                <img src="/static/img/cocheira.png" style="width: 20px; vertical-align: middle; margin-right: 8px;">
+                <i class="fas fa-bars"></i> Construir Linha de Ração (R$ 1200)
+            </button>`;
+    } else {
+        htmlBotoes += `
+            <button class="swal2-styled" style="background: #4caf50; width: 100%; opacity: 0.7;" disabled>
+                <img src="/static/img/cocheira.png" style="width: 20px; vertical-align: middle; margin-right: 8px;">
+                <i class="fas fa-check"></i> Linha de Ração Instalada
             </button>`;
     }
 
@@ -113,7 +147,7 @@ window.abrirLojaInfra = function(loteId, temCocho, temBebedouro) {
         htmlBotoes += `
             <button class="swal2-styled" style="background: #0288d1; width: 100%; font-weight: bold;" onclick="comprarInfraPasto(${loteId}, 'bebedouro')">
                 <img src="/static/img/tanque.png" style="width: 20px; vertical-align: middle; margin-right: 8px;">
-                <i class="fas fa-tint"></i> Escavar Tanque (R$ 700)
+                <i class="fas fa-tint"></i> Escavar Tanque d'Água (R$ 700)
             </button>`;
     } else {
         htmlBotoes += `
@@ -185,7 +219,7 @@ window.abrirSeletorAnimais = async function(pastoId, acao) {
                         <span style="color: #aaa; font-size: 12px;">ID: #${a.id} | Sexo: ${a.sexo}</span>
                     </div>
                 </div>
-                <div style="color: #8bc34a; font-weight: bold; font-size: 16px;">${a.peso} @</div>
+                <div style="color: #8bc34a; font-weight: bold; font-size: 16px;">${parseFloat(a.peso).toFixed(1)} @</div>
             </div>
         `;
     });
@@ -255,7 +289,7 @@ window.confirmarMovimentacao = function(animalId, destinoFinal) {
 window.reverterPasto = function(loteId) {
     Swal.fire({
         title: 'Tem certeza?',
-        text: "Isso destruirá o pasto e removerá a infraestrutura!",
+        text: "Isso destruirá o pasto e removerá a infraestrutura! Lembre-se de retirar o gado antes.",
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#d33',

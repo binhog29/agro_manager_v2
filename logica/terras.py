@@ -48,7 +48,6 @@ def obras_terra():
         registrar_transacao(usuario.id, 'saida', custo, f'Preparo de Solo/Arado ({lote.nome})')
         mensagem = 'Solo arado e nivelado! Pronto para plantio de Grãos e Cereais.'
 
-    # NOVO: Preparo de solo para Frutas/Café
     elif acao == 'covear':
         custo = 900
         if usuario.saldo < custo: return jsonify({'sucesso': False, 'erro': 'Saldo insuficiente.'})
@@ -99,6 +98,14 @@ def infra_pasto():
         registrar_transacao(usuario.id, 'saida', custo, f'Construção de Cocho ({lote.nome})')
         msg = "Cocho construído! Agora você pode servir sal e suplemento."
 
+    elif obra == 'cocho_racao':
+        custo = 1200
+        if usuario.saldo < custo: return jsonify({'sucesso': False, 'erro': 'Saldo insuficiente.'})
+        usuario.saldo -= custo
+        lote.tem_cocho_racao = True
+        registrar_transacao(usuario.id, 'saida', custo, f'Linha de Ração ({lote.nome})')
+        msg = "Linha de Ração construída! Agora você pode realizar trato intensivo."
+
     elif obra == 'bebedouro':
         custo = 700
         if usuario.saldo < custo: return jsonify({'sucesso': False, 'erro': 'Saldo insuficiente.'})
@@ -127,6 +134,41 @@ def reverter_pasto():
     pasto.tipo_capim = None
     pasto.tem_cerca = False
     pasto.tem_cocho = False
+    pasto.tem_cocho_racao = False
     pasto.tem_bebedouro = False
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': 'Pasto destruído e revertido para terra nua!'})
+
+# ==========================================
+# NOVA ROTA: DESTRUIR LAVOURA COM TRATOR
+# ==========================================
+@terras_bp.route('/api/fazenda/reverter_cultivo', methods=['POST'])
+def reverter_cultivo():
+    if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
+    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    
+    dados = request.get_json()
+    lote_id = dados.get('lote_id')
+    
+    lote = Lote.query.get(lote_id)
+    if not lote: return jsonify({'sucesso': False, 'erro': 'Lote não encontrado.'})
+
+    custo_trator = 300
+    if usuario.saldo < custo_trator:
+        return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente para o aluguel do trator (R$ {custo_trator}).'})
+
+    # Cobra o valor do trator
+    usuario.saldo -= custo_trator
+    registrar_transacao(usuario.id, 'saida', custo_trator, f'Limpeza de Lavoura com Trator ({lote.nome})')
+
+    # Reverte o lote para terra limpa
+    lote.status = 'limpo'
+    lote.tipo_cultivo = None
+    lote.fase_planta = 'Nenhuma'
+    lote.dias_plantado = 0.0
+    lote.produtividade_atual = 100
+    lote.nivel_pragas = 0
+    lote.fertilidade_solo = 100
+
+    db.session.commit()
+    return jsonify({'sucesso': True, 'msg': 'Lavoura removida com sucesso! A terra voltou a ficar limpa.'})

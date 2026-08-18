@@ -3,7 +3,7 @@
         
         {% for lote in fazenda.lotes %}
             {% if lote.status == 'pasto' %}
-            <div class="card pasto-card" onclick="abrirGerenciamentoPasto({{ lote.id }}, '{{ lote.tipo_capim }}', {{ 'true' if lote.tem_cocho else 'false' }}, {{ 'true' if lote.tem_bebedouro else 'false' }})" style="background: #1a1a1a; border: 1px solid #2e7d32; border-left: 5px solid #2e7d32; border-radius: 12px; padding: 15px; cursor: pointer; display: flex; flex-direction: column; gap: 10px;">
+            <div class="card pasto-card" onclick="abrirGerenciamentoPasto({{ lote.id }}, '{{ lote.tipo_capim }}', {{ 'true' if lote.tem_cocho else 'false' }}, {{ 'true' if lote.tem_bebedouro else 'false' }}, {{ 'true' if lote.tem_cocho_racao else 'false' }}, {{ lote.qtd_sal_cocho or 0.0 }}, {{ lote.qtd_racao_cocho or 0.0 }})" style="background: #1a1a1a; border: 1px solid #2e7d32; border-left: 5px solid #2e7d32; border-radius: 12px; padding: 15px; cursor: pointer; display: flex; flex-direction: column; gap: 10px;">
     
     <div style="display: flex; align-items: center; gap: 12px;">
         <img src="/static/img/capim_{{ lote.tipo_capim }}.png" width="50" style="border-radius: 8px; background: #333; padding: 5px;">
@@ -13,7 +13,7 @@
         </div>
     </div>
 
-    {% if not lote.tem_cerca or not lote.tem_cocho or not lote.tem_bebedouro %}
+    {% if not lote.tem_cerca or not lote.tem_bebedouro %}
     <div style="background: #c62828; color: white; padding: 5px; border-radius: 5px; font-size: 10px; margin-top: 5px; text-align: center;">
         ⚠️ INFRAESTRUTURA PENDENTE! O gado está perdendo peso!
     </div>
@@ -24,23 +24,19 @@
         <span style="color: #fff; font-weight: bold; font-size: 16px;">{{ lote.animais_no_lote|length }} / 10 <i class="fas fa-paw" style="color:#777;"></i></span>
     </div>
 
+    <!-- MOSTRA AS 4 INFRAS REALISTAS NA TELA -->
     <div style="display: flex; justify-content: space-around; font-size: 11px; font-weight: bold; padding-top: 5px; border-top: 1px solid #333;">
         <span style="color: {{ '#4caf50' if lote.tem_cerca else '#555' }}"><i class="fas fa-border-all"></i> Cerca</span>
-        <span style="color: {{ '#4caf50' if lote.tem_cocho else '#555' }}"><i class="fas fa-box-open"></i> Cocho</span>
+        <span style="color: {{ '#4caf50' if lote.tem_cocho else '#555' }}"><i class="fas fa-cube"></i> Sal</span>
+        <span style="color: {{ '#4caf50' if lote.tem_cocho_racao else '#555' }}"><i class="fas fa-bars"></i> Ração</span>
         <span style="color: {{ '#4caf50' if lote.tem_bebedouro else '#555' }}"><i class="fas fa-tint"></i> Água</span>
     </div>
 </div>
 
             {% endif %}
         {% endfor %}
-        
-        {% if not tem_cultivo %}
-        <div style="text-align: center; color: #888; padding: 20px; font-style: italic;">
-            Você não tem Pastos Formados ainda.<br>Vá até a aba "Terras" e use o trator!
-        </div>
-        {% endif %}
 
     </div>
 </div>
 
-<script src="{{ url_for('static', filename='js/pastos.js') }}?v=1"></script>
+<script src="{{ url_for('static', filename='js/pastos.js') }}?v=2"></script>

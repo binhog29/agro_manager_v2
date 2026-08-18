@@ -57,15 +57,15 @@ window.abrirGerenciamentoCultivo = async function(loteId, status, tipoCultivo) {
                 <div style="text-align: left; margin-bottom: 15px; background: #222; padding: 15px; border-radius: 8px;">
                     <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
                         <span style="color: #aaa;">Produtividade Estimada:</span>
-                        <strong style="color: ${dados.produtividade > 70 ? '#4caf50' : '#f44336'};">${dados.produtividade}%</strong>
+                        <strong style="color: ${dados.produtividade > 70 ? '#4caf50' : '#f44336'};">${Math.round(dados.produtividade)}%</strong>
                     </div>
                     <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
                         <span style="color: #aaa;">Fertilidade do Solo:</span>
-                        <strong style="color: ${dados.fertilidade > 50 ? '#4caf50' : '#f44336'};">${dados.fertilidade}%</strong>
+                        <strong style="color: ${dados.fertilidade > 50 ? '#4caf50' : '#f44336'};">${Math.round(dados.fertilidade)}%</strong>
                     </div>
                     <div style="display: flex; justify-content: space-between;">
                         <span style="color: #aaa;">Nível de Pragas:</span>
-                        <strong style="color: ${dados.pragas < 30 ? '#4caf50' : '#f44336'};">${dados.pragas}%</strong>
+                        <strong style="color: ${dados.pragas < 30 ? '#4caf50' : '#f44336'};">${Math.round(dados.pragas)}%</strong>
                     </div>
                 </div>
 
@@ -86,6 +86,11 @@ window.abrirGerenciamentoCultivo = async function(loteId, status, tipoCultivo) {
                             <i class="fas fa-clock"></i> Crescendo...
                         </button>
                     `}
+
+                    <!-- BOTÃO DE DESTRUIR LAVOURA COM TRATOR -->
+                    <button class="swal2-styled" style="background: #c62828; color: #fff; margin: 0; margin-top: 5px; grid-column: span 2; font-weight: bold;" onclick="reverterCultivo(${loteId})">
+                        <i class="fas fa-tractor"></i> Passar Trator (Remover Lavoura)
+                    </button>
                 </div>
             `,
             background: '#2a2a2a',
@@ -98,7 +103,7 @@ window.abrirGerenciamentoCultivo = async function(loteId, status, tipoCultivo) {
 };
 
 window.plantarSemente = function(loteId, tipo) {
-    Swal.fire({ title: 'Precedimentos de Plantio...', didOpen: () => Swal.showLoading() });
+    Swal.fire({ title: 'Procedimentos de Plantio...', didOpen: () => Swal.showLoading() });
     fetch('/api/cultivo/plantar', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -152,6 +157,42 @@ window.reverterParaMato = function(loteId) {
             }).then(r => r.json()).then(d => {
                 if(d.sucesso) Swal.fire('Feito!', d.msg, 'success').then(() => location.reload());
                 else Swal.fire('Erro', d.erro, 'error');
+            });
+        }
+    });
+};
+
+window.reverterCultivo = function(loteId) {
+    Swal.fire({
+        title: 'Passar o Trator?',
+        text: "Isso vai destruir toda a sua lavoura atual! O serviço de limpeza com trator custa R$ 300 e a terra voltará a ficar limpa para um novo plantio. Deseja continuar?",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonText: 'Cancelar',
+        confirmButtonText: 'Sim, destruir lavoura!'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            Swal.fire({ title: 'Passando o trator...', didOpen: () => Swal.showLoading() });
+
+            fetch('/api/fazenda/reverter_cultivo', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ lote_id: loteId })
+            })
+            .then(r => r.json())
+            .then(d => {
+                if(d.sucesso) {
+                    Swal.fire('Sucesso!', d.msg, 'success').then(() => {
+                        localStorage.setItem('aba_ativa_fazenda', 'cultivo');
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire('Atenção', d.erro, 'warning');
+                }
+            })
+            .catch(erro => {
+                Swal.fire('Erro no Servidor', 'Não foi possível completar a ação.', 'error');
             });
         }
     });

@@ -4,18 +4,15 @@ from flask import Flask, render_template, request, redirect, url_for, flash, ses
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from flask_migrate import Migrate 
 
-# Importa o banco e as tabelas
 from database import db, Jogador, Propriedade, Animal, HistoricoMorte
 
-# =======================================================
-# IMPORTAÇÃO DOS MÓDULOS SEPARADOS (BLUEPRINTS)
-# =======================================================
 from logica.mercado import mercado_bp
 from logica.economia import economia_bp
 from logica.agricultura import agricultura_bp
 from logica.pecuaria import pecuaria_bp
-from logica.tempo import tempo_bp
+from logica.tempo import tempo_bp, GerenciadorTempo # <-- Importação do motor de tempo
 from logica.terras import terras_bp
 from logica.cultivo import cultivo_bp
 from logica.loja import loja_bp
@@ -24,26 +21,21 @@ from logica.armazem import armazem_bp
 
 app = Flask(__name__)
 
-# Configurações do Banco de Dados SQLite
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(BASE_DIR, "banco_dados.db")}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.secret_key = 'chave_super_secreta_para_sessoes' 
 
-# Inicializa o banco de dados no app
 db.init_app(app)
+migrate = Migrate(app, db) 
 
-# 🔒 CAMADA DE SEGURANÇA 1: RATE LIMITING GLOBAL
 limiter = Limiter(
     get_remote_address,
     app=app,
-    default_limits=["1000 per day", "200 per hour"], # Limite global
+    default_limits=["1000 per day", "200 per hour"],
     storage_uri="memory://"
 )
 
-# =======================================================
-# REGISTRO DOS MÓDULOS NO APP PRINCIPAL
-# =======================================================
 app.register_blueprint(mercado_bp)
 app.register_blueprint(economia_bp)
 app.register_blueprint(agricultura_bp)
@@ -55,21 +47,16 @@ app.register_blueprint(loja_bp)
 app.register_blueprint(silo_bp)
 app.register_blueprint(armazem_bp)
 
-# Cria as tabelas e povoa o mapa sem poluir o app.py
 with app.app_context():
     db.create_all()
     from database import popular_mapa_inicial
     popular_mapa_inicial()
 
-# =======================================================
-# ROTAS GERAIS (Login, Mapa, Fazenda, Perfil)
-# =======================================================
 @app.route('/')
 @app.route('/login')
 def login():
     return render_template('login.html')
 
-# 🔒 APLICA O LIMITE NA ROTA DE AUTENTICAÇÃO
 @app.route('/autenticar', methods=['POST'])
 @limiter.limit("10 per minute")
 def autenticar():
@@ -77,12 +64,10 @@ def autenticar():
     username = request.form.get('usuario').strip()
     senha = request.form.get('senha')
     
-    # 1. VALIDAÇÃO DE CARACTERES
     if not re.match("^[a-zA-Z0-9]{3,15}$", username):
         flash("O usuário deve ter entre 3 e 15 caracteres, sem espaços ou símbolos.")
         return redirect(url_for('login'))
 
-    # --- FLUXO DE CRIAR CONTA ---
     if acao == 'criar':
         dificuldade = request.form.get('dificuldade')
         
@@ -111,7 +96,6 @@ def autenticar():
         session['usuario'] = username 
         return redirect(url_for('mapa'))
 
-    # --- FLUXO DE ENTRAR (LOGIN) ---
     elif acao == 'entrar':
         usuario = Jogador.query.filter_by(username=username).first()
         
@@ -207,6 +191,9 @@ def fazenda(prop_id):
     if not jogador:
         session.pop('usuario', None)
         return redirect(url_for('login'))
+
+    # PROCESSAMENTO OFFLINE: Calcula o tempo que o jogador ficou fora e aplica na fazenda
+    GerenciadorTempo.calcular_progresso_offline(jogador)
 
     propriedade = Propriedade.query.get(prop_id)
 

@@ -4,17 +4,13 @@
     <meta charset="UTF-8">
     <title>Gestão da Fazenda - Agro Manager</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <!-- Fontes e Ícones -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <!-- Puxando nossa nova folha de estilos limpa -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/fazenda.css') }}">
 </head>
 <body>
-    <!-- PAINEL SUPERIOR FIXO -->
     <header class="top-panel">
-        <!-- Esquerda: Info do Jogador e Carteira -->
         <div class="panel-left">
             <div class="user-badge">
                 <div class="avatar-mini"><i class="fas fa-user-circle"></i></div>
@@ -28,36 +24,40 @@
             </div>
         </div>
 
-        <!-- Direita: Relógio e Tempo (Baseado no modelo antigo) -->
+        <!-- RELÓGIO COM SISTEMA DE CLIMA E ESTAÇÃO -->
         <div style="background: rgba(30, 30, 30, 0.95); padding: 6px 12px; border-radius: 15px; text-align: center; color: white; border: 1px solid #555; pointer-events: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.3); min-width: 90px;">
-    
-        <div id="estacao-jogo" style="font-size: 9px; color: #aaa; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px;">
-        <i class="fas fa-leaf" style="color: #4caf50;"></i> ESTAÇÃO
-    </div> 
-    
-    <div id="relogio-real" style="font-size: 14px; font-weight: 900; color: #fff; margin-bottom: 2px;">
-        {{ "%02d"|format(jogador.hora|default(6)) }}:00
-    </div>
-    
-    <div id="data-jogo" style="font-weight: bold; font-size: 10px; display: flex; align-items: center; justify-content: center; gap: 5px; color: #f9a825;">
-         {{ "%02d"|format(jogador.dia|default(1)) }}/{{ "%02d"|format(jogador.mes|default(1)) }}/{{ jogador.ano|default(2026) }}
-    </div>
-    <button onclick="document.getElementById('modal-tempo').style.display='flex'" style="margin-top:5px; background: #2e7d32; color: white; border: none; padding: 2px 10px; border-radius: 5px; font-size: 10px; cursor: pointer;">
-        <i class="fas fa-forward"></i> Avançar Tempo
-    </button>
-</div>
+            <div id="estacao-jogo" style="font-size: 9px; color: #aaa; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px;">
+                <i class="fas fa-leaf" style="color: #4caf50;"></i> {{ jogador.estacao_atual|default('Primavera') }}
+            </div> 
+            
+            <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                {% if jogador.clima_atual == 'chuva' %}
+                    <i class="fas fa-cloud-showers-heavy" style="color: #64b5f6; font-size: 16px;" title="Chovendo"></i>
+                {% else %}
+                    <i class="fas fa-sun" style="color: #ffeb3b; font-size: 16px;" title="Ensolarado/Seco"></i>
+                {% endif %}
+                
+                <div id="relogio-real" style="font-size: 14px; font-weight: 900; color: #fff;">
+                    {{ "%02d"|format(jogador.hora|default(6)) }}:00
+                </div>
+            </div>
+            
+            <div id="data-jogo" style="font-weight: bold; font-size: 10px; color: #f9a825; margin-top: 2px;">
+                 {{ "%02d"|format(jogador.dia|default(1)) }}/{{ "%02d"|format(jogador.mes|default(1)) }}/{{ jogador.ano|default(2026) }}
+            </div>
+            <button onclick="document.getElementById('modal-tempo').style.display='flex'" style="margin-top:5px; background: #2e7d32; color: white; border: none; padding: 2px 10px; border-radius: 5px; font-size: 10px; cursor: pointer;">
+                <i class="fas fa-forward"></i> Avançar Tempo
+            </button>
+        </div>
         
     </header>
 
-    <!-- ESPAÇAMENTO PARA O PAINEL FIXO -->
     <div class="header-spacer"></div>
 
-    <!-- TÍTULO DA FAZENDA -->
     <div class="farm-title">
         {{ fazenda.nome }} <i class="fas fa-pen edit-icon"></i>
     </div>
 
-        <!-- MENU DE ABAS -->
     <nav class="tabs-menu">
         <div class="menu-item active" id="btn-sede" onclick="trocarAba('sede', this)">
             <img src="/static/img/sede.png" style="width: 22px; height: 22px; object-fit: contain; margin-right: 5px;"> Sede
@@ -82,19 +82,15 @@
             <img src="/static/img/financas.png" style="width: 22px; height: 22px; object-fit: contain; margin-right: 5px;"> Caixa
         </div>
         
-        <!-- Finanças e Mapa redirecionam a página -->
         <div class="menu-item" onclick="window.location.href='/mapa'">
             <img src="/static/img/mapa.png" style="width: 22px; height: 22px; object-fit: contain; margin-right: 5px;"> Mapa
         </div>
     </nav>
 
-    <!-- ÁREAS DE CONTEÚDO (INVISÍVEIS ATÉ SEREM CLICADAS) -->
     <main class="content-area">
-                        <!-- CONTEÚDO DA SEDE -->
         <section id="view-sede" class="view-section active">
             <div class="sede-grid">
                 
-                <!-- Silo -->
                 <div class="sede-card">
                     <img src="/static/img/silo.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2829/2829803.png'">
                     <h4>Silo de Grãos</h4>
@@ -102,7 +98,6 @@
                     <button class="btn-abrir" onclick="abrirModal('modal-silo')">ABRIR 📦</button>
                 </div>
 
-                <!-- Armazém -->
                 <div class="sede-card">
                     <img src="/static/img/celeiro.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2829/2829839.png'">
                     <h4>Armazém</h4>
@@ -110,7 +105,6 @@
                     <button class="btn-abrir" onclick="abrirModal('modal-armazem')">ABRIR 🎒</button>
                 </div>
 
-                <!-- Curral / Tronco -->
                 <div class="sede-card">
                     <img src="/static/img/curral.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2829/2829774.png'">
                     <h4>Tronco</h4>
@@ -118,7 +112,6 @@
                     <button class="btn-abrir" onclick="abrirModal('modal-curral')">ABRIR 🐄</button>
                 </div>
 
-                <!-- Maquinário -->
                 <div class="sede-card">
                     <img src="/static/img/trator.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2316/2316668.png'">
                     <h4>Barracão</h4>
@@ -126,7 +119,6 @@
                     <button class="btn-abrir" onclick="abrirModal('modal-barracao')">VER 🚜</button>
                 </div>
                 
-                <!-- Represa -->
                 <div class="sede-card">
                     <img src="/static/img/represa.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2316/2316668.png'">
                     <h4>Represa</h4>
@@ -138,7 +130,6 @@
                     {% endif %}
                 </div>
 
-                <!-- Chiqueiro -->
                 <div class="sede-card">
                     <img src="/static/img/chiqueiro.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2316/2316668.png'">
                     <h4>Chiqueiro</h4>
@@ -150,7 +141,6 @@
                     {% endif %}
                 </div>
 
-                <!-- Galinheiro -->
                 <div class="sede-card">
                     <img src="/static/img/galinheiro.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2316/2316668.png'">
                     <h4>Galinheiro</h4>
@@ -162,7 +152,6 @@
                     {% endif %}
                 </div>
 
-                <!-- Central Social -->
                 <div class="sede-card">
                     <img src="/static/img/comunidade.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2316/2316668.png'">
                     <h4>Comunidade</h4>
@@ -182,8 +171,6 @@
     {% include 'partes/cultivo.html' %}
     {% include 'partes/loja.html' %}
 
-    
-    <!-- Cérebro da Interface -->
     <script src="{{ url_for('static', filename='js/fazenda.js') }}"></script>
 </body>
 </html>

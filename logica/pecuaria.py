@@ -3,9 +3,6 @@ from database import db, Jogador, Propriedade, Animal, Lote, Transacao
 
 pecuaria_bp = Blueprint('pecuaria', __name__)
 
-# ==========================================
-# 1. ROTA CENTRAL DE MOVIMENTAÇÃO (INDIVIDUAL)
-# ==========================================
 @pecuaria_bp.route('/api/animal/manejo_curral', methods=['POST'])
 def manejar_curral():
     dados = request.get_json()
@@ -43,9 +40,6 @@ def manejar_curral():
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': 'Movimentação concluída com sucesso!'})
 
-# ==========================================
-# 4. ROTA PARA MOVER EM LOTE
-# ==========================================
 @pecuaria_bp.route('/api/animal/manejo_lote', methods=['POST'])
 def manejar_lote():
     dados = request.get_json()
@@ -87,9 +81,6 @@ def manejar_lote():
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': f'{movidos} animais movidos.'})
 
-# ==========================================
-# LISTAGENS E INSUMOS
-# ==========================================
 @pecuaria_bp.route('/api/pecuaria/listar_curral', methods=['GET'])
 def listar_curral():
     if 'usuario' not in session: 
@@ -242,64 +233,64 @@ def tratamento_lote():
     return jsonify({'sucesso': True, 'msg': f'Tratamento aplicado com sucesso em {qtd_necessaria} animais!'})
 
 # ==========================================
-# NOVA ROTA: REABASTECER COCHO NO PASTO
+# ROTA CORRIGIDA PARA ABASTECIMENTO REALISTA
 # ==========================================
 @pecuaria_bp.route('/api/pasto/reabastecer', methods=['POST'])
 def reabastecer_pasto():
-    if 'usuario' not in session:
+    if 'usuario' not in session: 
         return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
         
     dados = request.get_json()
     lote_id = dados.get('lote_id')
     tipo = dados.get('tipo')
-    quantidade = int(dados.get('quantidade', 5))
+    quantidade = int(dados.get('quantidade', 1))
     
     jogador = Jogador.query.filter_by(username=session.get('usuario')).first()
     fazenda = Propriedade.query.filter_by(dono_id=jogador.id).first()
     lote = Lote.query.get(lote_id)
     
-    if not lote:
+    if not lote: 
         return jsonify({'sucesso': False, 'erro': 'Pasto não encontrado.'})
         
-    animais_no_pasto = Animal.query.filter_by(lote_id=lote_id).all()
-    
-    if not animais_no_pasto:
-        return jsonify({'sucesso': False, 'erro': 'O pasto está vazio! Traga o gado antes de colocar insumos.'})
-        
     if tipo == 'sal':
-        if getattr(fazenda, 'est_sal', 0) < quantidade:
-            return jsonify({'sucesso': False, 'erro': f'Sem Sal no armazém! Necessário: {quantidade} un.'})
-        fazenda.est_sal -= quantidade
-        
-        for animal in animais_no_pasto:
-            animal.fome = max(0, animal.fome - 20)
-            animal.saude = min(100, animal.saude + 10)
+        # Calcula o espaço usando a nova coluna do banco de dados
+        qtd_atual = getattr(lote, 'qtd_sal_cocho', 0.0)
+        if qtd_atual is None: qtd_atual = 0.0
             
-        msg = 'Sal fornecido no cocho com sucesso! (Saúde e manutenção)'
+        espaco_livre = 10.0 - qtd_atual # Limite max 10
+        if espaco_livre <= 0: 
+            return jsonify({'sucesso': False, 'erro': 'O cocho mineral já está cheio!'})
+            
+        if quantidade > espaco_livre: 
+            quantidade = int(espaco_livre)
+            
+        if getattr(fazenda, 'est_sal', 0) < quantidade:
+            return jsonify({'sucesso': False, 'erro': f'Sem Sal suficiente no armazém! Você tem {fazenda.est_sal} sacos.'})
+        
+        fazenda.est_sal -= quantidade
+        lote.qtd_sal_cocho = qtd_atual + float(quantidade) # SOMA o valor na coluna certa
+        msg = f'{quantidade} sacos de Sal despejados no cocho!'
         
     elif tipo == 'racao':
-        if getattr(fazenda, 'est_racao', 0) < quantidade:
-            return jsonify({'sucesso': False, 'erro': f'Sem Ração no armazém! Necessário: {quantidade} un.'})
-        fazenda.est_racao -= quantidade
-        
-        for animal in animais_no_pasto:
-            animal.fome = 0  # Saciedade máxima
-            animal.saude = min(100, animal.saude + 15)
-            animal.peso += 1.5  # Bônus de engorda forte com ração
+        if not getattr(lote, 'tem_cocho_racao', False): 
+            return jsonify({'sucesso': False, 'erro': 'Este pasto não possui Linha de Ração construída!'})
             
-        msg = 'Ração fornecida no cocho! Gado saciado e ganhando peso extra!'
+        qtd_atual = getattr(lote, 'qtd_racao_cocho', 0.0)
+        if qtd_atual is None: qtd_atual = 0.0
+            
+        espaco_livre = 20.0 - qtd_atual # Limite max 20
+        if espaco_livre <= 0: 
+            return jsonify({'sucesso': False, 'erro': 'A linha de ração já está cheia!'})
+            
+        if quantidade > espaco_livre: 
+            quantidade = int(espaco_livre)
+            
+        if getattr(fazenda, 'est_racao', 0) < quantidade:
+            return jsonify({'sucesso': False, 'erro': f'Sem Ração suficiente no armazém! Você tem {fazenda.est_racao} sacos.'})
         
-    elif tipo == 'suplemento':
-        if getattr(fazenda, 'est_suplemento_engorda', 0) < quantidade:
-            return jsonify({'sucesso': False, 'erro': f'Sem Suplemento no armazém! Necessário: {quantidade} un.'})
-        fazenda.est_suplemento_engorda -= quantidade
-        
-        for animal in animais_no_pasto:
-            if not getattr(animal, 'suplementado', False):
-                animal.suplementado = True
-                animal.peso += 2.0 
-                
-        msg = 'Suplemento de engorda colocado no cocho!'
+        fazenda.est_racao -= quantidade
+        lote.qtd_racao_cocho = qtd_atual + float(quantidade) # SOMA o valor na coluna certa
+        msg = f'{quantidade} sacos de Ração despejados na linha!'
     else:
         return jsonify({'sucesso': False, 'erro': 'Insumo inválido.'})
         
@@ -319,7 +310,6 @@ def expandir_curral():
 
 @pecuaria_bp.route('/api/pecuaria/listar_pastos_disponiveis', methods=['GET'])
 def listar_pastos_disponiveis():
-    # --- CORREÇÃO CIRÚRGICA AQUI ---
     if 'usuario' not in session: 
         return jsonify({'pastos': []})
         
@@ -331,9 +321,7 @@ def listar_pastos_disponiveis():
     if not fazenda: 
         return jsonify({'pastos': []})
         
-    # Puxa apenas os lotes de pasto vinculados a esta fazenda específica
     pastos = Lote.query.filter_by(fazenda_id=fazenda.id, status='pasto').all()
-    # -------------------------------
 
     lista_pastos = []
     for p in pastos:

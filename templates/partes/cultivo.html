@@ -28,7 +28,7 @@
                             </div>
                         </div>
                         <div style="text-align: right;">
-                            <b style="color: #4caf50; font-size: 18px;">{{ lote.produtividade_atual|default(100) }}%</b>
+                            <b style="color: #4caf50; font-size: 18px;">{{ lote.produtividade_atual|default(100) | int }}%</b>
                             <div style="font-size: 10px; color: #aaa;">Produtividade</div>
                         </div>
                     </div>
@@ -36,10 +36,10 @@
                     {% if lote.status in ['plantado', 'colhendo'] %}
                     <div style="display: flex; gap: 4px; margin-top: 5px;">
                         <div style="flex: 1; background: {% if lote.fertilidade_solo|default(100) > 50 %}#2e7d32{% else %}#c62828{% endif %}; color: white; text-align: center; font-size: 11px; padding: 4px; border-radius: 4px; font-weight: bold;">
-                            🌱 Solo: {{ lote.fertilidade_solo|default(100) }}%
+                            🌱 Solo: {{ lote.fertilidade_solo|default(100) | int }}%
                         </div>
                         <div style="flex: 1; background: {% if lote.nivel_pragas|default(0) < 30 %}#444{% else %}#c62828{% endif %}; color: white; text-align: center; font-size: 11px; padding: 4px; border-radius: 4px; font-weight: bold;">
-                            🐛 Pragas: {{ lote.nivel_pragas|default(0) }}%
+                            🐛 Pragas: {{ lote.nivel_pragas|default(0) | int }}%
                         </div>
                     </div>
                     {% endif %}
