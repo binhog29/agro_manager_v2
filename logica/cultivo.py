@@ -25,6 +25,24 @@ class Cultura:
         lote.ciclos_colhidos = 0
         lote.dias_descanso = 0.0
 
+    def obter_estagio_e_progresso(self, dias_plantado, dias_descanso=0, estacao_atual='primavera'):
+        if dias_plantado >= self.tempo_colheita:
+            return "Ponto de Colheita", 100, 0
+
+        progresso_pct = min(100, int((dias_plantado / self.tempo_colheita) * 100))
+        dias_restantes = int(self.tempo_colheita - dias_plantado)
+
+        if progresso_pct < 20:
+            estagio = "Semente/Muda"
+        elif progresso_pct < 50:
+            estagio = "Crescimento Vegetativo"
+        elif progresso_pct < 80:
+            estagio = "Floração"
+        else:
+            estagio = "Amadurecendo"
+
+        return estagio, progresso_pct, dias_restantes
+
 class CulturaPerene(Cultura):
     def __init__(self, nome, custo_semente, producao_kg, tempo_colheita, preparo_exigido, custo_maquina_plantio, custo_maquina_colheita, tempo_descanso, max_ciclos):
         super().__init__(nome, custo_semente, producao_kg, tempo_colheita, preparo_exigido, custo_maquina_plantio, custo_maquina_colheita)
@@ -41,14 +59,35 @@ class CulturaPerene(Cultura):
             lote.produtividade_atual = 100
             
         lote.status = 'plantado'
-        lote.dias_plantado = self.tempo_colheita
-        lote.dias_descanso = self.tempo_descanso
+        # 🔥 SOLUÇÃO MESTRA: Recua o tempo de vida orgânico da planta em vez de usar a coluna fantasma.
+        # A banana vai para 285 dias e leva exatos 15 dias na barrinha para atingir 300 de novo!
+        lote.dias_plantado = float(self.tempo_colheita - self.tempo_descanso)
+        lote.dias_descanso = 0.0
+
+    def obter_estagio_e_progresso(self, dias_plantado, dias_descanso=0, estacao_atual='primavera'):
+        if dias_descanso > 0:
+            progresso_pct = min(100, int(((self.tempo_descanso - dias_descanso) / self.tempo_descanso) * 100))
+            return "Descanso Pós-Colheita", progresso_pct, int(dias_descanso)
+        
+        return super().obter_estagio_e_progresso(dias_plantado, dias_descanso, estacao_atual)
+
 
 class CulturaSazonal(CulturaPerene):
     def __init__(self, nome, custo_semente, producao_kg, tempo_colheita, preparo_exigido, custo_maquina_plantio, custo_maquina_colheita, tempo_descanso, max_ciclos, estacoes_fruto):
         super().__init__(nome, custo_semente, producao_kg, tempo_colheita, preparo_exigido, custo_maquina_plantio, custo_maquina_colheita, tempo_descanso, max_ciclos)
         self.tipo_biologia = 'sazonal'
         self.estacoes_fruto = estacoes_fruto
+
+    def obter_estagio_e_progresso(self, dias_plantado, dias_descanso=0, estacao_atual='primavera'):
+        # Se ela acabou de ser colhida, o dias_plantado estará recuado. Ela volta a mostrar as fases de crescimento (Ex: Floração)
+        if dias_descanso > 0 or dias_plantado < self.tempo_colheita:
+            return super().obter_estagio_e_progresso(dias_plantado, dias_descanso, estacao_atual)
+        
+        if estacao_atual not in self.estacoes_fruto:
+            estacoes_formatadas = "/".join([e.capitalize() for e in self.estacoes_fruto])
+            return f"Aguardando Clima ({estacoes_formatadas})", 100, 0
+            
+        return "Ponto de Colheita", 100, 0
 
 # =======================================================
 # CATÁLOGO DE PLANTAS
@@ -83,7 +122,7 @@ def detalhes_cultivo():
     jogador = Jogador.query.filter_by(username=session['usuario']).first()
     fazenda = Propriedade.query.filter_by(dono_id=jogador.id).first()
     
-    return jsonify({
+    resposta = {
         'sucesso': True,
         'fertilidade': getattr(lote, 'fertilidade_solo', 100),
         'pragas': getattr(lote, 'nivel_pragas', 0),
@@ -91,8 +130,23 @@ def detalhes_cultivo():
         'est_adubo': getattr(fazenda, 'est_adubo', 0),
         'est_veneno': getattr(fazenda, 'est_veneno', 0),
         'ciclos': getattr(lote, 'ciclos_colhidos', 0),
-        'descanso': getattr(lote, 'dias_descanso', 0.0)
-    })
+        'descanso': getattr(lote, 'dias_descanso', 0.0),
+        'status': lote.status
+    }
+
+    if lote.tipo_cultivo and lote.status in ['plantado', 'colhendo']:
+        dna_planta = CATALOGO_CULTIVOS.get(lote.tipo_cultivo)
+        if dna_planta:
+            dias_plantado = getattr(lote, 'dias_plantado', 0)
+            dias_descanso = getattr(lote, 'dias_descanso', 0)
+            estacao_atual = getattr(jogador, 'estacao_atual', 'primavera')
+            
+            estagio, progresso_pct, dias_restantes = dna_planta.obter_estagio_e_progresso(dias_plantado, dias_descanso, estacao_atual)
+            resposta['estagio'] = estagio
+            resposta['progresso_pct'] = progresso_pct
+            resposta['dias_restantes'] = dias_restantes
+
+    return jsonify(resposta)
 
 @cultivo_bp.route('/api/cultivo/plantar', methods=['POST'])
 def plantar():
@@ -189,7 +243,6 @@ def colher():
     produtividade = getattr(lote, 'produtividade_atual', 100)
     kg_colhidos = int(dna_planta.producao_kg * (produtividade / 100.0))
 
-    # 🔒 TRAVA DE SEGURANÇA: Limite do Silo (APENAS GRÃOS)
     itens_silo_graos = ['soja', 'milho', 'arroz', 'feijao']
     
     if tipo in itens_silo_graos:
@@ -198,7 +251,6 @@ def colher():
             espaco_livre = fazenda.cap_silo - total_silo
             return jsonify({'sucesso': False, 'erro': f'Silo de Grãos cheio! Você só tem {espaco_livre} kg de espaço.'})
             
-    # Salva na coluna correspondente (seja no Silo se for grão, ou no Galpão se for fruta/fibra)
     coluna_estoque = f'est_{tipo}'
     try:
         estoque_atual = getattr(fazenda, coluna_estoque, 0)

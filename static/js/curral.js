@@ -29,9 +29,6 @@ window.aplicarManejo = function(animal_id, acao) {
     });
 };
 
-// ==========================================
-// VACINAÇÃO/TRATAMENTO EM LOTE NO CURRAL
-// ==========================================
 window.abrirSelecaoVacinaLote = async function(tipoTratamento) {
     let tituloMap = {
         'aftosa': 'Vacinação contra Aftosa (Lote)',
@@ -84,7 +81,6 @@ window.abrirSelecaoVacinaLote = async function(tipoTratamento) {
                         <span style="font-size: 11px; color: #888;">ID: #${a.id} | Sexo: ${a.sexo} | Peso: ${a.peso}@</span>
                     </div>
                 </div>
-                
                 <div style="display: flex; gap: 4px;">
                     <div style="width: 20px; height: 20px; background: ${cAft}; color: white; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; border-radius: 3px;" title="Aftosa">A</div>
                     <div style="width: 20px; height: 20px; background: ${cBruc}; color: white; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; border-radius: 3px;" title="Brucelose">B</div>
@@ -94,107 +90,66 @@ window.abrirSelecaoVacinaLote = async function(tipoTratamento) {
             </label>
         `;
     });
-
     htmlCheckboxes += `</div>`;
 
     Swal.fire({
-        title: tituloMap[tipoTratamento],
-        html: htmlCheckboxes,
-        background: '#1a1a1a',
-        color: '#fff',
-        showCancelButton: true,
-        confirmButtonText: 'Aplicar no Lote',
-        cancelButtonText: 'Cancelar',
-        confirmButtonColor: '#2e7d32',
+        title: tituloMap[tipoTratamento], html: htmlCheckboxes, background: '#1a1a1a', color: '#fff',
+        showCancelButton: true, confirmButtonText: 'Aplicar no Lote', cancelButtonText: 'Cancelar', confirmButtonColor: '#2e7d32',
         preConfirm: () => {
             const checkboxes = document.querySelectorAll('.chk-animal-lote:checked');
             const ids = Array.from(checkboxes).map(chk => parseInt(chk.value));
-            if (ids.length === 0) {
-                Swal.showValidationMessage('Selecione pelo menos um animal!');
-            }
+            if (ids.length === 0) Swal.showValidationMessage('Selecione pelo menos um animal!');
             return ids;
         }
     }).then((result) => {
-        if (result.isConfirmed) {
-            executarTratamentoLote(result.value, tipoTratamento);
-        }
+        if (result.isConfirmed) executarTratamentoLote(result.value, tipoTratamento);
     });
 };
 
 window.toggleSelecionarTodos = function(masterCheckbox) {
-    const checkboxes = document.querySelectorAll('.chk-animal-lote');
-    checkboxes.forEach(chk => chk.checked = masterCheckbox.checked);
+    document.querySelectorAll('.chk-animal-lote').forEach(chk => chk.checked = masterCheckbox.checked);
 };
 
 window.executarTratamentoLote = function(animalIds, tipo) {
     Swal.fire({ title: 'Aplicando tratamento...', didOpen: () => Swal.showLoading() });
-
     fetch('/api/animal/tratamento_lote', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        method: 'POST', headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ animal_ids: animalIds, tipo: tipo })
     })
-    .then(r => r.json())
-    .then(res => {
+    .then(r => r.json()).then(res => {
         if (res.sucesso) {
-            Swal.fire('Sucesso!', res.msg, 'success').then(() => {
-                localStorage.setItem('modal_aberto_fazenda', 'modal-curral');
-                location.reload();
-            });
-        } else {
-            Swal.fire('Atenção', res.erro, 'warning');
-        }
-    })
-    .catch(e => {
-        console.error(e);
-        Swal.fire('Erro', 'Falha na comunicação com o servidor.', 'error');
-    });
+            Swal.fire('Sucesso!', res.msg, 'success').then(() => { localStorage.setItem('modal_aberto_fazenda', 'modal-curral'); location.reload(); });
+        } else Swal.fire('Atenção', res.erro, 'warning');
+    }).catch(e => Swal.fire('Erro', 'Falha na comunicação.', 'error'));
 };
 
 window.prepararApartamento = async function(animal_id) {
     try {
         const response = await fetch('/api/pecuaria/listar_pastos_disponiveis');
         const data = await response.json();
-
-        if (!data.pastos || data.pastos.length === 0) {
-            Swal.fire('Atenção', 'Nenhum pasto formado disponível!', 'warning');
-            return;
-        }
+        if (!data.pastos || data.pastos.length === 0) return Swal.fire('Atenção', 'Nenhum pasto formado disponível!', 'warning');
 
         let options = data.pastos.map(p => `<option value="${p.id}">${p.nome} (ID: ${p.id})</option>`).join('');
-
         const result = await Swal.fire({
-            title: 'Apartar Animal',
-            html: `<select id="pasto-select" class="swal2-select" style="display:flex; width: 100%; background: #111; color: #fff;">${options}</select>`,
-            background: '#2a2a2a', color: '#fff',
-            showCancelButton: true, confirmButtonText: '🚚 Enviar',
+            title: 'Apartar Animal', html: `<select id="pasto-select" class="swal2-select" style="display:flex; width: 100%; background: #111; color: #fff;">${options}</select>`,
+            background: '#2a2a2a', color: '#fff', showCancelButton: true, confirmButtonText: '🚚 Enviar',
             preConfirm: () => document.getElementById('pasto-select').value
         });
 
         if (result.isConfirmed) {
             const res = await fetch('/api/animal/manejo_curral', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                method: 'POST', headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ animal_id: animal_id, destino: 'pasto_' + result.value })
             });
             const d = await res.json();
-            if(d.sucesso) {
-                Swal.fire('Sucesso!', d.msg, 'success').then(() => {
-                    localStorage.setItem('modal_aberto_fazenda', 'modal-curral');
-                    location.reload();
-                });
-            } else {
-                Swal.fire('Erro', d.erro, 'error');
-            }
+            if(d.sucesso) Swal.fire('Sucesso!', d.msg, 'success').then(() => { localStorage.setItem('modal_aberto_fazenda', 'modal-curral'); location.reload(); });
+            else Swal.fire('Erro', d.erro, 'error');
         }
-    } catch (e) {
-        console.error("Erro no Apartar:", e);
-        Swal.fire('Erro', 'Falha ao buscar pastos.', 'error');
-    }
+    } catch (e) { Swal.fire('Erro', 'Falha ao buscar pastos.', 'error'); }
 };
 
 // ==========================================
-// CALCULADORAS DE LOTE EM TEMPO REAL E VENDAS
+// MÓDULO DE VENDAS E GRÁFICO (CARRINHO DE COMPRAS E FRIGORÍFICO)
 // ==========================================
 window.atualizarTotalLeilao = function() {
     const qtd = parseInt(document.getElementById('swal-qtd').value) || 0;
@@ -203,31 +158,44 @@ window.atualizarTotalLeilao = function() {
 };
 
 window.atualizarTotalFrigorifico = function() {
-    const racaSelect = document.getElementById('swal-raca-frig');
-    const raca = racaSelect.value.toLowerCase(); 
+    const raca = document.getElementById('swal-raca-frig').value.toLowerCase(); 
     const qtd = parseInt(document.getElementById('swal-qtd-frig').value) || 0;
+    const txtTotal = document.getElementById('txt-total-frig');
     
-    if (!raca || !window.PRECOS_BASE[raca]) {
-        document.getElementById('txt-total-frig').innerText = "R$ 0,00";
+    if (!raca || qtd <= 0) {
+        txtTotal.innerText = "R$ 0,00";
         return;
     }
     
-    const precoAdulto = window.PRECOS_BASE[raca]['adulto'];
-    const total = qtd * (precoAdulto * 0.85); 
+    txtTotal.innerText = "Pesando o gado...";
+    const fazendaId = window.location.pathname.split('/').pop();
     
-    document.getElementById('txt-total-frig').innerText = total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    fetch('/api/animal/estimar_frigorifico', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ raca: raca, quantidade: qtd, fazenda_id: fazendaId })
+    })
+    .then(r => r.json()).then(d => {
+        if(d.sucesso) {
+            if(d.encontrados === 0) {
+                txtTotal.innerHTML = `<span style="font-size:14px; color:#f44336;">Nenhum no curral</span>`;
+            } else {
+                let avisoQtd = d.encontrados < qtd ? `<br><span style="font-size:11px; color:#ff9800;">(Apenas ${d.encontrados} encontrados)</span>` : "";
+                let avisoMercado = `<span style="font-size:12px; color:#aaa;">Índice Mercado: <b style="color:${d.fator >= 1 ? '#4caf50' : '#f44336'}">${Math.round(d.fator * 100)}%</b></span><br>`;
+                txtTotal.innerHTML = avisoMercado + d.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) + avisoQtd;
+            }
+        } else txtTotal.innerText = "R$ 0,00";
+    }).catch(() => { txtTotal.innerText = "Erro ao pesar"; });
 };
 
 window.prepararVendaComercial = function(id, peso, raca) { abrirVendaLeilao(id, raca); }; 
 
 window.abrirVendaLeilao = function(id_animal, raca) {
     fecharModal('modal-curral');
-    
     Swal.fire({
         title: 'Anunciar no Leilão',
         html: `
             <div style="text-align: center; margin-top: 10px;">
-                <img src="/static/img/${raca.toLowerCase()}.png" style="width: 80px; margin-bottom: 10px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));" onerror="this.src='/static/img/nelore.png'">
+                <img src="/static/img/${raca.toLowerCase()}.png" style="width: 80px; margin-bottom: 10px;" onerror="this.src='/static/img/nelore.png'">
                 <p style="color: #ccc; font-size: 14px;">Por qual valor deseja vender este <b>${raca}</b> para a comunidade?</p>
                 <input type="number" id="valor_leilao_individual" class="swal2-input" placeholder="R$ 0,00" min="1" style="width: 100%; max-width: 250px;">
             </div>
@@ -236,10 +204,7 @@ window.abrirVendaLeilao = function(id_animal, raca) {
         cancelButtonColor: '#555', confirmButtonText: '💰 Anunciar', cancelButtonText: 'Cancelar',
         preConfirm: () => {
             const valor = document.getElementById('valor_leilao_individual').value;
-            if (!valor || valor <= 0) {
-                Swal.showValidationMessage('Por favor, informe um valor válido maior que zero.');
-                return false;
-            }
+            if (!valor || valor <= 0) return Swal.showValidationMessage('Por favor, informe um valor válido.');
             return valor;
         }
     }).then((result) => {
@@ -247,19 +212,10 @@ window.abrirVendaLeilao = function(id_animal, raca) {
             fetch('/api/mercado/anunciar', {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ animal_id: id_animal, valor: parseFloat(result.value) })
-            })
-            .then(res => res.json())
-            .then(d => {
-                if(d.sucesso) {
-                    Swal.fire({title: 'No Ar! 📢', text: d.msg, icon: 'success', background: '#2a2a2a', color: '#fff', confirmButtonColor: '#2e7d32'}).then(() => {
-                        localStorage.setItem('modal_aberto_fazenda', 'modal-curral');
-                        location.reload();
-                    });
-                } else {
-                    Swal.fire({title: 'Erro', text: d.erro, icon: 'error', background: '#2a2a2a', color: '#fff', confirmButtonColor: '#f44336'});
-                }
-            })
-            .catch(e => Swal.fire({title: 'Erro de Conexão', text: 'Falha no servidor.', icon: 'warning', background: '#2a2a2a', color: '#fff', confirmButtonColor: '#ff9800'}));
+            }).then(res => res.json()).then(d => {
+                if(d.sucesso) Swal.fire({title: 'No Ar! 📢', text: d.msg, icon: 'success', background: '#2a2a2a', color: '#fff', confirmButtonColor: '#2e7d32'}).then(() => { localStorage.setItem('modal_aberto_fazenda', 'modal-curral'); location.reload(); });
+                else Swal.fire({title: 'Erro', text: d.erro, icon: 'error', background: '#2a2a2a', color: '#fff', confirmButtonColor: '#f44336'});
+            });
         }
     });
 }
@@ -269,8 +225,7 @@ window.prepararVendaLoteCurral = function() {
     Swal.fire({
         title: 'Comercializar Lote', text: 'Qual será o destino desses animais?',
         icon: 'question', background: '#2a2a2a', color: '#fff', showDenyButton: true, showCancelButton: true,
-        confirmButtonText: '<i class="fas fa-gavel"></i> Leilão', denyButtonText: '<i class="fas fa-industry"></i> Frigorífico',
-        customClass: { actions: 'botoes-lote-vertical' }
+        confirmButtonText: '<i class="fas fa-gavel"></i> Leilão', denyButtonText: '<i class="fas fa-industry"></i> Frigorífico', customClass: { actions: 'botoes-lote-vertical' }
     }).then((r) => {
         if (r.isConfirmed) abrirModalLoteLeilao();
         else if (r.isDenied) abrirModalLoteFrigorifico();
@@ -283,18 +238,13 @@ window.abrirModalLoteLeilao = function() {
         html: `
             <select id="swal-raca" class="swal2-input" style="background:#111; color:#fff; border:1px solid #444; width:85%; margin:10px auto; display:block;">
                 <option value="" disabled selected>Raça...</option>
-                <option value="nelore">Nelore</option>
-                <option value="angus">Angus</option>
-                <option value="girolando">Girolando</option>
-                <option value="guzera">Guzerá</option>
-                <option value="brahman">Brahman</option>
-                <option value="cavalo">Cavalo</option>
+                <option value="nelore">Nelore</option><option value="angus">Angus</option><option value="girolando">Girolando</option><option value="cavalo">Cavalo</option>
             </select>
             <div style="display:flex; justify-content:center; gap:10px; width:85%; margin:10px auto;">
-                <input id="swal-qtd" type="number" class="swal2-input" placeholder="Qtd" min="1" value="1" style="background:#111; color:#fff; border:1px solid #444; width:45%; margin:0;" oninput="atualizarTotalLeilao()">
-                <input id="swal-preco" type="number" class="swal2-input" placeholder="R$ Unit" min="1" value="3500" style="background:#111; color:#fff; border:1px solid #444; width:50%; margin:0;" oninput="atualizarTotalLeilao()">
+                <input id="swal-qtd" type="number" class="swal2-input" placeholder="Qtd" min="1" value="1" style="width:45%; margin:0;" oninput="atualizarTotalLeilao()">
+                <input id="swal-preco" type="number" class="swal2-input" placeholder="R$ Unit" min="1" value="3500" style="width:50%; margin:0;" oninput="atualizarTotalLeilao()">
             </div>
-            <div style="background:#1a1a1a; border:1px dashed #444; border-radius:8px; padding:10px; margin-top:15px; width:85%; margin-left:auto; margin-right:auto;">
+            <div style="background:#1a1a1a; border:1px dashed #444; border-radius:8px; padding:10px; margin-top:15px; width:85%; margin:0 auto;">
                 <div style="font-size:14px; color:#aaa;">Total do Lote</div>
                 <div style="font-size:22px; font-weight:bold; color:#ff9800;" id="txt-total-leilao">R$ 3.500,00</div>
             </div>
@@ -305,8 +255,7 @@ window.abrirModalLoteLeilao = function() {
             const qtd = document.getElementById('swal-qtd').value;
             const preco = document.getElementById('swal-preco').value;
             if(!raca || !qtd || !preco) Swal.showValidationMessage('Preencha os valores!');
-            const fazendaId = window.location.pathname.split('/').pop();
-            return { raca, quantidade: qtd, preco, fazendaId };
+            return { raca, quantidade: qtd, preco, fazendaId: window.location.pathname.split('/').pop() };
         }
     }).then((r) => {
         if(r.isConfirmed) {
@@ -314,13 +263,8 @@ window.abrirModalLoteLeilao = function() {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ animal_id: 0, raca: r.value.raca, quantidade: r.value.quantidade, valor: r.value.preco, fazenda_id: r.value.fazendaId })
             }).then(res => res.json()).then(d => {
-                if(d.sucesso) {
-                    Swal.fire('Sucesso!', d.msg, 'success').then(()=> {
-                        localStorage.setItem('modal_aberto_fazenda', 'modal-curral');
-                        location.reload();
-                    });
-                }
-                else { Swal.fire('Erro', d.erro, 'error'); }
+                if(d.sucesso) Swal.fire('Sucesso!', d.msg, 'success').then(()=> { localStorage.setItem('modal_aberto_fazenda', 'modal-curral'); location.reload(); });
+                else Swal.fire('Erro', d.erro, 'error');
             });
         }
     });
@@ -332,28 +276,27 @@ window.abrirModalLoteFrigorifico = function() {
         html: `
             <select id="swal-raca-frig" class="swal2-input" onchange="atualizarTotalFrigorifico()" style="background:#111; color:#fff; border:1px solid #444; width:85%; margin:10px auto; display:block;">
                 <option value="" disabled selected>Raça...</option>
-                <option value="nelore">Nelore</option>
-                <option value="angus">Angus</option>
-                <option value="girolando">Girolando</option>
-                <option value="guzera">Guzerá</option>
-                <option value="brahman">Brahman</option>
-                <option value="cavalo">Cavalo</option>
-                <option value="ovelha">Ovelha</option>
-                <option value="porco">Porco (Chiqueiro)</option>
+                <option value="nelore">Nelore</option><option value="angus">Angus</option><option value="girolando">Girolando</option>
+                <option value="guzera">Guzerá</option><option value="brahman">Brahman</option><option value="cavalo">Cavalo</option>
+                <option value="ovelha">Ovelha</option><option value="porco">Porco (Chiqueiro)</option><option value="galinha">Galinha</option>
             </select>
             <input id="swal-qtd-frig" type="number" class="swal2-input" placeholder="Qtd" min="1" value="1" style="background:#111; color:#fff; border:1px solid #444; width:85%; margin:10px auto; display:block;" oninput="atualizarTotalFrigorifico()">
-            <div style="background:#1a1a1a; border:1px dashed #444; border-radius:8px; padding:10px; margin-top:15px; width:85%; margin-left:auto; margin-right:auto;">
-                <div style="font-size:13px; color:#aaa;">Cotação Frigorífico (85% do Mercado)</div>
-                <div style="font-size:20px; font-weight:bold;">Est. Total: <b style="color:#4caf50;" id="txt-total-frig">R$ 0,00</b></div>
+            
+            <div style="text-align: right; width: 85%; margin: 0 auto 5px;">
+                <a href="#" onclick="abrirGraficoCotacao(); return false;" style="color: #64b5f6; font-size: 12px; text-decoration: none;"><i class="fas fa-chart-line"></i> Gráfico de Cotação da Raça</a>
+            </div>
+
+            <div style="background:#1a1a1a; border:1px dashed #444; border-radius:8px; padding:10px; margin-top:5px; width:85%; margin-left:auto; margin-right:auto;">
+                <div style="font-size:13px; color:#aaa;">Balança do Frigorífico (Pesagem Real)</div>
+                <div style="font-size:20px; font-weight:bold;">Total Estimado: <b style="color:#4caf50;" id="txt-total-frig">R$ 0,00</b></div>
             </div>
         `,
-        background: '#2a2a2a', color: '#fff', confirmButtonColor: '#b91c1c', confirmButtonText: 'Vender', showCancelButton: true,
+        background: '#2a2a2a', color: '#fff', confirmButtonColor: '#b91c1c', confirmButtonText: 'Vender Lote', showCancelButton: true,
         preConfirm: () => {
             const raca = document.getElementById('swal-raca-frig').value;
             const qtd = document.getElementById('swal-qtd-frig').value;
             if(!raca || !qtd || qtd < 1) Swal.showValidationMessage('Preencha os valores!');
-            const fazendaId = window.location.pathname.split('/').pop();
-            return { raca, quantidade: qtd, fazenda_id: fazendaId };
+            return { raca, quantidade: qtd, fazenda_id: window.location.pathname.split('/').pop() };
         }
     }).then((r) => {
         if(r.isConfirmed) {
@@ -361,14 +304,101 @@ window.abrirModalLoteFrigorifico = function() {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(r.value)
             }).then(res => res.json()).then(d => {
-                if(d.sucesso) {
-                    Swal.fire('Vendido!', d.msg, 'success').then(()=> {
-                        localStorage.setItem('modal_aberto_fazenda', 'modal-curral');
-                        location.reload();
-                    });
-                }
-                else { Swal.fire('Erro', d.erro, 'error'); }
+                if(d.sucesso) Swal.fire('Vendido!', d.msg, 'success').then(()=> { localStorage.setItem('modal_aberto_fazenda', 'modal-curral'); location.reload(); });
+                else Swal.fire('Erro', d.erro, 'error');
             });
         }
+    });
+}
+
+// ==========================================
+// GRÁFICO DINÂMICO DE COTAÇÕES COM CHART.JS
+// ==========================================
+window.abrirGraficoCotacao = function() {
+    const raca = document.getElementById('swal-raca-frig').value;
+    if(!raca) {
+        Swal.showValidationMessage('Selecione uma raça primeiro para ver o gráfico!');
+        return;
+    }
+    
+    Swal.fire({ title: 'Buscando Cotações...', didOpen: () => Swal.showLoading(), allowOutsideClick: false });
+    
+    fetch('/api/mercado/dados_grafico', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ raca: raca })
+    })
+    .then(r => r.json()).then(dados => {
+        if(dados.sucesso) {
+            // Injeta o Chart.js na hora, para não pesar o carregamento inicial da página!
+            if (typeof Chart === 'undefined') {
+                let script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+                document.head.appendChild(script);
+                script.onload = () => renderizarGrafico(dados);
+            } else {
+                renderizarGrafico(dados);
+            }
+        } else {
+            Swal.fire('Erro', 'Não foi possível carregar as cotações.', 'error');
+        }
+    });
+}
+
+function renderizarGrafico(dados) {
+    let corTendencia = dados.fator_atual >= 1.0 ? '#4caf50' : '#f44336';
+    let iconeTendencia = dados.fator_atual >= 1.0 ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down';
+    let msgMercado = dados.fator_atual >= 1.0 ? "Mercado em Alta!" : "Mercado em Baixa!";
+    
+    Swal.fire({
+        title: `Cotação do ${dados.raca}`,
+        html: `
+            <div style="margin-bottom: 10px; font-size: 15px; color: ${corTendencia}; font-weight: bold;">
+                <i class="fas ${iconeTendencia}"></i> ${msgMercado} (${Math.round(dados.fator_atual * 100)}%)
+            </div>
+            <div style="width: 100%; height: 250px; background: #111; padding: 10px; border-radius: 8px;">
+                <canvas id="graficoCanvas"></canvas>
+            </div>
+        `,
+        background: '#2a2a2a', color: '#fff',
+        showConfirmButton: true, confirmButtonText: '<i class="fas fa-undo"></i> Voltar ao Frigorífico',
+        confirmButtonColor: '#2e7d32',
+        didOpen: () => {
+            const ctx = document.getElementById('graficoCanvas').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dados.labels,
+                    datasets: [{
+                        label: `Preço por ${dados.unidade}`,
+                        data: dados.valores,
+                        borderColor: '#ff9800',
+                        backgroundColor: 'rgba(255, 152, 0, 0.2)',
+                        borderWidth: 3,
+                        pointBackgroundColor: '#ff9800',
+                        pointRadius: 5,
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { ticks: { color: '#ccc' }, grid: { color: '#444' } },
+                        x: { ticks: { color: '#ccc' }, grid: { color: '#444' } }
+                    }
+                }
+            });
+        }
+    }).then(() => {
+        abrirModalLoteFrigorifico();
+        setTimeout(() => {
+            const select = document.getElementById('swal-raca-frig');
+            if(select) {
+                select.value = dados.raca.toLowerCase();
+                atualizarTotalFrigorifico();
+            }
+        }, 100);
     });
 }

@@ -8,30 +8,23 @@ class MotorBiologico:
         self.jogador = jogador
 
     def processar_turno(self, horas_avancadas):
+        # Transforma horas em dias (1 hora = 0.041 dias)
         dias = horas_avancadas / 24.0
         avisos_turno = []
         
-        # =======================================================
-        # 🔒 ISOLAMENTO OOP: Processa APENAS as terras do Jogador atual
-        # =======================================================
         if self.jogador:
             propriedades = Propriedade.query.filter_by(dono_id=self.jogador.id).all()
             prop_ids = [p.id for p in propriedades]
             lotes = Lote.query.filter(Lote.fazenda_id.in_(prop_ids)).all() if prop_ids else []
             animais = Animal.query.filter(Animal.propriedade_id.in_(prop_ids)).all() if prop_ids else []
         else:
-            # Fallback de segurança caso chamado sem contexto
             lotes = Lote.query.all()
             animais = Animal.query.all()
 
-        # =======================================================
-        # 1. A NATUREZA AGE: Atualizar Lotes do Jogador
-        # =======================================================
         for lote in lotes:
             if hasattr(lote, 'processar_biologia_vegetal'):
                 lote.processar_biologia_vegetal(self.clima_atual)
                 
-        # Ciclo realista de Agricultura restrito ao jogador
         lotes_ids_validos = [l.id for l in lotes]
         if lotes_ids_validos:
             lotes_plantados = Lote.query.filter(Lote.id.in_(lotes_ids_validos), Lote.status.in_(['plantado', 'colhendo'])).all()
@@ -40,16 +33,18 @@ class MotorBiologico:
                 if not dna_planta:
                     continue
 
-                # A) Tratamento de Descanso (Culturas Perenes)
                 descanso = getattr(lote, 'dias_descanso', 0.0)
                 if descanso > 0:
                     lote.dias_descanso = max(0.0, descanso - dias)
+                    # 🔥 SEGURANÇA: Se a planta está descansando, ela NÃO pode crescer
                     continue 
                     
-                # B) Crescimento Normal
                 if lote.status == 'plantado':
-                    tempo_anterior = getattr(lote, 'dias_plantado', 0)
-                    lote.dias_plantado = tempo_anterior + dias
+                    tempo_anterior = getattr(lote, 'dias_plantado', 0.0)
+                    
+                    # 🔥 SEGURANÇA MATEMÁTICA: Força o número a manter as casas decimais corretamente
+                    novo_tempo = tempo_anterior + dias
+                    lote.dias_plantado = round(novo_tempo, 3)
 
                     if random.random() < (0.15 * dias): 
                         lote.nivel_pragas = int(min(100, getattr(lote, 'nivel_pragas', 0) + 20))
@@ -61,9 +56,8 @@ class MotorBiologico:
                     if getattr(lote, 'nivel_pragas', 0) > 30:
                         lote.produtividade_atual = int(max(10, getattr(lote, 'produtividade_atual', 100) - (10 * dias)))
                     
-                    # C) Ponto de Colheita e Sazonalidade
                     if lote.dias_plantado >= dna_planta.tempo_colheita:
-                        lote.dias_plantado = dna_planta.tempo_colheita 
+                        lote.dias_plantado = float(dna_planta.tempo_colheita)
                         
                         pode_colher = True
                         if getattr(dna_planta, 'tipo_biologia', 'anual') == 'sazonal':
@@ -78,9 +72,6 @@ class MotorBiologico:
                             lote.status = 'colhendo'
                             avisos_turno.append(f"🌾 A safra de {dna_planta.nome} em {lote.nome} está pronta para colher!")
 
-        # =======================================================
-        # 2. A FAUNA AGE: Atualizar Animais do Jogador
-        # =======================================================
         for animal in animais:
             qualidade_pasto = 0
             tem_sal = False

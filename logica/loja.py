@@ -78,3 +78,91 @@ def comprar_item():
         
     except AttributeError:
         return jsonify({'sucesso': False, 'erro': f'A coluna {nome_coluna} não existe no banco de dados!'})
+
+# ==========================================
+# NOVA ROTA: CHECKOUT DO CARRINHO DE COMPRAS
+# ==========================================
+@loja_bp.route('/api/loja/checkout_carrinho', methods=['POST'])
+def checkout_carrinho():
+    if 'usuario' not in session: 
+        return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
+        
+    usuario_sessao = session['usuario']
+    jogador = Jogador.query.filter_by(username=usuario_sessao).first()
+    fazenda = Propriedade.query.filter_by(dono_id=jogador.id).first()
+
+    dados = request.get_json()
+    carrinho = dados.get('carrinho', [])
+
+    if not carrinho:
+        return jsonify({'sucesso': False, 'erro': 'Seu carrinho está vazio!'})
+
+    custo_total_carrinho = 0
+    resumo_compra = []
+
+    itens_armazem = ['sal', 'racao', 'adubo', 'veneno', 'combustivel', 'vacina_aftosa', 'vacina_brucelose', 'medicamento_geral', 'suplemento_engorda']
+    itens_silo_graos = ['soja', 'milho', 'arroz', 'feijao']
+
+    qtd_total_armazem = 0
+    qtd_total_silo = 0
+
+    # 1. Validação Matemática
+    for item in carrinho:
+        try:
+            qtd = int(item.get('quantidade', 0))
+            preco = float(item.get('preco', 0))
+        except ValueError:
+            return jsonify({'sucesso': False, 'erro': 'Dados numéricos corrompidos.'})
+
+        chave = item.get('item', '').replace('sem_', '')
+
+        if qtd <= 0 or preco < 0:
+            return jsonify({'sucesso': False, 'erro': 'Valores inválidos no carrinho.'})
+
+        custo_total_carrinho += (qtd * preco)
+        
+        if chave in itens_armazem:
+            qtd_total_armazem += qtd
+        elif chave in itens_silo_graos:
+            qtd_total_silo += qtd
+
+    # 2. Verifica o Dinheiro
+    if jogador.saldo < custo_total_carrinho:
+        return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente! Sua compra custa R$ {custo_total_carrinho:.2f}'})
+
+    # 3. Verifica Limites de Espaço Coletivo
+    total_atual_armazem = sum(getattr(fazenda, f'est_{i}', 0) for i in itens_armazem if hasattr(fazenda, f'est_{i}'))
+    if (total_atual_armazem + qtd_total_armazem) > fazenda.cap_armazem:
+        return jsonify({'sucesso': False, 'erro': 'Você não tem espaço no Armazém para todos esses insumos!'})
+
+    total_atual_silo = sum(getattr(fazenda, f'est_{i}', 0) for i in itens_silo_graos if hasattr(fazenda, f'est_{i}'))
+    if (total_atual_silo + qtd_total_silo) > fazenda.cap_silo:
+        return jsonify({'sucesso': False, 'erro': 'Você não tem espaço no Silo para todas essas sementes!'})
+
+    # 4. Entrega os itens no banco de dados
+    for item in carrinho:
+        chave = item.get('item', '').replace('sem_', '')
+        qtd = int(item.get('quantidade', 0))
+        
+        nome_coluna = f'est_{chave}'
+        if hasattr(fazenda, nome_coluna):
+            estoque_atual = getattr(fazenda, nome_coluna)
+            setattr(fazenda, nome_coluna, estoque_atual + qtd)
+            resumo_compra.append(f"{qtd}x {chave.capitalize()}")
+
+    jogador.saldo -= custo_total_carrinho
+    
+    # 5. Registra transação única
+    texto_desc = "Compra Múltipla: " + ", ".join(resumo_compra)
+    if len(texto_desc) > 200: texto_desc = texto_desc[:197] + "..." 
+
+    nova_transacao = Transacao(
+        jogador_id=jogador.id,
+        tipo='saida',
+        valor=custo_total_carrinho,
+        descricao=texto_desc
+    )
+    db.session.add(nova_transacao)
+    db.session.commit()
+
+    return jsonify({'sucesso': True, 'msg': f'Sua compra de R$ {custo_total_carrinho:.2f} foi entregue na fazenda!'})
