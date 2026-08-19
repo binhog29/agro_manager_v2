@@ -120,13 +120,16 @@ def avancar_tempo_manual():
         'msg': 'O tempo avançou e a natureza seguiu seu curso!',
         'avisos': avisos_motor
     })
-
+    
 @tempo_bp.route('/api/tempo_atual', methods=['GET'])
 def tempo_atual():
     if 'usuario' not in session: 
         return jsonify({'sucesso': False, 'erro': 'Não logado'})
 
     usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    
+    # 🔥 A MÁGICA VOLTA AQUI: Calcula todo o tempo offline antes de devolver a hora atualizada para a tela!
+    GerenciadorTempo.calcular_progresso_offline(usuario)
     
     return jsonify({
         'sucesso': True,
