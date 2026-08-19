@@ -132,7 +132,7 @@
                     <h4>Represa</h4>
                     <p>Piscicultura</p>
                     {% if fazenda.tem_represa_geral %}
-                        <button class="btn-abrir bg-blue" onclick="abrirModal('modal-represa')">ABRIR 🐟</button>
+                        <button class="btn-abrir bg-blue" onclick="abrirModalHabitat('represa')">ABRIR 🐟</button>
                     {% else %}
                         <button class="btn-construir" onclick="construir('represa', 12000)">CONSTRUIR (12k)</button>
                     {% endif %}
@@ -143,7 +143,7 @@
                     <h4>Chiqueiro</h4>
                     <p>Suinocultura</p>
                     {% if fazenda.tem_chiqueiro %}
-                        <button class="btn-abrir bg-pink" onclick="abrirModal('modal-chiqueiro')">ABRIR 🐷</button>
+                        <button class="btn-abrir bg-pink" onclick="abrirModalHabitat('chiqueiro')">ABRIR 🐷</button>
                     {% else %}
                         <button class="btn-construir" onclick="construir('chiqueiro', 8000)">CONSTRUIR (8k)</button>
                     {% endif %}
@@ -154,7 +154,7 @@
                     <h4>Galinheiro</h4>
                     <p>Avicultura</p>
                     {% if fazenda.tem_galinheiro %}
-                        <button class="btn-abrir bg-orange" onclick="abrirModal('modal-galinheiro')">ABRIR 🐔</button>
+                        <button class="btn-abrir bg-orange" onclick="abrirModalHabitat('galinheiro')">ABRIR 🐔</button>
                     {% else %}
                         <button class="btn-construir" onclick="construir('galinheiro', 5000)">CONSTRUIR (5k)</button>
                     {% endif %}
@@ -181,7 +181,11 @@
     {% include 'partes/cultivo.html' %}
     {% include 'partes/loja.html' %}
     {% include 'partes/modal_atualizacao.html' %}
-
+    {% include 'partes/represa.html' %}
+    {% include 'partes/chiqueiro.html' %}
+    {% include 'partes/galinheiro.html' %}
+    
+    <script src="{{ url_for('static', filename='js/habitats.js') }}"></script>
     <script src="{{ url_for('static', filename='js/fazenda.js') }}"></script>
 </body>
 </html>

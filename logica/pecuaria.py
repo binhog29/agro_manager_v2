@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request, session
 from database import db, Jogador, Propriedade, Animal, Lote, Transacao
+from logica.economia import registrar_transacao
 
 pecuaria_bp = Blueprint('pecuaria', __name__)
 
@@ -344,3 +345,82 @@ def verificar_saude_pastos():
                     animal.peso -= 2.0
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': 'Saúde do gado atualizada.'})
+
+# ==========================================
+# MÓDULO DE HABITATS (Represa, Chiqueiro, Galinheiro)
+# ==========================================
+
+@pecuaria_bp.route('/api/fazenda/construir', methods=['POST'])
+def construir_estrutura():
+    if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
+    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    dados = request.get_json()
+    
+    tipo = dados.get('tipo') # 'represa', 'chiqueiro', 'galinheiro'
+    custo = float(dados.get('custo', 0))
+    fazenda = Propriedade.query.filter_by(dono_id=usuario.id).first()
+    
+    if usuario.saldo < custo:
+        return jsonify({'sucesso': False, 'erro': 'Saldo insuficiente para a obra.'})
+        
+    # Ajuste de nomenclatura do banco de dados
+    coluna_bd = 'tem_represa_geral' if tipo == 'represa' else f'tem_{tipo}'
+    
+    if getattr(fazenda, coluna_bd, False):
+        return jsonify({'sucesso': False, 'erro': f'Você já construiu este {tipo.capitalize()}!'})
+        
+    setattr(fazenda, coluna_bd, True)
+    usuario.saldo -= custo
+    
+    registrar_transacao(usuario.id, 'saida', custo, f'Engenharia: Construção de {tipo.capitalize()}')
+    db.session.commit()
+    
+    return jsonify({'sucesso': True, 'msg': f'Construção do {tipo.capitalize()} concluída!'})
+
+@pecuaria_bp.route('/api/pecuaria/habitat/<nome_habitat>', methods=['GET'])
+def listar_habitat(nome_habitat):
+    if 'usuario' not in session: return jsonify({'animais': []})
+    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    fazenda = Propriedade.query.filter_by(dono_id=usuario.id).first()
+    
+    animais = Animal.query.filter_by(propriedade_id=fazenda.id, onde_esta=nome_habitat).all()
+    
+    lista = [{
+        'id': a.id, 
+        'raca': a.raca.capitalize(), 
+        'fase': a.fase, 
+        'peso': a.peso,
+        'saude': a.saude,
+        'fome': a.fome
+    } for a in animais]
+    
+    return jsonify({'animais': lista})
+
+@pecuaria_bp.route('/api/pecuaria/alimentar_habitat', methods=['POST'])
+def alimentar_habitat():
+    if 'usuario' not in session: return jsonify({'sucesso': False})
+    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    fazenda = Propriedade.query.filter_by(dono_id=usuario.id).first()
+    
+    dados = request.get_json()
+    habitat = dados.get('habitat') # 'represa', 'chiqueiro', etc.
+    
+    animais = Animal.query.filter_by(propriedade_id=fazenda.id, onde_esta=habitat).all()
+    
+    if not animais:
+        return jsonify({'sucesso': False, 'erro': f'Não há animais no(a) {habitat.capitalize()} para alimentar.'})
+        
+    # Lógica de consumo de Ração: 1 saco alimenta até 10 aves/peixes/porcos
+    qtd_sacos_necessarios = max(1, len(animais) // 10)
+    
+    if fazenda.est_racao < qtd_sacos_necessarios:
+        return jsonify({'sucesso': False, 'erro': f'Falta ração no Armazém! Você precisa de {qtd_sacos_necessarios} sacos.'})
+        
+    fazenda.est_racao -= qtd_sacos_necessarios
+    
+    for a in animais:
+        a.fome = max(0, a.fome - 60)
+        a.saude = min(100, a.saude + 15)
+        
+    db.session.commit()
+    return jsonify({'sucesso': True, 'msg': f'{len(animais)} animais alimentados com {qtd_sacos_necessarios} un. de Ração!'})

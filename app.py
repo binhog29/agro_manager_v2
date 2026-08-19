@@ -29,10 +29,10 @@ app.secret_key = 'chave_super_secreta_para_sessoes'
 db.init_app(app)
 migrate = Migrate(app, db) 
 
+# AQUI ESTÁ A CORREÇÃO: Limite global removido para não bloquear o jogo
 limiter = Limiter(
     get_remote_address,
     app=app,
-    default_limits=["1000 per day", "200 per hour"],
     storage_uri="memory://"
 )
 
@@ -131,7 +131,7 @@ def api_mapa_global():
         dono_nome = None # Puxa o nome de quem comprou
         
         if p.dono_id:
-            dono = Jogador.query.get(p.dono_id)
+            dono = db.session.get(Jogador, p.dono_id)
             dono_nome = dono.username if dono else "Desconhecido"
             if usuario_logado and p.dono_id == usuario_logado.id:
                 e_minha = True
