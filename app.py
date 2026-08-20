@@ -115,6 +115,11 @@ def mapa():
         return redirect(url_for('login'))
         
     jogador_atual = Jogador.query.filter_by(username=session['usuario']).first()
+    
+    # 🔥 CORREÇÃO: Calcula o tempo offline ANTES de carregar o mapa global!
+    if jogador_atual:
+        GerenciadorTempo.calcular_progresso_offline(jogador_atual)
+        
     return render_template('mapa.html', jogador=jogador_atual)
 
 @app.route('/api/mapa_global')

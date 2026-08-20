@@ -42,7 +42,8 @@ window.abrirGerenciamentoCultivo = async function(loteId, status, tipoCultivo) {
             showCancelButton: true,
             cancelButtonText: 'Fechar'
         });
-    } else if (status === 'plantado' || status === 'colhendo') {
+    } 
+    else if (status === 'plantado' || status === 'colhendo' || status === 'colheita_incompleta') {
         
         Swal.fire({ title: 'Analisando Lavoura...', didOpen: () => Swal.showLoading() });
         
@@ -51,7 +52,6 @@ window.abrirGerenciamentoCultivo = async function(loteId, status, tipoCultivo) {
         
         if (!dados.sucesso) return Swal.fire('Erro', 'Falha ao ler dados da terra.', 'error');
 
-        // 🔥 A CORREÇÃO ESTÁ AQUI: O Javascript agora confia no Banco de Dados!
         const statusReal = dados.status;
 
         let estiloBotao = `background: #444; color: #888; cursor: not-allowed;`;
@@ -60,7 +60,6 @@ window.abrirGerenciamentoCultivo = async function(loteId, status, tipoCultivo) {
         if (statusReal === 'plantado') {
             estiloBotao = `background: linear-gradient(90deg, #2e7d32 ${dados.progresso_pct}%, #333333 ${dados.progresso_pct}%); color: white; cursor: not-allowed; border: 1px solid #555;`;
             
-            // Oculta o "Faltam X dias" se a lavoura estiver esperando o Clima Sazonal ou se já estiver pronta
             if (dados.estagio.includes('Aguardando') || dados.estagio === 'Ponto de Colheita') {
                 textoBotao = `🕒 ${dados.estagio}`;
             } else {
@@ -70,6 +69,10 @@ window.abrirGerenciamentoCultivo = async function(loteId, status, tipoCultivo) {
         } else if (statusReal === 'colhendo') {
             estiloBotao = `background: #fbc02d; color: #000; cursor: pointer; border: 1px solid #c89600;`;
             textoBotao = `<i class="fas fa-tractor"></i> Contratar Colheita`;
+        } 
+        else if (statusReal === 'colheita_incompleta') {
+            estiloBotao = `background: #ff9800; color: #000; cursor: pointer; border: 1px solid #e65100; box-shadow: 0 0 10px rgba(255,152,0,0.5);`;
+            textoBotao = `<i class="fas fa-exclamation-triangle"></i> Retomar Colheita`;
         }
 
         Swal.fire({
@@ -102,7 +105,6 @@ window.abrirGerenciamentoCultivo = async function(loteId, status, tipoCultivo) {
                         ${textoBotao}
                     </button>
 
-                    <!-- BOTÃO DE DESTRUIR LAVOURA COM TRATOR -->
                     <button class="swal2-styled" style="background: #c62828; color: #fff; margin: 0; margin-top: 5px; grid-column: span 2; font-weight: bold;" onclick="reverterCultivo(${loteId})">
                         <i class="fas fa-tractor"></i> Passar Trator (Remover Lavoura)
                     </button>

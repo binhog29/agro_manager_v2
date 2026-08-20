@@ -4,9 +4,10 @@
         {% set ns = namespace(tem_cultivo=false) %}
         
         {% for lote in fazenda.lotes %}
-            {% if lote.status in ['arado', 'coveado', 'plantado', 'colhendo'] %}
+            <!-- Adicionado o status colheita_incompleta na verificação -->
+            {% if lote.status in ['arado', 'coveado', 'plantado', 'colhendo', 'colheita_incompleta'] %}
                 {% set ns.tem_cultivo = true %}
-                <div class="card cultivo-card" onclick="abrirGerenciamentoCultivo({{ lote.id }}, '{{ lote.status }}', '{{ lote.tipo_cultivo|default('') }}')" style="background: #1a1a1a; border: 1px solid #fbc02d; border-left: 5px solid #fbc02d; border-radius: 12px; padding: 15px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.4); display: flex; flex-direction: column; gap: 10px;">
+                <div class="card cultivo-card" onclick="abrirGerenciamentoCultivo({{ lote.id }}, '{{ lote.status }}', '{{ lote.tipo_cultivo|default('') }}')" style="background: #1a1a1a; border: 1px solid #fbc02d; border-left: 5px solid {% if lote.status == 'colheita_incompleta' %}#ff9800{% else %}#fbc02d{% endif %}; border-radius: 12px; padding: 15px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.4); display: flex; flex-direction: column; gap: 10px;">
                     
                     <div style="display: flex; align-items: center; gap: 12px;">
                         {% set img_nome = 'arado' %}
@@ -19,7 +20,7 @@
                         
                         <div style="flex: 1;">
                             <h3 style="margin: 0; color: #fff; font-size: 16px;">{{ lote.nome }}</h3>
-                            <div style="color: #fbc02d; font-size: 13px; font-weight: bold; text-transform: capitalize;">
+                            <div style="color: {% if lote.status == 'colheita_incompleta' %}#ff9800{% else %}#fbc02d{% endif %}; font-size: 13px; font-weight: bold; text-transform: capitalize;">
                                 {% if lote.status in ['arado', 'coveado'] %}
                                     Pronto para Plantio
                                 {% else %}
@@ -33,7 +34,8 @@
                         </div>
                     </div>
 
-                    {% if lote.status in ['plantado', 'colhendo'] %}
+                    <!-- Mantém as barras de fertilidade e pragas -->
+                    {% if lote.status in ['plantado', 'colhendo', 'colheita_incompleta'] %}
                     <div style="display: flex; gap: 4px; margin-top: 5px;">
                         <div style="flex: 1; background: {% if lote.fertilidade_solo|default(100) > 50 %}#2e7d32{% else %}#c62828{% endif %}; color: white; text-align: center; font-size: 11px; padding: 4px; border-radius: 4px; font-weight: bold;">
                             🌱 Solo: {{ lote.fertilidade_solo|default(100) | int }}%
@@ -46,7 +48,13 @@
 
                     <div style="background: #222; padding: 8px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; margin-top: 5px;">
                         <span style="color: #aaa; font-size: 12px;">Status da Terra</span>
-                        <span style="color: #fff; font-weight: bold; font-size: 14px; text-transform: capitalize;">{{ lote.status }}</span>
+                        
+                        <!-- Destaca o erro do Silo visualmente -->
+                        {% if lote.status == 'colheita_incompleta' %}
+                            <span style="color: #ff9800; font-weight: bold; font-size: 14px;">⚠️ Silo Cheio</span>
+                        {% else %}
+                            <span style="color: #fff; font-weight: bold; font-size: 14px; text-transform: capitalize;">{{ lote.status }}</span>
+                        {% endif %}
                     </div>
                 </div>
             {% endif %}

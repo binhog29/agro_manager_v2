@@ -230,47 +230,72 @@ def colher():
     dados = request.get_json()
     lote = Lote.query.get(dados.get('lote_id'))
 
-    if not lote or lote.status != 'colhendo': 
+    # Adicionei 'colheita_incompleta' caso você decida mudar o status visual no JS depois
+    if not lote or lote.status not in ['colhendo', 'colheita_incompleta']: 
         return jsonify({'sucesso': False, 'erro': 'A lavoura não está no ponto de colheita.'})
 
     tipo = lote.tipo_cultivo
     dna_planta = CATALOGO_CULTIVOS.get(tipo)
-    custo_colheita = dna_planta.custo_maquina_colheita
-
-    if usuario.saldo < custo_colheita:
-        return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente para a Colheita (R$ {custo_colheita}).'})
-
+    
+    # 1. Descobre o total que tem na roça hoje
     produtividade = getattr(lote, 'produtividade_atual', 100)
-    kg_colhidos = int(dna_planta.producao_kg * (produtividade / 100.0))
+    kg_totais_disponiveis = int(dna_planta.producao_kg * (produtividade / 100.0))
 
     itens_silo_graos = ['soja', 'milho', 'arroz', 'feijao']
-    
+    kg_a_colher = kg_totais_disponiveis
+    espaco_livre = 9999999 # Valor alto seguro caso não seja grão
+
+    # 2. Validação de espaço no Silo
     if tipo in itens_silo_graos:
         total_silo = sum(getattr(fazenda, f'est_{i}', 0) for i in itens_silo_graos if hasattr(fazenda, f'est_{i}'))
-        if (total_silo + kg_colhidos) > fazenda.cap_silo:
-            espaco_livre = fazenda.cap_silo - total_silo
-            return jsonify({'sucesso': False, 'erro': f'Silo de Grãos cheio! Você só tem {espaco_livre} kg de espaço.'})
+        espaco_livre = fazenda.cap_silo - total_silo
+        
+        if espaco_livre <= 0:
+            return jsonify({'sucesso': False, 'erro': 'Silo de Grãos 100% cheio! Você precisa vender no mercado antes de colher.'})
             
+        # Define se colhe tudo ou só o que cabe no silo
+        kg_a_colher = min(kg_totais_disponiveis, espaco_livre)
+
+    # Verifica se é uma colheita parcial
+    colheita_parcial = kg_a_colher < kg_totais_disponiveis
+    
+    # 3. Calcula o custo da máquina proporcionalmente (se colher metade, paga só metade agora)
+    proporcao_colhida = kg_a_colher / kg_totais_disponiveis if kg_totais_disponiveis > 0 else 1
+    custo_real = int(dna_planta.custo_maquina_colheita * proporcao_colhida)
+
+    if usuario.saldo < custo_real:
+        return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente para a Colheita (R$ {custo_real}).'})
+
+    # 4. Adiciona os grãos no Silo
     coluna_estoque = f'est_{tipo}'
     try:
         estoque_atual = getattr(fazenda, coluna_estoque, 0)
-        setattr(fazenda, coluna_estoque, estoque_atual + kg_colhidos)
+        setattr(fazenda, coluna_estoque, estoque_atual + kg_a_colher)
     except AttributeError:
         return jsonify({'sucesso': False, 'erro': 'Este item ainda não tem espaço configurado.'})
     
-    msg_final = f'Colheita finalizada! {kg_colhidos} kg de {dna_planta.nome} armazenados com sucesso.'
-    
-    usuario.saldo -= custo_colheita
-    lote.fertilidade_solo = max(0, getattr(lote, 'fertilidade_solo', 100) - 30)
-    registrar_transacao(usuario.id, 'saida', custo_colheita, f'Custos de Colheita ({lote.nome})')
+    usuario.saldo -= custo_real
+    registrar_transacao(usuario.id, 'saida', custo_real, f'Custos de Colheita ({lote.nome})')
 
-    dna_planta.processar_pos_colheita(lote)
+    # 5. O Pulo do Gato (O que acontece com a lavoura)
+    msg_final = ""
+    
+    if colheita_parcial:
+        # A lavoura fica no campo, apenas reduzimos a produtividade para refletir o que já foi tirado
+        nova_produtividade = produtividade - (produtividade * proporcao_colhida)
+        lote.produtividade_atual = nova_produtividade
+        lote.status = 'colhendo' # Mantemos 'colhendo' para o seu botão de colher continuar aparecendo no HTML
+        msg_final = f'⚠️ Silo encheu no meio do serviço! Foram colhidos {kg_a_colher} kg. Venda no mercado e volte para terminar.'
+    else:
+        # Colheu 100% com sucesso, segue o fluxo normal do seu jogo
+        lote.fertilidade_solo = max(0, getattr(lote, 'fertilidade_solo', 100) - 30)
+        dna_planta.processar_pos_colheita(lote)
+        msg_final = f'Colheita finalizada! {kg_a_colher} kg de {dna_planta.nome} armazenados com sucesso.'
+        
+        if getattr(lote, 'ciclos_colhidos', 0) >= getattr(dna_planta, 'max_ciclos', 99):
+            msg_final += f"\n⚠️ Alerta: Este pé de {dna_planta.nome} ficou velho. A produtividade da próxima safra será drástica!"
 
     db.session.commit()
-    
-    if getattr(lote, 'ciclos_colhidos', 0) >= getattr(dna_planta, 'max_ciclos', 99):
-        msg_final += f"\n⚠️ Alerta: Este pé de {dna_planta.nome} ficou velho. A produtividade da próxima safra será drástica!"
-
     return jsonify({'sucesso': True, 'msg': msg_final})
 
 @cultivo_bp.route('/api/cultivo/abandonar', methods=['POST'])
