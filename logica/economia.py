@@ -13,6 +13,24 @@ def registrar_transacao(jogador_id, tipo, valor, descricao):
     )
     db.session.add(nova_transacao)
 
+def calcular_custo_operacional(saldo_atual, horas_avancadas, custo_base_frontend=0.0):
+    """
+    Calcula o custo de avançar o tempo baseado na riqueza do jogador.
+    Quanto mais rico o jogador, maior o peso da manutenção da fazenda.
+    """
+    # Custo fixo básico do servidor por hora avançada (ex: R$ 50/hora)
+    custo_por_hora = 50.0 
+    custo_inicial = custo_base_frontend + (custo_por_hora * horas_avancadas)
+
+    # ⚖️ O PESO DA RIQUEZA: 
+    # Para cada R$ 100.000 que o jogador tem na conta, o custo operacional aumenta em 15%
+    # Assim, o iniciante não sofre, mas o tubarão paga caro pela manutenção do império.
+    aumento_percentual = (saldo_atual / 100000.0) * 0.15
+    multiplicador = 1.0 + aumento_percentual
+
+    custo_final = int(custo_inicial * multiplicador)
+    return custo_final
+    
 # --- ROTA DA TELA FINANCEIRA ---
 @economia_bp.route('/financeiro')
 def financeiro():

@@ -94,20 +94,38 @@ def avancar_tempo_manual():
     dados = request.get_json()
     
     horas_avancar = int(dados.get('horas', 0))
-    custo = float(dados.get('custo', 0.0))
 
-    if usuario.saldo < custo:
-        return jsonify({'sucesso': False, 'erro': 'Saldo insuficiente para pagar os custos deste período.'})
+    # 💰 TABELA DE PREÇOS FIXOS BALANCEADOS
+    # Valores justos para não quebrar os iniciantes, mas pesar no bolso
+    tabela_precos = {
+        1: 1000.0,       # 1 Hora = R$ 1.000
+        6: 5000.0,       # 6 Horas = R$ 5.000
+        24: 20000.0,     # 1 Dia = R$ 20.000
+        168: 120000.0    # 1 Semana = R$ 120.000
+    }
 
-    if custo > 0:
-        usuario.saldo -= custo
+    # Pega o custo fixo baseado na quantidade de horas.
+    custo_real = tabela_precos.get(horas_avancar, horas_avancar * 500.0)
+
+    # 2. Verifica se o jogador aguenta pagar as despesas
+    if usuario.saldo < custo_real:
+        valor_formatado = f"{custo_real:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        return jsonify({
+            'sucesso': False, 
+            'erro': f'Caixa insuficiente para cobrir as despesas operacionais! Custo fixo: R$ {valor_formatado}'
+        })
+
+    # 3. Cobra o jogador e registra a transação
+    if custo_real > 0:
+        usuario.saldo -= custo_real
         registrar_transacao(
             jogador_id=usuario.id,
             tipo='saida',
-            valor=custo,
-            descricao=f'Despesas de Tempo ({horas_avancar}h)'
+            valor=custo_real,
+            descricao=f'Despesas Fixas de Operação ({horas_avancar}h)'
         )
 
+    # 4. Avança o tempo biológico da fazenda com segurança
     avisos_motor = []
     if horas_avancar > 0:
         avisos_motor = GerenciadorTempo.avancar_tempo(usuario, horas_avancar)
@@ -115,9 +133,10 @@ def avancar_tempo_manual():
 
     db.session.commit()
     
+    valor_formatado = f"{custo_real:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     return jsonify({
         'sucesso': True, 
-        'msg': 'O tempo avançou e a natureza seguiu seu curso!',
+        'msg': f'O tempo avançou! Despesas pagas: R$ {valor_formatado}',
         'avisos': avisos_motor
     })
     
