@@ -1,3 +1,15 @@
+
+// Função auxiliar para alternar entre Kg e Arrobas (@)
+function formatarPeso(peso) {
+    let p = parseFloat(peso) || 0;
+    if (p >= 15.0) {
+        // 1 Arroba (@) = 15 kg
+        return (p / 15.0).toFixed(1) + ' @';
+    } else {
+        return p.toFixed(1) + ' kg';
+    }
+}
+
 // ==========================================
 // MANEJO E EXPANSÃO DO CURRAL
 // ==========================================

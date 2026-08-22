@@ -12,19 +12,22 @@
 <body>
     <header class="top-panel">
         <div class="panel-left">
-            <div class="user-badge">
+            <div class="user-badge" onclick="window.location.href='/perfil'" style="cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
                 <div class="avatar-mini"><i class="fas fa-user-circle"></i></div>
                 <div class="user-details">
-                    <span class="user-name">{{ jogador.username }}</span>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span class="user-name">{{ jogador.username }}</span>
+                        <span style="background: linear-gradient(45deg, #f9a825, #ffb300); color: #333; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 6px; border: 1px solid #ffd54f; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">Nvl {{ jogador.nivel }}</span>
+                    </div>
                     <span class="user-title">{% if jogador.username|lower == 'ceo' %}👑 Dono do Jogo{% else %}Fazendeiro{% endif %}</span>
                 </div>
             </div>
+            
             <div class="wallet-badge">
                 <i class="fas fa-wallet"></i> R$ {{ "{:,.2f}".format(jogador.saldo).replace(',','v').replace('.',',').replace('v','.') }}
             </div>
         </div>
 
-        <!-- RELÓGIO COM SISTEMA DE CLIMA E ESTAÇÃO -->
         <div style="background: rgba(30, 30, 30, 0.95); padding: 6px 12px; border-radius: 15px; text-align: center; color: white; border: 1px solid #555; pointer-events: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.3); min-width: 90px;">
             <div id="estacao-jogo" style="font-size: 9px; color: #aaa; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px;">
                 <i class="fas fa-leaf" style="color: #4caf50;"></i> {{ jogador.estacao_atual|default('Primavera') }}
@@ -45,23 +48,34 @@
             <div id="data-jogo" style="font-weight: bold; font-size: 10px; color: #f9a825; margin-top: 2px;">
                  {{ "%02d"|format(jogador.dia|default(1)) }}/{{ "%02d"|format(jogador.mes|default(1)) }}/{{ jogador.ano|default(2026) }}
             </div>
-            <button onclick="document.getElementById('modal-tempo').style.display='flex'" style="margin-top:5px; background: #2e7d32; color: white; border: none; padding: 2px 10px; border-radius: 5px; font-size: 10px; cursor: pointer;">
-                <i class="fas fa-forward"></i> Avançar Tempo
-            </button>
+            
+            <!-- BLOQUEIA AVANÇAR TEMPO PARA VISITAS -->
+            {% if not visitante %}
+                <button onclick="document.getElementById('modal-tempo').style.display='flex'" style="margin-top:5px; background: #2e7d32; color: white; border: none; padding: 2px 10px; border-radius: 5px; font-size: 10px; cursor: pointer;">
+                    <i class="fas fa-forward"></i> Avançar Tempo
+                </button>
+            {% endif %}
         </div>
-        
     </header>
 
     <div class="header-spacer"></div>
 
+    <!-- MENSAGEM ELEGANTE PARA O MODO TURISTA -->
+    {% if visitante %}
+    <div style="background: rgba(255, 179, 0, 0.15); border: 1px solid #ffb300; color: #ffb300; padding: 12px; margin: 10px 15px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 13px; font-family: 'Poppins', sans-serif;">
+        <i class="fas fa-eye"></i> MODO TURISTA: Você está visitando. As ações da Sede estão bloqueadas.
+    </div>
+    {% endif %}
+
     <div class="farm-title">
-        {{ fazenda.nome }} <i class="fas fa-pen edit-icon"></i>
+        {{ fazenda.nome }} {% if not visitante %}<i class="fas fa-pen edit-icon"></i>{% endif %}
     </div>
 
     <nav class="tabs-menu">
         <div class="menu-item active" id="btn-sede" onclick="trocarAba('sede', this)">
             <img src="/static/img/sede.png" style="width: 22px; height: 22px; object-fit: contain; margin-right: 5px;"> Sede
         </div>
+        
         <div class="menu-item" id="btn-terras" onclick="trocarAba('terras', this)">
             <img src="/static/img/arvore.png" style="width: 22px; height: 22px; object-fit: contain; margin-right: 5px;"> Terras
         </div>
@@ -71,16 +85,19 @@
         <div class="menu-item" id="btn-cultivo" onclick="trocarAba('cultivo', this)">
             <img src="/static/img/arado.png" style="width: 22px; height: 22px; object-fit: contain; margin-right: 5px;"> Cultivo
         </div>
-        <div class="menu-item" id="btn-loja" onclick="trocarAba('loja', this)">
-            <img src="/static/img/loja.png" style="width: 22px; height: 22px; object-fit: contain; margin-right: 5px;"> Loja
-        </div>
-        <div class="menu-item" onclick="window.location.href='{{ url_for('cemiterio', prop_id=fazenda.id) }}'" style="cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;">
-            <img src="/static/img/cemiterio.png" style="width: 22px; height: 22px; object-fit: contain; margin-right: 5px;"> Cemitério
-        </div>
-
-        <div class="menu-item" id="btn-caixa" onclick="window.location.href='/financeiro'">
-            <img src="/static/img/financas.png" style="width: 22px; height: 22px; object-fit: contain; margin-right: 5px;"> Caixa
-        </div>
+        
+        <!-- ESCONDE LOJA, CAIXA E CEMITÉRIO SE FOR VISITA -->
+        {% if not visitante %}
+            <div class="menu-item" id="btn-loja" onclick="trocarAba('loja', this)">
+                <img src="/static/img/loja.png" style="width: 22px; height: 22px; object-fit: contain; margin-right: 5px;"> Loja
+            </div>
+            <div class="menu-item" onclick="window.location.href='{{ url_for('cemiterio', prop_id=fazenda.id) }}'" style="cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;">
+                <img src="/static/img/cemiterio.png" style="width: 22px; height: 22px; object-fit: contain; margin-right: 5px;"> Cemitério
+            </div>
+            <div class="menu-item" id="btn-caixa" onclick="window.location.href='/financeiro'">
+                <img src="/static/img/financas.png" style="width: 22px; height: 22px; object-fit: contain; margin-right: 5px;"> Caixa
+            </div>
+        {% endif %}
         
         <div class="menu-item" onclick="window.location.href='/mapa'">
             <img src="/static/img/mapa.png" style="width: 22px; height: 22px; object-fit: contain; margin-right: 5px;"> Mapa
@@ -95,46 +112,85 @@
                     <img src="/static/img/silo.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2829/2829803.png'">
                     <h4>Silo de Grãos</h4>
                     <p>Apenas Grãos</p>
-                    <button class="btn-abrir" onclick="abrirModal('modal-silo')">ABRIR 📦</button>
+                    {% if not visitante %}
+                        <button class="btn-abrir" onclick="abrirModal('modal-silo')">ABRIR 📦</button>
+                    {% else %}
+                        <button class="btn-abrir" style="background-color: #555; color: #999; cursor: not-allowed;" disabled>VISITA 🔒</button>
+                    {% endif %}
                 </div>
 
-                <!-- NOVO CARD DO GALPÃO -->
                 <div class="sede-card">
                     <img src="/static/img/celeiro.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2829/2829839.png'">
                     <h4>Galpão Agrícola</h4>
                     <p>Frutas, Raízes e Fibras</p>
-                    <button class="btn-abrir" style="background-color: #8d6e63;" onclick="abrirModal('modal-galpao')">ABRIR 🛖</button>
+                    {% if not visitante %}
+                        <button class="btn-abrir" style="background-color: #8d6e63;" onclick="abrirModal('modal-galpao')">ABRIR 🛖</button>
+                    {% else %}
+                        <button class="btn-abrir" style="background-color: #555; color: #999; cursor: not-allowed;" disabled>VISITA 🔒</button>
+                    {% endif %}
                 </div>
 
                 <div class="sede-card">
                     <img src="/static/img/celeiro.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2829/2829839.png'">
                     <h4>Armazém</h4>
                     <p>Sementes e Insumos</p>
-                    <button class="btn-abrir" onclick="abrirModal('modal-armazem')">ABRIR 🎒</button>
+                    {% if not visitante %}
+                        <button class="btn-abrir" onclick="abrirModal('modal-armazem')">ABRIR 🎒</button>
+                    {% else %}
+                        <button class="btn-abrir" style="background-color: #555; color: #999; cursor: not-allowed;" disabled>VISITA 🔒</button>
+                    {% endif %}
                 </div>
 
                 <div class="sede-card">
                     <img src="/static/img/curral.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2829/2829774.png'">
                     <h4>Tronco</h4>
                     <p>Manejo de Animais</p>
-                    <button class="btn-abrir" onclick="abrirModal('modal-curral')">ABRIR 🐄</button>
+                    {% if not visitante %}
+                        <button class="btn-abrir" onclick="abrirModal('modal-curral')">ABRIR 🐄</button>
+                    {% else %}
+                        <button class="btn-abrir" style="background-color: #555; color: #999; cursor: not-allowed;" disabled>VISITA 🔒</button>
+                    {% endif %}
                 </div>
 
                 <div class="sede-card">
                     <img src="/static/img/trator.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2316/2316668.png'">
                     <h4>Barracão</h4>
                     <p>Maquinário Agrícola</p>
-                    <button class="btn-abrir" onclick="abrirModal('modal-barracao')">VER 🚜</button>
+                    {% if not visitante %}
+                        <button class="btn-abrir" onclick="abrirModal('modal-barracao')">VER 🚜</button>
+                    {% else %}
+                        <button class="btn-abrir" style="background-color: #555; color: #999; cursor: not-allowed;" disabled>VISITA 🔒</button>
+                    {% endif %}
                 </div>
                 
                 <div class="sede-card">
                     <img src="/static/img/represa.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2316/2316668.png'">
                     <h4>Represa</h4>
                     <p>Piscicultura</p>
-                    {% if fazenda.tem_represa_geral %}
-                        <button class="btn-abrir bg-blue" onclick="abrirModalHabitat('represa')">ABRIR 🐟</button>
+                    {% if not visitante %}
+                        {% if fazenda.tem_represa_geral %}
+                            <button class="btn-abrir bg-blue" onclick="abrirModalHabitat('represa')">ABRIR 🐟</button>
+                        {% else %}
+                            <button class="btn-construir" onclick="construir('represa', 12000)">CONSTRUIR (12k)</button>
+                        {% endif %}
                     {% else %}
-                        <button class="btn-construir" onclick="construir('represa', 12000)">CONSTRUIR (12k)</button>
+                        <button class="btn-abrir" style="background-color: #555; color: #999; cursor: not-allowed;" disabled>VISITA 🔒</button>
+                    {% endif %}
+                </div>
+                
+                <!-- CARD DO ALOJAMENTO (RH) -->
+                <div class="sede-card">
+                    <img src="/static/img/alojamento.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3135/3135768.png'">
+                    <h4>Alojamento</h4>
+                    <p>Gerenciar Equipe</p>
+                    {% if not visitante %}
+                        {% if jogador.nivel >= 3 or jogador.is_admin %}
+                            <button class="btn-abrir" style="background-color: #2e7d32;" onclick="abrirModalFuncionarios()">GERENCIAR 👷</button>
+                        {% else %}
+                            <button class="btn-abrir" style="background-color: #555; color: #999; cursor: not-allowed;" disabled>NÍVEL 3 🔒</button>
+                        {% endif %}
+                    {% else %}
+                        <button class="btn-abrir" style="background-color: #555; color: #999; cursor: not-allowed;" disabled>VISITA 🔒</button>
                     {% endif %}
                 </div>
 
@@ -142,10 +198,14 @@
                     <img src="/static/img/chiqueiro.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2316/2316668.png'">
                     <h4>Chiqueiro</h4>
                     <p>Suinocultura</p>
-                    {% if fazenda.tem_chiqueiro %}
-                        <button class="btn-abrir bg-pink" onclick="abrirModalHabitat('chiqueiro')">ABRIR 🐷</button>
+                    {% if not visitante %}
+                        {% if fazenda.tem_chiqueiro %}
+                            <button class="btn-abrir bg-pink" onclick="abrirModalHabitat('chiqueiro')">ABRIR 🐷</button>
+                        {% else %}
+                            <button class="btn-construir" onclick="construir('chiqueiro', 8000)">CONSTRUIR (8k)</button>
+                        {% endif %}
                     {% else %}
-                        <button class="btn-construir" onclick="construir('chiqueiro', 8000)">CONSTRUIR (8k)</button>
+                        <button class="btn-abrir" style="background-color: #555; color: #999; cursor: not-allowed;" disabled>VISITA 🔒</button>
                     {% endif %}
                 </div>
 
@@ -153,18 +213,23 @@
                     <img src="/static/img/galinheiro.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2316/2316668.png'">
                     <h4>Galinheiro</h4>
                     <p>Avicultura</p>
-                    {% if fazenda.tem_galinheiro %}
-                        <button class="btn-abrir bg-orange" onclick="abrirModalHabitat('galinheiro')">ABRIR 🐔</button>
+                    {% if not visitante %}
+                        {% if fazenda.tem_galinheiro %}
+                            <button class="btn-abrir bg-orange" onclick="abrirModalHabitat('galinheiro')">ABRIR 🐔</button>
+                        {% else %}
+                            <button class="btn-construir" onclick="construir('galinheiro', 5000)">CONSTRUIR (5k)</button>
+                        {% endif %}
                     {% else %}
-                        <button class="btn-construir" onclick="construir('galinheiro', 5000)">CONSTRUIR (5k)</button>
+                        <button class="btn-abrir" style="background-color: #555; color: #999; cursor: not-allowed;" disabled>VISITA 🔒</button>
                     {% endif %}
                 </div>
 
+                <!-- COMUNIDADE: A visita PODE bater papo, então deixamos ativo! -->
                 <div class="sede-card">
                     <img src="/static/img/comunidade.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2316/2316668.png'">
                     <h4>Comunidade</h4>
                     <p>Chat e Amigos</p>
-                    <button class="btn-abrir bg-purple" onclick="abrirModal('modal-social')">SOCIAL 💬</button>
+                    <button class="btn-abrir bg-purple" onclick="abrirChatGlobal()">SOCIAL 💬</button>
                 </div>
 
             </div>

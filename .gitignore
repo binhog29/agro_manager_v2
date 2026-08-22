@@ -1,0 +1,4 @@
+banco_dados.db
+*.db
+__pycache__/
+venv/

@@ -1,3 +1,14 @@
+// Função auxiliar para alternar entre Kg e Arrobas (@)
+function formatarPeso(peso) {
+    let p = parseFloat(peso) || 0;
+    if (p >= 15.0) {
+        // 1 Arroba (@) = 15 kg
+        return (p / 15.0).toFixed(1) + ' @';
+    } else {
+        return p.toFixed(1) + ' kg';
+    }
+}
+
 window.abrirGerenciamentoPasto = async function(loteId, tipoCapim, temCocho, temBebedouro, temCochoRacao, qtdSal, qtdRacao) {
     const response = await fetch(`/api/pecuaria/listar_pasto?pasto_id=${loteId}`);
     const data = await response.json();
@@ -8,7 +19,7 @@ window.abrirGerenciamentoPasto = async function(loteId, tipoCapim, temCocho, tem
     if(temCochoRacao) { infoCocho += `✅ Ração (${Math.round(qtdRacao)}/20 un) | `; } else { infoCocho += `❌ Ração | `; }
     infoCocho += temBebedouro ? `✅ Água` : `❌ Água`;
     
-    // Lista de animais mais compacta (e com o peso protegido para 1 casa decimal)
+    // Lista de animais usando a formatação dinâmica de peso (Kg ou @)
     let animaisHtml = data.animais.map(a => {
         const cAft = a.vacinado_aftosa ? '#2196f3' : '#444';
         const cBruc = a.vacinado_brucelose ? '#f44336' : '#444';
@@ -19,7 +30,7 @@ window.abrirGerenciamentoPasto = async function(loteId, tipoCapim, temCocho, tem
         <div style="background: #222; padding: 8px; margin-bottom: 6px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between; border-left: 3px solid #555;">
             <div style="text-align: left;">
                 <div style="font-weight: bold; font-size: 13px; color: #fff;">${a.raca}</div>
-                <div style="font-size: 10px; color: #888;">ID: #${a.id} | ${parseFloat(a.peso).toFixed(1)}@</div>
+                <div style="font-size: 10px; color: #888;">ID: #${a.id} | ${formatarPeso(a.peso)}</div>
             </div>
             
             <div style="display: flex; gap: 4px;">
@@ -52,7 +63,6 @@ window.abrirGerenciamentoPasto = async function(loteId, tipoCapim, temCocho, tem
                 <button class="swal2-styled" style="background: #2e7d32; margin:0;" onclick="abrirSeletorAnimais(${loteId}, 'pasto_para_curral')">Levar</button>
                 <button class="swal2-styled" style="background: #0288d1; grid-column: span 2; margin:0;" onclick="abrirLojaInfra(${loteId}, ${temCocho}, ${temBebedouro}, ${temCochoRacao})">Manutenção</button>
                 
-                <!-- O BOTÃO DE DESTRUIR PASTO ESTÁ AQUI AGORA -->
                 <button class="swal2-styled" style="background: #c62828; color: #fff; grid-column: span 2; margin:0; font-weight: bold;" onclick="reverterPasto(${loteId})">
                     <i class="fas fa-tractor"></i> Passar Trator (Destruir Pasto)
                 </button>
@@ -219,7 +229,8 @@ window.abrirSeletorAnimais = async function(pastoId, acao) {
                         <span style="color: #aaa; font-size: 12px;">ID: #${a.id} | Sexo: ${a.sexo}</span>
                     </div>
                 </div>
-                <div style="color: #8bc34a; font-weight: bold; font-size: 16px;">${parseFloat(a.peso).toFixed(1)} @</div>
+                <!-- Usando a formatação dinâmica de peso também no seletor -->
+                <div style="color: #8bc34a; font-weight: bold; font-size: 16px;">${formatarPeso(a.peso)}</div>
             </div>
         `;
     });
@@ -324,7 +335,7 @@ window.reverterPasto = function(loteId) {
 };
 
 window.comprarInfraPasto = function(loteId, tipoObra) {
-    Swal.fire({ title: 'Construindo...', didOpen: () => Swal.showLoading() });
+    Swal.fire({ title: 'Construindo...', didOpen: () => Swal.showLoading() || true });
     
     fetch('/api/fazenda/infra_pasto', {
         method: 'POST',

@@ -67,6 +67,19 @@ class GerenciadorTempo:
         # 🔒 ENVIANDO O JOGADOR PARA O MOTOR BIOLÓGICO PROCESSAR APENAS AS TERRAS DELE
         motor = MotorBiologico(clima_atual=getattr(jogador, 'clima_atual', 'sol'), jogador=jogador)
         avisos = motor.processar_turno(horas)
+        
+        # ==========================================
+        # NOVO: PROGRESSÃO DE XP POR GESTÃO DO TEMPO
+        # ==========================================
+        xp_ganho = int(horas * 5)  # 15 XP por cada hora paga/gerenciada
+        
+        # Chama a inteligência do banco para somar XP e checar se subiu de nível
+        if jogador.adicionar_xp(xp_ganho):
+            # Se subiu, dispara um aviso que vai direto pra tela do jogador
+            bonus = jogador.nivel * 1000
+            valor_formatado = f"{bonus:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            avisos.append(f"🎉 LEVEL UP! Parabéns, você alcançou o Nível {jogador.nivel} e ganhou R$ {valor_formatado} de bônus!")
+            
         return avisos
 
     @classmethod
@@ -112,7 +125,7 @@ def avancar_tempo_manual():
         valor_formatado = f"{custo_real:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
         return jsonify({
             'sucesso': False, 
-            'erro': f'Caixa insuficiente para cobrir as despesas operacionais! Custo fixo: R$ {valor_formatado}'
+            'erro': f'Saldo insuficiente para pagar as despesas operacionais! Custo: R$ {valor_formatado}'
         })
 
     # 3. Cobra o jogador e registra a transação

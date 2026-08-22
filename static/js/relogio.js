@@ -126,7 +126,7 @@ window.confirmarAvanco = function(horas, custo) {
     })
     .then(r => r.json())
     .then(d => {
-        if(d.sucesso) {
+        if (d.sucesso) {
             // Se houver avisos gerados pelo motor biológico (como mortes), exibe o modal elegante
             if (d.avisos && d.avisos.length > 0) {
                 window.mostrarAvisoCustomizado(d.avisos.join("\n"));
@@ -134,12 +134,26 @@ window.confirmarAvanco = function(horas, custo) {
                 location.reload();
             }
         } else {
-            // Se não tem dinheiro, mostra o erro
-            alert("Erro: " + d.erro);
+            // Se não tem dinheiro, mostra o aviso bonito com SweetAlert
+            Swal.fire({
+                icon: 'warning',
+                title: 'Atenção',
+                text: d.erro,
+                background: '#1e1e1e',
+                color: '#fff',
+                confirmButtonColor: '#43a047'
+            });
         }
     })
     .catch(e => {
         console.error(e);
-        alert("Erro de comunicação com o servidor.");
+        Swal.fire({
+            icon: 'error',
+            title: 'Erro',
+            text: 'Erro de comunicação com o servidor.',
+            background: '#1e1e1e',
+            color: '#fff',
+            confirmButtonColor: '#d33'
+        });
     });
 };

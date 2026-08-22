@@ -18,6 +18,27 @@
             {% if jogador.is_admin %}👑 Dono do Jogo{% else %}Fazendeiro - Nível {{ jogador.nivel }}{% endif %}
         </p>
         
+        <!-- ========================================== -->
+        <!-- NOVA BARRA DE XP ELEGANTE -->
+        <!-- ========================================== -->
+        <div style="width: 100%; max-width: 280px; margin: 5px auto 25px auto; background: #e0e0e0; border-radius: 12px; height: 18px; overflow: hidden; border: 1px solid #ccc; position: relative; box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);">
+            
+            <!-- Lógica de cálculo do XP embutida no Jinja2 -->
+            {% set xp_atual = jogador.xp|default(0) %}
+            {% set xp_necessario = (jogador.nivel * 1000) if jogador.nivel else 1000 %}
+            {% set porcentagem = (xp_atual / xp_necessario * 100) if xp_necessario > 0 else 0 %}
+            {% set porcentagem_final = 100 if porcentagem > 100 else porcentagem %}
+            
+            <!-- Preenchimento Verde Animado -->
+            <div style="width: {{ porcentagem_final }}%; background: linear-gradient(90deg, #4caf50, #81c784); height: 100%; border-radius: 12px; transition: width 0.5s ease-in-out;"></div>
+            
+            <!-- Texto centralizado com sombra branca para facilitar a leitura -->
+            <span style="position: absolute; width: 100%; height: 100%; top: 0; left: 0; font-size: 11px; font-weight: 800; color: #333; display: flex; align-items: center; justify-content: center; text-shadow: 0px 0px 3px rgba(255,255,255,0.9); letter-spacing: 0.5px;">
+                {{ xp_atual }} / {{ xp_necessario }} XP
+            </span>
+        </div>
+        <!-- ========================================== -->
+        
         <div id="alerta-box"></div>
         
         <input type="text" id="nome" value="{{ jogador.username }}" placeholder="Nome">

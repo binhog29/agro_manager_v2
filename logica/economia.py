@@ -70,13 +70,21 @@ def comprar_fazenda(prop_id):
     jogador.saldo -= propriedade.preco
     propriedade.dono_id = jogador.id
     
-    # --- NOVO: REGISTRA NO FLUXO DE CAIXA ---
+    # --- REGISTRA NO FLUXO DE CAIXA ---
     registrar_transacao(
         jogador_id=jogador.id, 
         tipo='saida', 
         valor=propriedade.preco, 
         descricao=f'Compra de Terra: {propriedade.nome}'
     )
+    
+    # ==========================================
+    # BÔNUS DE XP: RECOMPENSA POR EXPANSÃO
+    # ==========================================
+    if jogador.adicionar_xp(500):
+        # Se o método retornar True, o jogador subiu de nível com essa compra!
+        print(f"Fazendeiro {jogador.username} subiu para o Nível {jogador.nivel} expandindo terras!")
+        
     db.session.commit()
     return jsonify({'sucesso': True})
 

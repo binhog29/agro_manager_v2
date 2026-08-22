@@ -3,28 +3,35 @@
     <div style="background: #1e1e1e; border: 1px solid #333; border-radius: 12px; padding: 25px; color: #fff; max-width: 420px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); width: 90%;">
         
         <div style="font-size: 32px; text-align: center; margin-bottom: 10px;">
-            <i class="fas fa-check-circle" style="color: #4caf50;"></i>
+            <i class="fas fa-bullhorn" style="color: #4caf50;"></i>
         </div>
         
-        <h3 style="margin: 0 0 15px 0; color: #fff; font-size: 20px; text-align: center;">🚀 Atualização 1.4</h3>
+        <h3 style="margin: 0 0 15px 0; color: #fff; font-size: 20px; text-align: center;">🚀 Atualização 1.6 - Gestão e Multiplayer!</h3>
         
-        <div style="font-size: 14px; color: #ccc; line-height: 1.6; text-align: left; background: #252525; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
-            <p style="margin: 0 0 10px 0; color: #ffcc00; font-weight: bold;">Novidades do Jogo:</p>
-            <p style="margin: 0 0 8px 0;">🐟🐷🐔 <b>Novos Habitats:</b> Diversifique sua produção construindo a Represa (peixes), Chiqueiro (suínos) e Galinheiro (aves).</p>
-            <p style="margin: 0 0 8px 0;">⚡ <b>Tempo Livre:</b> O limite do servidor foi removido! Avance as horas da sua fazenda à vontade sem telas de erro.</p>
-            <p style="margin: 0;">🎨 <b>Modais Padronizados:</b> Novo visual escuro e profissional para o manejo de todos os animais, com venda direta integrada.</p>
+        <div style="font-size: 14px; color: #ccc; line-height: 1.6; text-align: left; background: #252525; padding: 15px; border-radius: 6px; margin-bottom: 20px; max-height: 50vh; overflow-y: auto;">
+            <p style="margin: 0 0 10px 0; color: #ffcc00; font-weight: bold;">O que há de novo?</p>
+            
+            <p style="margin: 0 0 8px 0;">💬 <b>Chat Global (Comunidade):</b> A solidão no campo acabou! Acesse o botão "Comunidade" na Sede para bater papo em tempo real com todos os fazendeiros do servidor.</p>
+
+            <p style="margin: 0 0 8px 0;">👁️ <b>Visitas (Modo Turista):</b> Pelo Mapa Global, você agora pode clicar na terra de outros jogadores e visitar a fazenda deles para admirar suas estratégias e riquezas!</p>
+            
+            <p style="margin: 0 0 8px 0;">🌟 <b>Sistema de Níveis (RPG):</b> Ganhe XP ao gerenciar o tempo, comprar terras e expandir. Suba de nível e ganhe prêmios gordos em dinheiro!</p>
+            
+            <p style="margin: 0 0 8px 0;">👷 <b>Gestão Avançada (RH):</b> Novo painel interativo de Equipe. Contrate <b>Veterinários</b> (cura passiva) e <b>Agrônomos</b> (aceleram safras) para escalar seus lucros.</p>
+            
+            <p style="margin: 0;">🛡️ <b>Segurança Reforçada:</b> O motor do jogo foi 100% blindado com travas de segurança (Anti-Cheat). Seu império está mais seguro do que nunca.</p>
         </div>
         
-        <button onclick="fecharEGravarNovidade()" style="background: #4caf50; color: white; border: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; font-size: 16px;">Bora Jogar!</button>
+        <button onclick="fecharEGravarNovidade()" style="background: #4caf50; color: white; border: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; font-size: 16px;"><i class="fas fa-play"></i> Bora Jogar!</button>
         
     </div>
 </div>
 
 <script>
     // ---------------------------------------------------------
-    // CONTROLE DE VERSÃO: Atualizado para 1.4
+    // CONTROLE DE VERSÃO: Atualizado para 1.6
     // ---------------------------------------------------------
-    const VERSAO_ATUAL = "1.4";
+    const VERSAO_ATUAL = "1.6";
 
     document.addEventListener("DOMContentLoaded", function() {
         const modal = document.getElementById('modal-novidades');

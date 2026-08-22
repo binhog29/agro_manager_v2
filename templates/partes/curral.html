@@ -56,7 +56,13 @@
                                 <div style="font-size:11px; color:#aaa;">ID: #{{ animal.id }} | {{ animal.sexo }}</div>
                             </div>
                             <div style="text-align:right;">
-                                <b style="color:#4caf50; font-size:18px;">{{ animal.peso }} @</b>
+                                <b style="color:#4caf50; font-size:18px;">
+    {% if animal.peso >= 15.0 %}
+        {{ "%.1f"|format(animal.peso / 15.0) }} @
+    {% else %}
+        {{ "%.1f"|format(animal.peso) }} kg
+    {% endif %}
+</b>
                             </div>
                         </div>
 

@@ -8,16 +8,18 @@ from flask_migrate import Migrate
 
 from database import db, Jogador, Propriedade, Animal, HistoricoMorte
 
+from logica.social import social_bp
 from logica.mercado import mercado_bp
 from logica.economia import economia_bp
 from logica.agricultura import agricultura_bp
 from logica.pecuaria import pecuaria_bp
-from logica.tempo import tempo_bp, GerenciadorTempo # <-- Importação do motor de tempo
+from logica.tempo import tempo_bp, GerenciadorTempo
 from logica.terras import terras_bp
 from logica.cultivo import cultivo_bp
 from logica.loja import loja_bp
 from logica.silo import silo_bp
 from logica.armazem import armazem_bp
+from logica.funcionarios import funcionarios_bp
 
 app = Flask(__name__)
 
@@ -29,13 +31,16 @@ app.secret_key = 'chave_super_secreta_para_sessoes'
 db.init_app(app)
 migrate = Migrate(app, db) 
 
-# AQUI ESTÁ A CORREÇÃO: Limite global removido para não bloquear o jogo
+# Limite global removido para não bloquear o jogo
 limiter = Limiter(
     get_remote_address,
     app=app,
     storage_uri="memory://"
 )
 
+# Registrando todos os módulos (Blueprints)
+app.register_blueprint(funcionarios_bp)
+app.register_blueprint(social_bp)
 app.register_blueprint(mercado_bp)
 app.register_blueprint(economia_bp)
 app.register_blueprint(agricultura_bp)
@@ -82,11 +87,11 @@ def autenticar():
             is_admin = True
         else:
             if dificuldade == 'facil':
-                saldo_inicial = 50000.0
+                saldo_inicial = 300000.0
             elif dificuldade == 'medio':
-                saldo_inicial = 25000.0
+                saldo_inicial = 200000.0
             else:
-                saldo_inicial = 10050.0 
+                saldo_inicial = 150000.0 
             
         senha_segura = generate_password_hash(senha)
         novo_jogador = Jogador(username=username, senha_hash=senha_segura, saldo=saldo_inicial, is_admin=is_admin)
@@ -116,7 +121,6 @@ def mapa():
         
     jogador_atual = Jogador.query.filter_by(username=session['usuario']).first()
     
-    # 🔥 CORREÇÃO: Calcula o tempo offline ANTES de carregar o mapa global!
     if jogador_atual:
         GerenciadorTempo.calcular_progresso_offline(jogador_atual)
         
@@ -133,7 +137,7 @@ def api_mapa_global():
     
     for p in propriedades:
         e_minha = False
-        dono_nome = None # Puxa o nome de quem comprou
+        dono_nome = None 
         
         if p.dono_id:
             dono = db.session.get(Jogador, p.dono_id)
@@ -147,7 +151,7 @@ def api_mapa_global():
             'preco': p.preco,
             'tipo': p.tipo,
             'dono_id': p.dono_id,
-            'dono_nome': dono_nome, # Enviando o nome para o Visual
+            'dono_nome': dono_nome,
             'e_minha': e_minha
         })
         
@@ -210,13 +214,17 @@ def fazenda(prop_id):
         session.pop('usuario', None)
         return redirect(url_for('login'))
 
-    # PROCESSAMENTO OFFLINE: Calcula o tempo que o jogador ficou fora e aplica na fazenda
-    GerenciadorTempo.calcular_progresso_offline(jogador)
-
     propriedade = Propriedade.query.get(prop_id)
-
-    if not propriedade or propriedade.dono_id != jogador.id:
+    if not propriedade:
         return redirect(url_for('mapa'))
+        
+    visitante = False
+    
+    # Se for o dono, calcula o tempo offline dele. Se não, é só um visitante!
+    if propriedade.dono_id == jogador.id:
+        GerenciadorTempo.calcular_progresso_offline(jogador)
+    else:
+        visitante = True
 
     animais_no_curral = Animal.query.filter_by(propriedade_id=prop_id, onde_esta='curral').all()
 
@@ -224,7 +232,8 @@ def fazenda(prop_id):
                            jogador=jogador, 
                            user=jogador, 
                            fazenda=propriedade, 
-                           gado_curral=animais_no_curral) 
+                           gado_curral=animais_no_curral,
+                           visitante=visitante) 
                            
 @app.route('/cemiterio/<int:prop_id>')
 def cemiterio(prop_id):
