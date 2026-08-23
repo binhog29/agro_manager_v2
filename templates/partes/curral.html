@@ -21,7 +21,6 @@
             </button>
         </div>
 
-        <!-- BOTÕES DE ATALHO PARA TRATAMENTO EM LOTE (CORRIGIDO O TAMANHO DA FONTE) -->
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px;">
             <button onclick="abrirSelecaoVacinaLote('aftosa')" style="background:#1e3a8a; padding:8px; border-radius:10px; font-size:11px; border:1px solid #1e40af; color:#fff; cursor:pointer; text-align:left; font-weight:bold;">
                 💉 Aftosa: {{ fazenda.est_vacina_aftosa }} un <span style="float:right; font-size:9px; background:#1d4ed8; padding:2px 5px; border-radius:4px;">Aplicar Lote</span>
@@ -57,12 +56,12 @@
                             </div>
                             <div style="text-align:right;">
                                 <b style="color:#4caf50; font-size:18px;">
-    {% if animal.peso >= 15.0 %}
-        {{ "%.1f"|format(animal.peso / 15.0) }} @
-    {% else %}
-        {{ "%.1f"|format(animal.peso) }} kg
-    {% endif %}
-</b>
+                                    {% if animal.peso >= 15.0 %}
+                                        {{ "%.1f"|format(animal.peso / 15.0) }} @
+                                    {% else %}
+                                        {{ "%.1f"|format(animal.peso) }} kg
+                                    {% endif %}
+                                </b>
                             </div>
                         </div>
 
@@ -82,10 +81,8 @@
 
                             <button onclick="prepararApartamento({{ animal.id }})" style="background:#455a64; color:white; border:none; padding:8px; border-radius:6px; font-size:10px; font-weight:bold; box-shadow: 0 3px 0 #263238; grid-column: span 2;">🚚 APARTAR</button>
                             
-                            <button onclick="abrirVendaLeilao('{{ animal.id }}', '{{ animal.raca }}')" style="background:#e65100; color:white; border:none; padding:8px; border-radius:6px; font-size:10px; font-weight:bold; box-shadow: 0 3px 0 #e65100;">💰 VENDER</button>
-                            <button onclick="prepararVendaLoteCurral()" style="background: #b91c1c; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; font-size: 12px; cursor: pointer; box-shadow: 0 3px 0 #7f1d1d;">
-                FRIGORÍFICO
-            </button>
+                            <!-- 🔥 ESTA É A MÁGICA: O botão puxa a função inteligente que você já tem no JS -->
+                            <button onclick="prepararVendaComercial({{ animal.id }}, {{ animal.peso }}, '{{ animal.raca }}')" style="background:#e65100; color:white; border:none; padding:8px; border-radius:6px; font-size:10px; font-weight:bold; box-shadow: 0 3px 0 #bf360c;">💰 VENDER</button>
                         </div>
                     </div>
                     {% set total_visivel = total_visivel + 1 %}

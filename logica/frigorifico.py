@@ -52,7 +52,7 @@ def dados_grafico_cotacao():
     
     familia_animal = 'bovino_corte'
     for f, d in INFO_ESPECIES.items():
-        if raca_alvo in d['racas']:
+        if raca_alvo in [r.lower() for r in d.get('racas', [])]:
             familia_animal = f
             break
 
@@ -81,13 +81,13 @@ def estimar_frigorifico():
         
     familia_animal = 'bovino_corte'
     for f, d in INFO_ESPECIES.items():
-        if raca_alvo in d['racas']:
+        if raca_alvo in [r.lower() for r in d.get('racas', [])]:
             familia_animal = f
             break
 
     fator = CotacaoMercado.calcular_fator_dia(usuario.dia, usuario.mes, usuario.ano)
     preco_base = PRECOS_REAIS.get(familia_animal, 200.0)
-    preco_arroba = preco_base * fator 
+    preco_cotacao = preco_base * fator 
     
     valor_total = 0
     info_preco_db = TABELA_PRECOS.get(raca_alvo, {})
@@ -98,7 +98,10 @@ def estimar_frigorifico():
             preco_cabeca = info_preco_db.get('filhote', 1100)
             valor_total += preco_cabeca * fator
         else:
-            valor_total += a.peso * preco_arroba
+            if familia_animal in ['bovino_corte', 'bovino_leite', 'equino']:
+                valor_total += (a.peso / 15.0) * preco_cotacao
+            else:
+                valor_total += a.peso * preco_cotacao
             
     return jsonify({'sucesso': True, 'valor': valor_total, 'encontrados': len(animais), 'fator': fator})
 
@@ -119,13 +122,13 @@ def vender_lote_curral():
         
     familia_animal = 'bovino_corte'
     for f, d in INFO_ESPECIES.items():
-        if raca_alvo in d['racas']:
+        if raca_alvo in [r.lower() for r in d.get('racas', [])]:
             familia_animal = f
             break
 
     fator = CotacaoMercado.calcular_fator_dia(usuario.dia, usuario.mes, usuario.ano)
     preco_base = PRECOS_REAIS.get(familia_animal, 200.0)
-    preco_arroba = preco_base * fator
+    preco_cotacao = preco_base * fator
 
     info_preco_db = TABELA_PRECOS.get(raca_alvo, {})
     msg_resumo = []
@@ -138,9 +141,12 @@ def vender_lote_curral():
             valor_animal = preco_cabeca * fator
             msg_resumo.append("1 Cab (Reposição)")
         else:
-            valor_animal = a.peso * preco_arroba
-            if familia_animal in ['bovino_corte', 'bovino_leite', 'equino']: msg_resumo.append(f"{a.peso:.1f}@")
-            else: msg_resumo.append(f"{a.peso:.1f}Kg")
+            if familia_animal in ['bovino_corte', 'bovino_leite', 'equino']:
+                valor_animal = (a.peso / 15.0) * preco_cotacao
+                msg_resumo.append(f"{(a.peso/15.0):.1f}@")
+            else:
+                valor_animal = a.peso * preco_cotacao
+                msg_resumo.append(f"{a.peso:.1f}Kg")
                 
         valor_total += valor_animal
         db.session.delete(a)
@@ -151,9 +157,6 @@ def vender_lote_curral():
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': f'Venda concluída! O mercado te pagou R$ {valor_total:,.2f}!'})
 
-# ==========================================
-# ROTAS DE VENDA INDIVIDUAL (POR ID NO CURRAL)
-# ==========================================
 @frigorifico_bp.route('/api/animal/estimar_frigorifico_individual', methods=['POST'])
 def estimar_frigorifico_individual():
     if 'usuario' not in session: return jsonify({'sucesso': False})
@@ -162,29 +165,36 @@ def estimar_frigorifico_individual():
     animal_id = dados.get('animal_id')
     
     animal = Animal.query.get(animal_id)
-    if not animal or animal.propriedade.dono_id != usuario.id:
+    if not animal:
         return jsonify({'sucesso': False, 'valor': 0})
         
-    raca_alvo = animal.raca.lower()
+    # 🔒 MODO SEGURO DE PEGAR A PROPRIEDADE
+    prop = Propriedade.query.get(animal.propriedade_id)
+    if not prop or prop.dono_id != usuario.id:
+        return jsonify({'sucesso': False, 'valor': 0})
+        
+    raca_alvo = str(animal.raca).lower()
     familia_animal = 'bovino_corte'
     for f, d in INFO_ESPECIES.items():
-        if raca_alvo in d['racas']:
+        if raca_alvo in [r.lower() for r in d.get('racas', [])]:
             familia_animal = f
             break
             
     fator = CotacaoMercado.calcular_fator_dia(usuario.dia, usuario.mes, usuario.ano)
     preco_base = PRECOS_REAIS.get(familia_animal, 200.0)
-    preco_arroba = preco_base * fator
+    preco_cotacao = preco_base * fator
     
-    valor_total = 0
     info_preco_db = TABELA_PRECOS.get(raca_alvo, {})
-    
     fase_animal = str(animal.fase).strip().lower()
+    
     if fase_animal in ['filhote', 'jovem']:
         preco_cabeca = info_preco_db.get('filhote', 1100)
         valor_total = preco_cabeca * fator
     else:
-        valor_total = animal.peso * preco_arroba
+        if familia_animal in ['bovino_corte', 'bovino_leite', 'equino']:
+            valor_total = (animal.peso / 15.0) * preco_cotacao
+        else:
+            valor_total = animal.peso * preco_cotacao
         
     return jsonify({'sucesso': True, 'valor': valor_total, 'fator': fator, 'raca': animal.raca.capitalize(), 'peso': animal.peso})
 
@@ -196,19 +206,24 @@ def vender_individual_curral():
     animal_id = dados.get('animal_id')
     
     animal = Animal.query.get(animal_id)
-    if not animal or animal.propriedade.dono_id != usuario.id:
-        return jsonify({'sucesso': False, 'erro': 'Animal não encontrado ou não pertence a você.'})
+    if not animal:
+        return jsonify({'sucesso': False, 'erro': 'Animal não encontrado.'})
         
-    raca_alvo = animal.raca.lower()
+    # 🔒 MODO SEGURO DE PEGAR A PROPRIEDADE
+    prop = Propriedade.query.get(animal.propriedade_id)
+    if not prop or prop.dono_id != usuario.id:
+        return jsonify({'sucesso': False, 'erro': 'Este animal não pertence a você.'})
+        
+    raca_alvo = str(animal.raca).lower()
     familia_animal = 'bovino_corte'
     for f, d in INFO_ESPECIES.items():
-        if raca_alvo in d['racas']:
+        if raca_alvo in [r.lower() for r in d.get('racas', [])]:
             familia_animal = f
             break
             
-    fator = CotacaoMercado.calcular_fator_dia(usuario.dia, usuario.mes, usuario.ano)
+    fator = CotacaoMercado.calcular_fator_dia(usuario.dia, mes=usuario.mes, ano=usuario.ano)
     preco_base = PRECOS_REAIS.get(familia_animal, 200.0)
-    preco_arroba = preco_base * fator
+    preco_cotacao = preco_base * fator
     
     info_preco_db = TABELA_PRECOS.get(raca_alvo, {})
     fase_animal = str(animal.fase).strip().lower()
@@ -218,10 +233,11 @@ def vender_individual_curral():
         valor_animal = preco_cabeca * fator
         resumo = f"1 Cab (Reposição, {animal.peso} Kg)"
     else:
-        valor_animal = animal.peso * preco_arroba
         if familia_animal in ['bovino_corte', 'bovino_leite', 'equino']:
-            resumo = f"{animal.peso:.1f}@"
+            valor_animal = (animal.peso / 15.0) * preco_cotacao
+            resumo = f"{(animal.peso/15.0):.1f}@"
         else:
+            valor_animal = animal.peso * preco_cotacao
             resumo = f"{animal.peso:.1f}Kg"
             
     usuario.saldo += valor_animal
