@@ -67,19 +67,6 @@ class GerenciadorTempo:
         # 🔒 ENVIANDO O JOGADOR PARA O MOTOR BIOLÓGICO PROCESSAR APENAS AS TERRAS DELE
         motor = MotorBiologico(clima_atual=getattr(jogador, 'clima_atual', 'sol'), jogador=jogador)
         avisos = motor.processar_turno(horas)
-        
-        # ==========================================
-        # NOVO: PROGRESSÃO DE XP POR GESTÃO DO TEMPO
-        # ==========================================
-        xp_ganho = int(horas * 5)  # 15 XP por cada hora paga/gerenciada
-        
-        # Chama a inteligência do banco para somar XP e checar se subiu de nível
-        if jogador.adicionar_xp(xp_ganho):
-            # Se subiu, dispara um aviso que vai direto pra tela do jogador
-            bonus = jogador.nivel * 1000
-            valor_formatado = f"{bonus:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-            avisos.append(f"🎉 LEVEL UP! Parabéns, você alcançou o Nível {jogador.nivel} e ganhou R$ {valor_formatado} de bônus!")
-            
         return avisos
 
     @classmethod
@@ -107,38 +94,20 @@ def avancar_tempo_manual():
     dados = request.get_json()
     
     horas_avancar = int(dados.get('horas', 0))
+    custo = float(dados.get('custo', 0.0))
 
-    # 💰 TABELA DE PREÇOS FIXOS BALANCEADOS
-    # Valores justos para não quebrar os iniciantes, mas pesar no bolso
-    tabela_precos = {
-        1: 1000.0,       # 1 Hora = R$ 1.000
-        6: 5000.0,       # 6 Horas = R$ 5.000
-        24: 20000.0,     # 1 Dia = R$ 20.000
-        168: 120000.0    # 1 Semana = R$ 120.000
-    }
+    if usuario.saldo < custo:
+        return jsonify({'sucesso': False, 'erro': 'Saldo insuficiente para pagar os custos deste período.'})
 
-    # Pega o custo fixo baseado na quantidade de horas.
-    custo_real = tabela_precos.get(horas_avancar, horas_avancar * 500.0)
-
-    # 2. Verifica se o jogador aguenta pagar as despesas
-    if usuario.saldo < custo_real:
-        valor_formatado = f"{custo_real:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-        return jsonify({
-            'sucesso': False, 
-            'erro': f'Saldo insuficiente para pagar as despesas operacionais! Custo: R$ {valor_formatado}'
-        })
-
-    # 3. Cobra o jogador e registra a transação
-    if custo_real > 0:
-        usuario.saldo -= custo_real
+    if custo > 0:
+        usuario.saldo -= custo
         registrar_transacao(
             jogador_id=usuario.id,
             tipo='saida',
-            valor=custo_real,
-            descricao=f'Despesas Fixas de Operação ({horas_avancar}h)'
+            valor=custo,
+            descricao=f'Despesas de Tempo ({horas_avancar}h)'
         )
 
-    # 4. Avança o tempo biológico da fazenda com segurança
     avisos_motor = []
     if horas_avancar > 0:
         avisos_motor = GerenciadorTempo.avancar_tempo(usuario, horas_avancar)
@@ -146,10 +115,9 @@ def avancar_tempo_manual():
 
     db.session.commit()
     
-    valor_formatado = f"{custo_real:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     return jsonify({
         'sucesso': True, 
-        'msg': f'O tempo avançou! Despesas pagas: R$ {valor_formatado}',
+        'msg': 'O tempo avançou e a natureza seguiu seu curso!',
         'avisos': avisos_motor
     })
     

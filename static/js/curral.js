@@ -1,4 +1,3 @@
-
 // Função auxiliar para alternar entre Kg e Arrobas (@)
 function formatarPeso(peso) {
     let p = parseFloat(peso) || 0;
@@ -161,7 +160,7 @@ window.prepararApartamento = async function(animal_id) {
 };
 
 // ==========================================
-// MÓDULO DE VENDAS E GRÁFICO (CARRINHO DE COMPRAS E FRIGORÍFICO)
+// MÓDULO DE VENDAS E GRÁFICO
 // ==========================================
 window.atualizarTotalLeilao = function() {
     const qtd = parseInt(document.getElementById('swal-qtd').value) || 0;
@@ -199,10 +198,79 @@ window.atualizarTotalFrigorifico = function() {
     }).catch(() => { txtTotal.innerText = "Erro ao pesar"; });
 };
 
-window.prepararVendaComercial = function(id, peso, raca) { abrirVendaLeilao(id, raca); }; 
+// 👉 NOVA FUNÇÃO DE VENDA INDIVIDUAL (Escolhe Leilão ou Frigorífico)
+window.prepararVendaComercial = function(id, peso, raca) {
+    fecharModal('modal-curral');
+    Swal.fire({
+        title: 'Comercializar Animal #' + id,
+        text: 'Como deseja vender este animal?',
+        icon: 'question',
+        background: '#2a2a2a', color: '#fff',
+        showDenyButton: true, showCancelButton: true,
+        confirmButtonText: '<i class="fas fa-industry"></i> Frigorífico',
+        denyButtonText: '<i class="fas fa-gavel"></i> Leilão',
+        confirmButtonColor: '#b91c1c',
+        denyButtonColor: '#ff9800',
+        cancelButtonText: 'Cancelar',
+        customClass: { actions: 'botoes-lote-vertical' }
+    }).then((r) => {
+        if (r.isConfirmed) {
+            abrirVendaFrigorificoIndividual(id, raca, peso);
+        } else if (r.isDenied) {
+            abrirVendaLeilao(id, raca);
+        }
+    });
+};
+
+// 👉 NOVO MODAL PREMIUM: Frigorífico Individual
+window.abrirVendaFrigorificoIndividual = function(id, raca, peso) {
+    Swal.fire({
+        title: 'Vender ao Frigorífico',
+        html: `
+            <div style="margin-bottom: 15px;">
+                <img src="/static/img/${raca.toLowerCase()}.png" style="width: 80px;" onerror="this.src='/static/img/nelore.png'">
+                <div style="font-size: 18px; font-weight: bold; margin-top: 10px; color: #fff; text-transform: uppercase;">${raca} (ID: #${id})</div>
+                <div style="font-size: 14px; color: #aaa;">Peso na Balança: <b style="color: #fff;">${formatarPeso(peso)}</b></div>
+            </div>
+            <div style="background:#1a1a1a; border:1px dashed #444; border-radius:8px; padding:15px; width:85%; margin:0 auto;">
+                <div style="font-size:13px; color:#aaa;">Cotação de Abate (Estimativa)</div>
+                <div style="font-size:22px; font-weight:bold; margin-top: 5px;" id="txt-total-frig-ind">Pesando...</div>
+            </div>
+        `,
+        background: '#2a2a2a', color: '#fff', confirmButtonColor: '#b91c1c', confirmButtonText: 'Confirmar Venda', showCancelButton: true,
+        didOpen: () => {
+            fetch('/api/animal/estimar_frigorifico_individual', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ animal_id: id })
+            }).then(r => r.json()).then(d => {
+                const txtTotal = document.getElementById('txt-total-frig-ind');
+                if(d.sucesso) {
+                    let avisoMercado = `<span style="font-size:12px; color:#aaa;">Índice Mercado: <b style="color:${d.fator >= 1 ? '#4caf50' : '#f44336'}">${Math.round(d.fator * 100)}%</b></span><br>`;
+                    txtTotal.innerHTML = avisoMercado + '<span style="color:#4caf50;">' + d.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) + '</span>';
+                } else {
+                    txtTotal.innerHTML = '<span style="color:#f44336;">Erro na balança</span>';
+                }
+            }).catch(() => {
+                document.getElementById('txt-total-frig-ind').innerHTML = '<span style="color:#f44336;">Erro de conexão</span>';
+            });
+        },
+        preConfirm: () => {
+            return { animal_id: id };
+        }
+    }).then((r) => {
+        if(r.isConfirmed) {
+            fetch('/api/animal/vender_individual_curral', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(r.value)
+            }).then(res => res.json()).then(d => {
+                if(d.sucesso) Swal.fire('Vendido!', d.msg, 'success').then(()=> { localStorage.setItem('modal_aberto_fazenda', 'modal-curral'); location.reload(); });
+                else Swal.fire('Erro', d.erro, 'error');
+            });
+        }
+    });
+};
 
 window.abrirVendaLeilao = function(id_animal, raca) {
-    fecharModal('modal-curral');
     Swal.fire({
         title: 'Anunciar no Leilão',
         html: `
@@ -341,7 +409,6 @@ window.abrirGraficoCotacao = function() {
     })
     .then(r => r.json()).then(dados => {
         if(dados.sucesso) {
-            // Injeta o Chart.js na hora, para não pesar o carregamento inicial da página!
             if (typeof Chart === 'undefined') {
                 let script = document.createElement('script');
                 script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
@@ -356,6 +423,7 @@ window.abrirGraficoCotacao = function() {
     });
 }
 
+// 👉 CÓDIGO RESTAURADO! Essa era a parte que tinha cortado
 function renderizarGrafico(dados) {
     let corTendencia = dados.fator_atual >= 1.0 ? '#4caf50' : '#f44336';
     let iconeTendencia = dados.fator_atual >= 1.0 ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down';

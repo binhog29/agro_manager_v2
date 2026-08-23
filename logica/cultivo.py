@@ -59,6 +59,8 @@ class CulturaPerene(Cultura):
             lote.produtividade_atual = 100
             
         lote.status = 'plantado'
+        # 🔥 SOLUÇÃO MESTRA: Recua o tempo de vida orgânico da planta em vez de usar a coluna fantasma.
+        # A banana vai para 285 dias e leva exatos 15 dias na barrinha para atingir 300 de novo!
         lote.dias_plantado = float(self.tempo_colheita - self.tempo_descanso)
         lote.dias_descanso = 0.0
 
@@ -77,6 +79,7 @@ class CulturaSazonal(CulturaPerene):
         self.estacoes_fruto = estacoes_fruto
 
     def obter_estagio_e_progresso(self, dias_plantado, dias_descanso=0, estacao_atual='primavera'):
+        # Se ela acabou de ser colhida, o dias_plantado estará recuado. Ela volta a mostrar as fases de crescimento (Ex: Floração)
         if dias_descanso > 0 or dias_plantado < self.tempo_colheita:
             return super().obter_estagio_e_progresso(dias_plantado, dias_descanso, estacao_atual)
         
@@ -151,11 +154,6 @@ def plantar():
     usuario = Jogador.query.filter_by(username=session['usuario']).first()
     dados = request.get_json()
     lote = Lote.query.get(dados.get('lote_id'))
-    
-    # 🔒 LEÃO DE CHÁCARA: Essa terra é sua mesmo?
-    if not lote or lote.fazenda.dono_id != usuario.id:
-        return jsonify({'sucesso': False, 'erro': 'Acesso negado! Você não é o dono desta terra.'})
-        
     tipo = dados.get('tipo_cultivo')
 
     if tipo not in CATALOGO_CULTIVOS: 
@@ -191,14 +189,9 @@ def plantar():
 def manejo_lavoura():
     if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
     usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    fazenda = Propriedade.query.filter_by(dono_id=usuario.id).first()
     dados = request.get_json()
     lote = Lote.query.get(dados.get('lote_id'))
-    
-    # 🔒 LEÃO DE CHÁCARA: Essa terra é sua mesmo?
-    if not lote or lote.fazenda.dono_id != usuario.id:
-        return jsonify({'sucesso': False, 'erro': 'Acesso negado! Você não é o dono desta terra.'})
-        
-    fazenda = Propriedade.query.filter_by(dono_id=usuario.id).first()
     acao = dados.get('acao') 
 
     if not lote or lote.status not in ['plantado', 'colhendo']:
@@ -233,28 +226,26 @@ def manejo_lavoura():
 def colher():
     if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
     usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    fazenda = Propriedade.query.filter_by(dono_id=usuario.id).first()
     dados = request.get_json()
     lote = Lote.query.get(dados.get('lote_id'))
 
-    # 🔒 LEÃO DE CHÁCARA: Essa terra é sua mesmo?
-    if not lote or lote.fazenda.dono_id != usuario.id:
-        return jsonify({'sucesso': False, 'erro': 'Acesso negado! Você não é o dono desta terra.'})
-        
-    fazenda = Propriedade.query.filter_by(dono_id=usuario.id).first()
-
+    # Adicionei 'colheita_incompleta' caso você decida mudar o status visual no JS depois
     if not lote or lote.status not in ['colhendo', 'colheita_incompleta']: 
         return jsonify({'sucesso': False, 'erro': 'A lavoura não está no ponto de colheita.'})
 
     tipo = lote.tipo_cultivo
     dna_planta = CATALOGO_CULTIVOS.get(tipo)
     
+    # 1. Descobre o total que tem na roça hoje
     produtividade = getattr(lote, 'produtividade_atual', 100)
     kg_totais_disponiveis = int(dna_planta.producao_kg * (produtividade / 100.0))
 
     itens_silo_graos = ['soja', 'milho', 'arroz', 'feijao']
     kg_a_colher = kg_totais_disponiveis
-    espaco_livre = 9999999 
+    espaco_livre = 9999999 # Valor alto seguro caso não seja grão
 
+    # 2. Validação de espaço no Silo
     if tipo in itens_silo_graos:
         total_silo = sum(getattr(fazenda, f'est_{i}', 0) for i in itens_silo_graos if hasattr(fazenda, f'est_{i}'))
         espaco_livre = fazenda.cap_silo - total_silo
@@ -262,15 +253,20 @@ def colher():
         if espaco_livre <= 0:
             return jsonify({'sucesso': False, 'erro': 'Silo de Grãos 100% cheio! Você precisa vender no mercado antes de colher.'})
             
+        # Define se colhe tudo ou só o que cabe no silo
         kg_a_colher = min(kg_totais_disponiveis, espaco_livre)
 
+    # Verifica se é uma colheita parcial
     colheita_parcial = kg_a_colher < kg_totais_disponiveis
+    
+    # 3. Calcula o custo da máquina proporcionalmente (se colher metade, paga só metade agora)
     proporcao_colhida = kg_a_colher / kg_totais_disponiveis if kg_totais_disponiveis > 0 else 1
     custo_real = int(dna_planta.custo_maquina_colheita * proporcao_colhida)
 
     if usuario.saldo < custo_real:
         return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente para a Colheita (R$ {custo_real}).'})
 
+    # 4. Adiciona os grãos no Silo
     coluna_estoque = f'est_{tipo}'
     try:
         estoque_atual = getattr(fazenda, coluna_estoque, 0)
@@ -281,14 +277,17 @@ def colher():
     usuario.saldo -= custo_real
     registrar_transacao(usuario.id, 'saida', custo_real, f'Custos de Colheita ({lote.nome})')
 
+    # 5. O Pulo do Gato (O que acontece com a lavoura)
     msg_final = ""
     
     if colheita_parcial:
+        # A lavoura fica no campo, apenas reduzimos a produtividade para refletir o que já foi tirado
         nova_produtividade = produtividade - (produtividade * proporcao_colhida)
         lote.produtividade_atual = nova_produtividade
-        lote.status = 'colhendo' 
+        lote.status = 'colhendo' # Mantemos 'colhendo' para o seu botão de colher continuar aparecendo no HTML
         msg_final = f'⚠️ Silo encheu no meio do serviço! Foram colhidos {kg_a_colher} kg. Venda no mercado e volte para terminar.'
     else:
+        # Colheu 100% com sucesso, segue o fluxo normal do seu jogo
         lote.fertilidade_solo = max(0, getattr(lote, 'fertilidade_solo', 100) - 30)
         dna_planta.processar_pos_colheita(lote)
         msg_final = f'Colheita finalizada! {kg_a_colher} kg de {dna_planta.nome} armazenados com sucesso.'
@@ -302,18 +301,15 @@ def colher():
 @cultivo_bp.route('/api/cultivo/abandonar', methods=['POST'])
 def abandonar_terra():
     if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
-    usuario = Jogador.query.filter_by(username=session['usuario']).first()
     dados = request.get_json()
     lote = Lote.query.get(dados.get('lote_id'))
     
-    # 🔒 LEÃO DE CHÁCARA: Essa terra é sua mesmo?
-    if not lote or lote.fazenda.dono_id != usuario.id:
-        return jsonify({'sucesso': False, 'erro': 'Acesso negado! Você não é o dono desta terra.'})
-    
-    lote.status = 'mato'
-    lote.tipo_cultivo = None
-    lote.dias_plantado = 0
-    lote.ciclos_colhidos = 0
-    lote.dias_descanso = 0
-    db.session.commit()
-    return jsonify({'sucesso': True, 'msg': 'A terra foi abandonada e o mato tomou conta.'})
+    if lote:
+        lote.status = 'mato'
+        lote.tipo_cultivo = None
+        lote.dias_plantado = 0
+        lote.ciclos_colhidos = 0
+        lote.dias_descanso = 0
+        db.session.commit()
+        return jsonify({'sucesso': True, 'msg': 'A terra foi abandonada e o mato tomou conta.'})
+    return jsonify({'sucesso': False, 'erro': 'Lote não encontrado.'})

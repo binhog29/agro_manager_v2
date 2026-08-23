@@ -20,6 +20,8 @@ from logica.loja import loja_bp
 from logica.silo import silo_bp
 from logica.armazem import armazem_bp
 from logica.funcionarios import funcionarios_bp
+from logica.frigorifico import frigorifico_bp
+from logica.leilao import leilao_bp
 
 app = Flask(__name__)
 
@@ -51,6 +53,8 @@ app.register_blueprint(cultivo_bp)
 app.register_blueprint(loja_bp)
 app.register_blueprint(silo_bp)
 app.register_blueprint(armazem_bp)
+app.register_blueprint(frigorifico_bp)
+app.register_blueprint(leilao_bp)
 
 with app.app_context():
     db.create_all()

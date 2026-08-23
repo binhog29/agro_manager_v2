@@ -1,0 +1,233 @@
+from flask import Blueprint, session, request, jsonify
+from sqlalchemy import func
+from database import db, Jogador, Propriedade, Animal, TABELA_PRECOS, INFO_ESPECIES
+from logica.economia import registrar_transacao
+import random
+
+frigorifico_bp = Blueprint('frigorifico', __name__)
+
+PRECOS_REAIS = {
+    'bovino_corte': 250.0,
+    'bovino_leite': 210.0,
+    'equino': 150.0,
+    'suino': 12.0,
+    'ave': 8.0,
+    'peixe': 15.0,
+    'ovino': 20.0
+}
+
+class CotacaoMercado:
+    @staticmethod
+    def calcular_fator_dia(dia, mes, ano):
+        semente = ano * 10000 + mes * 100 + dia
+        rng = random.Random(semente)
+        return round(rng.uniform(0.85, 1.15), 2)
+
+    @classmethod
+    def gerar_historico(cls, jogador, dias_retroativos=7):
+        historico = []
+        d = getattr(jogador, 'dia', 1)
+        m = getattr(jogador, 'mes', 1)
+        a = getattr(jogador, 'ano', 2026)
+        
+        for _ in range(dias_retroativos):
+            historico.insert(0, {'label': f"{d:02d}/{m:02d}", 'fator': cls.calcular_fator_dia(d, m, a)})
+            d -= 1
+            if d <= 0:
+                d = 30
+                m -= 1
+                if m <= 0:
+                    m = 12
+                    a -= 1
+        return historico
+
+@frigorifico_bp.route('/api/mercado/dados_grafico', methods=['POST'])
+def dados_grafico_cotacao():
+    if 'usuario' not in session: return jsonify({'sucesso': False})
+    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    dados = request.get_json()
+    raca_alvo = dados.get('raca', '').lower()
+
+    historico = CotacaoMercado.gerar_historico(usuario, 7)
+    
+    familia_animal = 'bovino_corte'
+    for f, d in INFO_ESPECIES.items():
+        if raca_alvo in d['racas']:
+            familia_animal = f
+            break
+
+    preco_base = PRECOS_REAIS.get(familia_animal, 200.0)
+    unidade = '@' if familia_animal in ['bovino_corte', 'bovino_leite', 'equino'] else 'Kg'
+
+    labels = [h['label'] for h in historico]
+    valores = [round(preco_base * h['fator'], 2) for h in historico]
+
+    return jsonify({'sucesso': True, 'labels': labels, 'valores': valores, 'unidade': unidade, 'raca': raca_alvo.capitalize(), 'fator_atual': historico[-1]['fator']})
+
+@frigorifico_bp.route('/api/animal/estimar_frigorifico', methods=['POST'])
+def estimar_frigorifico():
+    if 'usuario' not in session: return jsonify({'sucesso': False})
+    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    dados = request.get_json()
+    raca_alvo = dados.get('raca', '').lower()
+    quantidade = int(dados.get('quantidade', 1))
+        
+    propriedade_id = dados.get('fazenda_id')
+    prop = Propriedade.query.get(propriedade_id)
+    if not prop or prop.dono_id != usuario.id: return jsonify({'sucesso': False})
+
+    animais = Animal.query.filter(Animal.propriedade_id == propriedade_id, func.lower(Animal.raca) == raca_alvo, Animal.onde_esta == 'curral').limit(quantidade).all()
+    if not animais: return jsonify({'sucesso': True, 'valor': 0, 'encontrados': 0, 'fator': 1.0})
+        
+    familia_animal = 'bovino_corte'
+    for f, d in INFO_ESPECIES.items():
+        if raca_alvo in d['racas']:
+            familia_animal = f
+            break
+
+    fator = CotacaoMercado.calcular_fator_dia(usuario.dia, usuario.mes, usuario.ano)
+    preco_base = PRECOS_REAIS.get(familia_animal, 200.0)
+    preco_arroba = preco_base * fator 
+    
+    valor_total = 0
+    info_preco_db = TABELA_PRECOS.get(raca_alvo, {})
+
+    for a in animais:
+        fase_animal = str(a.fase).strip().lower()
+        if fase_animal in ['filhote', 'jovem']:
+            preco_cabeca = info_preco_db.get('filhote', 1100)
+            valor_total += preco_cabeca * fator
+        else:
+            valor_total += a.peso * preco_arroba
+            
+    return jsonify({'sucesso': True, 'valor': valor_total, 'encontrados': len(animais), 'fator': fator})
+
+@frigorifico_bp.route('/api/animal/vender_lote_curral', methods=['POST'])
+def vender_lote_curral():
+    if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
+    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    dados = request.get_json()
+    raca_alvo = dados.get('raca', '').lower()
+    quantidade = int(dados.get('quantidade', 1))
+         
+    propriedade_id = dados.get('fazenda_id')
+    prop = Propriedade.query.get(propriedade_id)
+    if not prop or prop.dono_id != usuario.id: return jsonify({'sucesso': False, 'erro': 'Esta fazenda não é sua.'})
+    
+    animais = Animal.query.filter(Animal.propriedade_id == propriedade_id, func.lower(Animal.raca) == raca_alvo, Animal.onde_esta == 'curral').limit(quantidade).all()
+    if len(animais) < quantidade: return jsonify({'sucesso': False, 'erro': f'Você não tem {quantidade} animais dessa raça no curral.'})
+        
+    familia_animal = 'bovino_corte'
+    for f, d in INFO_ESPECIES.items():
+        if raca_alvo in d['racas']:
+            familia_animal = f
+            break
+
+    fator = CotacaoMercado.calcular_fator_dia(usuario.dia, usuario.mes, usuario.ano)
+    preco_base = PRECOS_REAIS.get(familia_animal, 200.0)
+    preco_arroba = preco_base * fator
+
+    info_preco_db = TABELA_PRECOS.get(raca_alvo, {})
+    msg_resumo = []
+    valor_total = 0
+    
+    for a in animais:
+        fase_animal = str(a.fase).strip().lower()
+        if fase_animal in ['filhote', 'jovem']:
+            preco_cabeca = info_preco_db.get('filhote', 1100)
+            valor_animal = preco_cabeca * fator
+            msg_resumo.append("1 Cab (Reposição)")
+        else:
+            valor_animal = a.peso * preco_arroba
+            if familia_animal in ['bovino_corte', 'bovino_leite', 'equino']: msg_resumo.append(f"{a.peso:.1f}@")
+            else: msg_resumo.append(f"{a.peso:.1f}Kg")
+                
+        valor_total += valor_animal
+        db.session.delete(a)
+        
+    usuario.saldo += valor_total
+    registrar_transacao(usuario.id, 'entrada', valor_total, f'Frigorífico ({quantidade}x {raca_alvo.capitalize()}) - Detalhes: {", ".join(msg_resumo)[:40]}...')
+    
+    db.session.commit()
+    return jsonify({'sucesso': True, 'msg': f'Venda concluída! O mercado te pagou R$ {valor_total:,.2f}!'})
+
+# ==========================================
+# ROTAS DE VENDA INDIVIDUAL (POR ID NO CURRAL)
+# ==========================================
+@frigorifico_bp.route('/api/animal/estimar_frigorifico_individual', methods=['POST'])
+def estimar_frigorifico_individual():
+    if 'usuario' not in session: return jsonify({'sucesso': False})
+    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    dados = request.get_json()
+    animal_id = dados.get('animal_id')
+    
+    animal = Animal.query.get(animal_id)
+    if not animal or animal.propriedade.dono_id != usuario.id:
+        return jsonify({'sucesso': False, 'valor': 0})
+        
+    raca_alvo = animal.raca.lower()
+    familia_animal = 'bovino_corte'
+    for f, d in INFO_ESPECIES.items():
+        if raca_alvo in d['racas']:
+            familia_animal = f
+            break
+            
+    fator = CotacaoMercado.calcular_fator_dia(usuario.dia, usuario.mes, usuario.ano)
+    preco_base = PRECOS_REAIS.get(familia_animal, 200.0)
+    preco_arroba = preco_base * fator
+    
+    valor_total = 0
+    info_preco_db = TABELA_PRECOS.get(raca_alvo, {})
+    
+    fase_animal = str(animal.fase).strip().lower()
+    if fase_animal in ['filhote', 'jovem']:
+        preco_cabeca = info_preco_db.get('filhote', 1100)
+        valor_total = preco_cabeca * fator
+    else:
+        valor_total = animal.peso * preco_arroba
+        
+    return jsonify({'sucesso': True, 'valor': valor_total, 'fator': fator, 'raca': animal.raca.capitalize(), 'peso': animal.peso})
+
+@frigorifico_bp.route('/api/animal/vender_individual_curral', methods=['POST'])
+def vender_individual_curral():
+    if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
+    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    dados = request.get_json()
+    animal_id = dados.get('animal_id')
+    
+    animal = Animal.query.get(animal_id)
+    if not animal or animal.propriedade.dono_id != usuario.id:
+        return jsonify({'sucesso': False, 'erro': 'Animal não encontrado ou não pertence a você.'})
+        
+    raca_alvo = animal.raca.lower()
+    familia_animal = 'bovino_corte'
+    for f, d in INFO_ESPECIES.items():
+        if raca_alvo in d['racas']:
+            familia_animal = f
+            break
+            
+    fator = CotacaoMercado.calcular_fator_dia(usuario.dia, usuario.mes, usuario.ano)
+    preco_base = PRECOS_REAIS.get(familia_animal, 200.0)
+    preco_arroba = preco_base * fator
+    
+    info_preco_db = TABELA_PRECOS.get(raca_alvo, {})
+    fase_animal = str(animal.fase).strip().lower()
+    
+    if fase_animal in ['filhote', 'jovem']:
+        preco_cabeca = info_preco_db.get('filhote', 1100)
+        valor_animal = preco_cabeca * fator
+        resumo = f"1 Cab (Reposição, {animal.peso} Kg)"
+    else:
+        valor_animal = animal.peso * preco_arroba
+        if familia_animal in ['bovino_corte', 'bovino_leite', 'equino']:
+            resumo = f"{animal.peso:.1f}@"
+        else:
+            resumo = f"{animal.peso:.1f}Kg"
+            
+    usuario.saldo += valor_animal
+    registrar_transacao(usuario.id, 'entrada', valor_animal, f'Frigorífico (1x {raca_alvo.capitalize()} ID #{animal.id}) - Detalhes: {resumo}')
+    
+    db.session.delete(animal)
+    db.session.commit()
+    
+    return jsonify({'sucesso': True, 'msg': f'Venda concluída! O mercado te pagou R$ {valor_animal:,.2f}!'})
