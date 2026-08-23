@@ -10,15 +10,13 @@
         <img src="/static/img/chiqueiro.png" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2316/2316668.png'" style="width: 80px; height: 80px; object-fit: contain; display: block; margin: 15px auto;">
 
         <div style="padding: 0 20px;">
-            <button onclick="alimentarHabitat('chiqueiro')" style="width: 100%; background: #2e7d32; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; margin-bottom: 15px; cursor: pointer;">
-                <i class="fas fa-seedling"></i> Colocar Ração no Cocho
-            </button>
+            <div id="painel-comedouro-chiqueiro" style="margin-bottom: 12px;"></div>
             
-            <div id="lista-chiqueiro" style="max-height: 220px; overflow-y: auto; background: #1a1a1a; border-radius: 8px; padding: 10px; border: 1px inset #333; margin-bottom: 15px;">
+            <div id="lista-chiqueiro" style="max-height: 180px; overflow-y: auto; background: #1a1a1a; border-radius: 8px; padding: 10px; border: 1px inset #333; margin-bottom: 15px;">
                 <!-- O JS preenche aqui -->
             </div>
 
-            <button onclick="abrirModalLoteFrigorifico()" style="width: 100%; background: #b91c1c; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer;">
+            <button onclick="abrirModalHabitatVenda('chiqueiro', 'Suínos')" style="width: 100%; background: #b91c1c; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer;">
                 <i class="fas fa-sack-dollar"></i> Comercializar Suínos
             </button>
         </div>

@@ -122,12 +122,17 @@ window.reabastecerCochoPasto = async function(loteId, tipoInsumo) {
     }
 };
 
+// ==========================================
+// MÓDULO DE INFRAESTRUTURA (ATUALIZAÇÃO SILENCIOSA)
+// ==========================================
+
 window.abrirLojaInfra = function(loteId, temCocho, temBebedouro, temCochoRacao) {
     let htmlBotoes = '<div style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">';
     
+    // Adicionamos IDs únicos aos botões e passamos o Custo + ID na função
     if (!temCocho) {
         htmlBotoes += `
-            <button class="swal2-styled" style="background: #f57c00; width: 100%; font-weight: bold;" onclick="comprarInfraPasto(${loteId}, 'cocho')">
+            <button id="btn-infra-cocho" class="swal2-styled" style="background: #f57c00; width: 100%; font-weight: bold;" onclick="comprarInfraPasto(${loteId}, 'cocho', 400, 'btn-infra-cocho')">
                 <img src="/static/img/cocheira.png" style="width: 20px; vertical-align: middle; margin-right: 8px;">
                 <i class="fas fa-cube"></i> Construir Cocho Mineral (R$ 400)
             </button>`;
@@ -141,7 +146,7 @@ window.abrirLojaInfra = function(loteId, temCocho, temBebedouro, temCochoRacao) 
 
     if (!temCochoRacao) {
         htmlBotoes += `
-            <button class="swal2-styled" style="background: #8d6e63; width: 100%; font-weight: bold;" onclick="comprarInfraPasto(${loteId}, 'cocho_racao')">
+            <button id="btn-infra-racao" class="swal2-styled" style="background: #8d6e63; width: 100%; font-weight: bold;" onclick="comprarInfraPasto(${loteId}, 'cocho_racao', 1200, 'btn-infra-racao')">
                 <img src="/static/img/cocheira.png" style="width: 20px; vertical-align: middle; margin-right: 8px;">
                 <i class="fas fa-bars"></i> Construir Linha de Ração (R$ 1200)
             </button>`;
@@ -155,7 +160,7 @@ window.abrirLojaInfra = function(loteId, temCocho, temBebedouro, temCochoRacao) 
 
     if (!temBebedouro) {
         htmlBotoes += `
-            <button class="swal2-styled" style="background: #0288d1; width: 100%; font-weight: bold;" onclick="comprarInfraPasto(${loteId}, 'bebedouro')">
+            <button id="btn-infra-agua" class="swal2-styled" style="background: #0288d1; width: 100%; font-weight: bold;" onclick="comprarInfraPasto(${loteId}, 'bebedouro', 700, 'btn-infra-agua')">
                 <img src="/static/img/tanque.png" style="width: 20px; vertical-align: middle; margin-right: 8px;">
                 <i class="fas fa-tint"></i> Escavar Tanque d'Água (R$ 700)
             </button>`;
@@ -178,6 +183,78 @@ window.abrirLojaInfra = function(loteId, temCocho, temBebedouro, temCochoRacao) 
         showConfirmButton: false,
         showCancelButton: true,
         cancelButtonText: 'Voltar'
+    });
+};
+
+// Configuração do "Toast" (Aviso Silencioso no canto da tela)
+const AvisoSilencioso = Swal.mixin({
+    toast: true,
+    position: 'top-end',
+    showConfirmButton: false,
+    timer: 3000,
+    timerProgressBar: true
+});
+
+window.comprarInfraPasto = function(loteId, tipoObra, custoObra, btnId) {
+    const btn = document.getElementById(btnId);
+    const textoOriginal = btn.innerHTML; // Salva o texto original do botão
+
+    // 1. Muda o botão para modo "Carregando" para evitar cliques duplos
+    if (btn) {
+        btn.disabled = true;
+        btn.style.opacity = '0.7';
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Construindo...';
+    }
+    
+    fetch('/api/fazenda/infra_pasto', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ lote_id: loteId, obra: tipoObra })
+    }).then(r => r.json()).then(d => {
+        if(d.sucesso) {
+            
+            // 2. Se deu certo, transforma o botão em "Concluído" (Verde)
+            if(btn) {
+                btn.style.background = '#4caf50';
+                btn.style.opacity = '0.8';
+                btn.style.cursor = 'not-allowed';
+                
+                if(tipoObra === 'cocho') btn.innerHTML = '<img src="/static/img/cocheira.png" style="width: 20px; vertical-align: middle; margin-right: 8px;"><i class="fas fa-check"></i> Cocho Mineral Instalado';
+                else if(tipoObra === 'cocho_racao') btn.innerHTML = '<img src="/static/img/cocheira.png" style="width: 20px; vertical-align: middle; margin-right: 8px;"><i class="fas fa-check"></i> Linha de Ração Instalada';
+                else if(tipoObra === 'bebedouro') btn.innerHTML = '<img src="/static/img/tanque.png" style="width: 20px; vertical-align: middle; margin-right: 8px;"><i class="fas fa-check"></i> Água Instalada';
+            }
+
+            // 3. Dispara o aviso silencioso no canto da tela!
+            AvisoSilencioso.fire({ icon: 'success', title: d.msg });
+
+            // 4. A Mágica: Procura o dinheiro na tela e desconta o valor em tempo real
+            let carteiras = document.querySelectorAll('.carteira, #saldo-jogador, .saldo, div[class*="saldo"]'); 
+            carteiras.forEach(el => {
+                let textoAtual = el.innerText;
+                // Extrai apenas os números do HTML atual
+                let valorNumerico = parseFloat(textoAtual.replace(/[^\d,-]/g, '').replace(',', '.'));
+                if(!isNaN(valorNumerico)) {
+                    let novoValor = valorNumerico - custoObra;
+                    el.innerText = 'R$ ' + novoValor.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                }
+            });
+
+        } else {
+            // Se falhou (sem dinheiro, etc), devolve o botão original e mostra o erro
+            if(btn) {
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btn.innerHTML = textoOriginal;
+            }
+            Swal.fire('Atenção', d.erro, 'warning');
+        }
+    }).catch(e => {
+        if(btn) {
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            btn.innerHTML = textoOriginal;
+        }
+        Swal.fire('Erro', 'Falha na comunicação.', 'error');
     });
 };
 

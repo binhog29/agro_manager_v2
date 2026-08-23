@@ -38,6 +38,13 @@ def manejar_curral():
     else:
         return jsonify({'sucesso': False, 'erro': 'Destino desconhecido.'})
     
+    if 'usuario' in session:
+        jogador = Jogador.query.filter_by(username=session.get('usuario')).first()
+        if jogador:
+            if getattr(jogador, 'xp', None) is None:
+                jogador.xp = 0
+            jogador.xp += 5
+            
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': 'Movimentação concluída com sucesso!'})
 
@@ -78,6 +85,13 @@ def manejar_lote():
             animal.onde_esta = 'curral'
             animal.lote_id = None
             movidos += 1
+
+    if 'usuario' in session:
+        jogador = Jogador.query.filter_by(username=session.get('usuario')).first()
+        if jogador and movidos > 0:
+            if getattr(jogador, 'xp', None) is None:
+                jogador.xp = 0
+            jogador.xp += (5 * movidos)
 
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': f'{movidos} animais movidos.'})
@@ -169,6 +183,10 @@ def aplicar_insumo():
         animal.suplementado = True 
         animal.peso += 15.0
     
+    if getattr(jogador, 'xp', None) is None:
+        jogador.xp = 0
+    jogador.xp += 15
+    
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': f'{animal.raca} recebeu {nome}!'})
 
@@ -188,7 +206,6 @@ def tratamento_lote():
     fazenda = Propriedade.query.filter_by(dono_id=jogador.id).first()
     
     animais = Animal.query.filter(Animal.id.in_(animal_ids), Animal.propriedade_id == fazenda.id).all()
-    
     animais_para_tratar = []
     
     for animal in animais:
@@ -200,7 +217,6 @@ def tratamento_lote():
             animais_para_tratar.append(animal)
             
     qtd_necessaria = len(animais_para_tratar)
-    
     if qtd_necessaria == 0:
         return jsonify({'sucesso': False, 'erro': 'Todos os animais selecionados já receberam este tratamento!'})
         
@@ -208,12 +224,10 @@ def tratamento_lote():
         if getattr(fazenda, 'est_vacina_aftosa', 0) < qtd_necessaria:
             return jsonify({'sucesso': False, 'erro': 'Sem Vacina Aftosa no armazém!'})
         fazenda.est_vacina_aftosa -= qtd_necessaria
-        
     elif tipo == 'brucelose':
         if getattr(fazenda, 'est_vacina_brucelose', 0) < qtd_necessaria:
             return jsonify({'sucesso': False, 'erro': 'Sem Vacina Brucelose no armazém!'})
         fazenda.est_vacina_brucelose -= qtd_necessaria
-        
     elif tipo == 'medicamento':
         if getattr(fazenda, 'est_medicamento_geral', 0) < qtd_necessaria:
             return jsonify({'sucesso': False, 'erro': 'Sem Medicamento Geral no armazém!'})
@@ -230,12 +244,13 @@ def tratamento_lote():
             animal.medicado = True
             animal.saude = min(100, animal.saude + 30) 
             
+    if getattr(jogador, 'xp', None) is None:
+        jogador.xp = 0
+    jogador.xp += (15 * qtd_necessaria)
+            
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': f'Tratamento aplicado com sucesso em {qtd_necessaria} animais!'})
 
-# ==========================================
-# ROTA CORRIGIDA PARA ABASTECIMENTO REALISTA
-# ==========================================
 @pecuaria_bp.route('/api/pasto/reabastecer', methods=['POST'])
 def reabastecer_pasto():
     if 'usuario' not in session: 
@@ -254,46 +269,34 @@ def reabastecer_pasto():
         return jsonify({'sucesso': False, 'erro': 'Pasto não encontrado.'})
         
     if tipo == 'sal':
-        # Calcula o espaço usando a nova coluna do banco de dados
-        qtd_atual = getattr(lote, 'qtd_sal_cocho', 0.0)
-        if qtd_atual is None: qtd_atual = 0.0
-            
-        espaco_livre = 10.0 - qtd_atual # Limite max 10
-        if espaco_livre <= 0: 
-            return jsonify({'sucesso': False, 'erro': 'O cocho mineral já está cheio!'})
-            
-        if quantidade > espaco_livre: 
-            quantidade = int(espaco_livre)
-            
+        qtd_atual = getattr(lote, 'qtd_sal_cocho', 0.0) or 0.0
+        espaco_livre = 10.0 - qtd_atual 
+        if espaco_livre <= 0: return jsonify({'sucesso': False, 'erro': 'O cocho mineral já está cheio!'})
+        if quantidade > espaco_livre: quantidade = int(espaco_livre)
         if getattr(fazenda, 'est_sal', 0) < quantidade:
-            return jsonify({'sucesso': False, 'erro': f'Sem Sal suficiente no armazém! Você tem {fazenda.est_sal} sacos.'})
-        
+            return jsonify({'sucesso': False, 'erro': f'Sem Sal suficiente no armazém!'})
         fazenda.est_sal -= quantidade
-        lote.qtd_sal_cocho = qtd_atual + float(quantidade) # SOMA o valor na coluna certa
+        lote.qtd_sal_cocho = qtd_atual + float(quantidade)
         msg = f'{quantidade} sacos de Sal despejados no cocho!'
         
     elif tipo == 'racao':
         if not getattr(lote, 'tem_cocho_racao', False): 
             return jsonify({'sucesso': False, 'erro': 'Este pasto não possui Linha de Ração construída!'})
-            
-        qtd_atual = getattr(lote, 'qtd_racao_cocho', 0.0)
-        if qtd_atual is None: qtd_atual = 0.0
-            
-        espaco_livre = 20.0 - qtd_atual # Limite max 20
-        if espaco_livre <= 0: 
-            return jsonify({'sucesso': False, 'erro': 'A linha de ração já está cheia!'})
-            
-        if quantidade > espaco_livre: 
-            quantidade = int(espaco_livre)
-            
+        qtd_atual = getattr(lote, 'qtd_racao_cocho', 0.0) or 0.0
+        espaco_livre = 20.0 - qtd_atual 
+        if espaco_livre <= 0: return jsonify({'sucesso': False, 'erro': 'A linha de ração já está cheia!'})
+        if quantidade > espaco_livre: quantidade = int(espaco_livre)
         if getattr(fazenda, 'est_racao', 0) < quantidade:
-            return jsonify({'sucesso': False, 'erro': f'Sem Ração suficiente no armazém! Você tem {fazenda.est_racao} sacos.'})
-        
+            return jsonify({'sucesso': False, 'erro': f'Sem Ração suficiente no armazém!'})
         fazenda.est_racao -= quantidade
-        lote.qtd_racao_cocho = qtd_atual + float(quantidade) # SOMA o valor na coluna certa
+        lote.qtd_racao_cocho = qtd_atual + float(quantidade)
         msg = f'{quantidade} sacos de Ração despejados na linha!'
     else:
         return jsonify({'sucesso': False, 'erro': 'Insumo inválido.'})
+        
+    if getattr(jogador, 'xp', None) is None:
+        jogador.xp = 0
+    jogador.xp += 10
         
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': msg})
@@ -306,32 +309,27 @@ def expandir_curral():
     
     jogador.saldo -= 6000
     fazenda.cap_curral = getattr(fazenda, 'cap_curral', 10) + 5
+    
+    if getattr(jogador, 'xp', None) is None:
+        jogador.xp = 0
+    jogador.xp += 10
+    
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': 'Curral expandido!'})
 
 @pecuaria_bp.route('/api/pecuaria/listar_pastos_disponiveis', methods=['GET'])
 def listar_pastos_disponiveis():
-    if 'usuario' not in session: 
-        return jsonify({'pastos': []})
-        
+    if 'usuario' not in session: return jsonify({'pastos': []})
     jogador = Jogador.query.filter_by(username=session.get('usuario')).first()
-    if not jogador: 
-        return jsonify({'pastos': []})
-        
     fazenda = Propriedade.query.filter_by(dono_id=jogador.id).first()
-    if not fazenda: 
-        return jsonify({'pastos': []})
-        
+    if not fazenda: return jsonify({'pastos': []})
+    
     pastos = Lote.query.filter_by(fazenda_id=fazenda.id, status='pasto').all()
-
     lista_pastos = []
     for p in pastos:
         destino_pasto = f'pasto_{p.id}'
-        animais_no_pasto = Animal.query.filter_by(onde_esta=destino_pasto).count()
-        
-        if animais_no_pasto < 10:
+        if Animal.query.filter_by(onde_esta=destino_pasto).count() < 10:
             lista_pastos.append({'id': p.id, 'nome': p.nome})
-            
     return jsonify({'pastos': lista_pastos})
 
 @pecuaria_bp.route('/api/pecuaria/verificar_saude', methods=['POST'])
@@ -339,10 +337,8 @@ def verificar_saude_pastos():
     lotes = Lote.query.filter_by(status='pasto').all()
     for lote in lotes:
         if not lote.tem_cocho or not lote.tem_bebedouro:
-            animais = Animal.query.filter_by(lote_id=lote.id).all()
-            for animal in animais:
-                if animal.peso > 10: 
-                    animal.peso -= 2.0
+            for animal in Animal.query.filter_by(lote_id=lote.id).all():
+                if animal.peso > 10: animal.peso -= 2.0
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': 'Saúde do gado atualizada.'})
 
@@ -363,7 +359,6 @@ def construir_estrutura():
     if usuario.saldo < custo:
         return jsonify({'sucesso': False, 'erro': 'Saldo insuficiente para a obra.'})
         
-    # Ajuste de nomenclatura do banco de dados
     coluna_bd = 'tem_represa_geral' if tipo == 'represa' else f'tem_{tipo}'
     
     if getattr(fazenda, coluna_bd, False):
@@ -373,54 +368,158 @@ def construir_estrutura():
     usuario.saldo -= custo
     
     registrar_transacao(usuario.id, 'saida', custo, f'Engenharia: Construção de {tipo.capitalize()}')
-    db.session.commit()
     
+    if getattr(usuario, 'xp', None) is None:
+        jogador.xp = 0
+    usuario.xp += 20
+    
+    db.session.commit()
     return jsonify({'sucesso': True, 'msg': f'Construção do {tipo.capitalize()} concluída!'})
 
-@pecuaria_bp.route('/api/pecuaria/habitat/<nome_habitat>', methods=['GET'])
-def listar_habitat(nome_habitat):
-    if 'usuario' not in session: return jsonify({'animais': []})
+@pecuaria_bp.route('/api/pecuaria/habitat/<habitat>', methods=['GET'])
+def ver_habitat(habitat):
+    if 'usuario' not in session: 
+        return jsonify({'animais': [], 'sucesso': False, 'erro': 'Sessão expirada.'})
+        
     usuario = Jogador.query.filter_by(username=session['usuario']).first()
     fazenda = Propriedade.query.filter_by(dono_id=usuario.id).first()
+    if not fazenda:
+        return jsonify({'animais': [], 'sucesso': False, 'erro': 'Fazenda não encontrada.'})
     
-    animais = Animal.query.filter_by(propriedade_id=fazenda.id, onde_esta=nome_habitat).all()
+    # 🔥 Corrigido para usar 'onde_esta' que é o padrão do seu sistema
+    animais = Animal.query.filter_by(propriedade_id=fazenda.id, onde_esta=habitat).all()
     
+    # Mapeia os dados do comedouro específico do habitat
+    tem_comedouro = False
+    qtd_racao = 0.0
+    if habitat == 'represa':
+        tem_comedouro = getattr(fazenda, 'represa_tem_comedouro', False)
+        qtd_racao = float(getattr(fazenda, 'represa_qtd_racao', 0.0) or 0.0)
+    elif habitat == 'chiqueiro':
+        tem_comedouro = getattr(fazenda, 'chiqueiro_tem_comedouro', False)
+        qtd_racao = float(getattr(fazenda, 'chiqueiro_qtd_racao', 0.0) or 0.0)
+    elif habitat == 'galinheiro':
+        tem_comedouro = getattr(fazenda, 'galinheiro_tem_comedouro', False)
+        qtd_racao = float(getattr(fazenda, 'galinheiro_qtd_racao', 0.0) or 0.0)
+
+    # 🔥 A AUTOMAÇÃO DA FOME: Se tem comedouro, ração > 0 e animais, zera a fome automaticamente!
+    if tem_comedouro and qtd_racao > 0 and animais:
+        for a in animais:
+            a.fome = 0.0
+            a.saude = 100.0
+        db.session.commit()
+
     lista = [{
         'id': a.id, 
         'raca': a.raca.capitalize(), 
-        'fase': a.fase, 
-        'peso': a.peso,
-        'saude': a.saude,
-        'fome': a.fome
+        'fase': getattr(a, 'fase', 'Adulto'), 
+        'peso': float(getattr(a, 'peso', 0.0)),
+        'saude': float(getattr(a, 'saude', 100.0)),
+        'fome': float(getattr(a, 'fome', 0.0))
     } for a in animais]
     
-    return jsonify({'animais': lista})
+    return jsonify({
+        'sucesso': True,
+        'animais': lista,
+        'tem_comedouro': tem_comedouro,
+        'qtd_racao': qtd_racao
+    })
 
-@pecuaria_bp.route('/api/pecuaria/alimentar_habitat', methods=['POST'])
-def alimentar_habitat():
-    if 'usuario' not in session: return jsonify({'sucesso': False})
+# ---------------------------------------------------------
+# NOVAS ROTAS DE COMEDOURO DOS HABITATS (Com Rações Específicas)
+# ---------------------------------------------------------
+
+@pecuaria_bp.route('/api/habitat/construir_comedouro', methods=['POST'])
+def construir_comedouro_habitat():
+    if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
     usuario = Jogador.query.filter_by(username=session['usuario']).first()
     fazenda = Propriedade.query.filter_by(dono_id=usuario.id).first()
     
     dados = request.get_json()
-    habitat = dados.get('habitat') # 'represa', 'chiqueiro', etc.
+    habitat = dados.get('habitat') # 'represa', 'chiqueiro', 'galinheiro'
     
-    animais = Animal.query.filter_by(propriedade_id=fazenda.id, onde_esta=habitat).all()
-    
-    if not animais:
-        return jsonify({'sucesso': False, 'erro': f'Não há animais no(a) {habitat.capitalize()} para alimentar.'})
+    custos = {'represa': 800.0, 'chiqueiro': 1000.0, 'galinheiro': 600.0}
+    if habitat not in custos:
+        return jsonify({'sucesso': False, 'erro': 'Habitat inválido.'})
         
-    # Lógica de consumo de Ração: 1 saco alimenta até 10 aves/peixes/porcos
-    qtd_sacos_necessarios = max(1, len(animais) // 10)
-    
-    if fazenda.est_racao < qtd_sacos_necessarios:
-        return jsonify({'sucesso': False, 'erro': f'Falta ração no Armazém! Você precisa de {qtd_sacos_necessarios} sacos.'})
+    custo = custos[habitat]
+    if usuario.saldo < custo:
+        return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente (Custo: R$ {custo:,.2f})'})
         
-    fazenda.est_racao -= qtd_sacos_necessarios
-    
-    for a in animais:
-        a.fome = max(0, a.fome - 60)
-        a.saude = min(100, a.saude + 15)
+    coluna_tem = f'{habitat}_tem_comedouro'
+    if getattr(fazenda, coluna_tem, False):
+        return jsonify({'sucesso': False, 'erro': 'Este habitat já possui um comedouro!'})
         
+    setattr(fazenda, coluna_tem, True)
+    setattr(fazenda, f'{habitat}_qtd_racao', 0.0)
+    usuario.saldo -= custo
+    
+    registrar_transacao(usuario.id, 'saida', custo, f'Construção de Comedouro no(a) {habitat.capitalize()}')
     db.session.commit()
-    return jsonify({'sucesso': True, 'msg': f'{len(animais)} animais alimentados com {qtd_sacos_necessarios} un. de Ração!'})
+    
+    return jsonify({'sucesso': True, 'msg': f'Comedouro do(a) {habitat.capitalize()} construído com sucesso!'})
+
+@pecuaria_bp.route('/api/habitat/reabastecer', methods=['POST'])
+def reabastecer_comedouro_habitat():
+    if 'usuario' not in session: 
+        return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
+        
+    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    fazenda = Propriedade.query.filter_by(dono_id=usuario.id).first()
+    
+    dados = request.get_json() or {}
+    habitat = dados.get('habitat') # 'represa', 'chiqueiro', 'galinheiro'
+    tipo_grao = dados.get('tipo_grao', 'soja') # Recebe 'soja' ou 'milho' escolhido no front
+    
+    try:
+        quantidade = int(dados.get('quantidade', 0))
+    except ValueError:
+        return jsonify({'sucesso': False, 'erro': 'Quantidade inválida.'})
+    
+    if quantidade <= 0:
+        return jsonify({'sucesso': False, 'erro': 'Quantidade inválida.'})
+        
+    if not getattr(fazenda, f'{habitat}_tem_comedouro', False):
+        return jsonify({'sucesso': False, 'erro': 'Construa um comedouro neste habitat primeiro!'})
+        
+    # Mapeamento inteligente de insumos
+    if habitat == 'chiqueiro':
+        if tipo_grao == 'milho':
+            coluna_estoque, nome_insumo, tipo_local = ('est_milho', 'Milho (Silo)', 'silo')
+        else:
+            coluna_estoque, nome_insumo, tipo_local = ('est_soja', 'Soja (Silo)', 'silo')
+    else:
+        mapa_insumo = {
+            'represa': ('est_racao_peixe', 'Ração de Peixe', 'armazem'),
+            'galinheiro': ('est_milho', 'Milho (Silo)', 'silo')
+        }
+        if habitat not in mapa_insumo:
+            return jsonify({'sucesso': False, 'erro': 'Habitat desconhecido.'})
+        coluna_estoque, nome_insumo, tipo_local = mapa_insumo[habitat]
+    
+    estoque_atual = int(getattr(fazenda, coluna_estoque, 0) or 0)
+    
+    qtd_atual_comedouro = float(getattr(fazenda, f'{habitat}_qtd_racao', 0.0) or 0.0)
+    capacidade_maxima = 50.0
+    espaco_livre = capacidade_maxima - qtd_atual_comedouro
+    
+    if espaco_livre <= 0:
+        return jsonify({'sucesso': False, 'erro': 'O comedouro está cheio!'})
+        
+    if quantidade > espaco_livre:
+        quantidade = int(espaco_livre)
+        
+    if estoque_atual < quantidade:
+        local_nome = "Armazém" if tipo_local == 'armazem' else "Silo"
+        return jsonify({'sucesso': False, 'erro': f'Você não tem {nome_insumo} suficiente no {local_nome}! (Tem: {estoque_atual} un)'})
+        
+    # Subtrai do estoque correto e atualiza o comedouro
+    setattr(fazenda, coluna_estoque, estoque_atual - quantidade)
+    setattr(fazenda, f'{habitat}_qtd_racao', qtd_atual_comedouro + float(quantidade))
+    
+    if getattr(usuario, 'xp', None) is None:
+        usuario.xp = 0
+    usuario.xp += 10
+    
+    db.session.commit()
+    return jsonify({'sucesso': True, 'msg': f'{quantidade} unidades de {nome_insumo} despejadas no comedouro!'})

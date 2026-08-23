@@ -91,12 +91,24 @@
 
         <div class="loja-card-pequeno">
             <img src="/static/img/racao.png" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3014/3014521.png'">
-            <h5>Ração</h5>
+            <h5>Ração Gado</h5>
             <div class="preco">$120 sc</div>
             <div class="loja-controles">
-                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('racao', 'Ração', 120, -1)">-</button>
+                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('racao', 'Ração Gado', 120, -1)">-</button>
                 <div class="loja-qtd-display" id="qtd-racao">0</div>
-                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('racao', 'Ração', 120, 1)">+</button>
+                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('racao', 'Ração Gado', 120, 1)">+</button>
+            </div>
+        </div>
+
+        <!-- 🔥 NOVO: Ração de Peixe (Exclusiva para a Represa) -->
+        <div class="loja-card-pequeno">
+            <img src="/static/img/racao_peixe.png" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3014/3014521.png'">
+            <h5>Ração de Peixe</h5>
+            <div class="preco">$100 sc</div>
+            <div class="loja-controles">
+                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('racao_peixe', 'Ração de Peixe', 100, -1)">-</button>
+                <div class="loja-qtd-display" id="qtd-racao_peixe">0</div>
+                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('racao_peixe', 'Ração de Peixe', 100, 1)">+</button>
             </div>
         </div>
 

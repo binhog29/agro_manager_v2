@@ -59,6 +59,12 @@ def vender_insumo():
         descricao=f"Venda de Armazém: {quantidade_venda}x {item_chave.replace('_', ' ').capitalize()}"
     )
     db.session.add(nova_transacao)
+    
+    # 🔥 Trava de Segurança e Ganho de XP pela Venda
+    if getattr(jogador, 'xp', None) is None:
+        jogador.xp = 0
+    jogador.xp += 10
+    
     db.session.commit()
     
     return jsonify({'sucesso': True, 'msg': f'Venda de {quantidade_venda}x gerou R$ {valor_total:.2f}!'})
@@ -92,6 +98,12 @@ def expandir_armazem():
         descricao=f"Melhoria: Expansão do Armazém (+{AUMENTO_CAPACIDADE} un)"
     )
     db.session.add(nova_transacao)
+    
+    # 🔥 Trava de Segurança e Ganho de XP pela Expansão
+    if getattr(jogador, 'xp', None) is None:
+        jogador.xp = 0
+    jogador.xp += 10
+    
     db.session.commit()
 
     return jsonify({'sucesso': True, 'msg': f'Armazém expandido! Nova capacidade: {fazenda.cap_armazem} un.'})

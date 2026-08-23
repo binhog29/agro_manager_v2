@@ -117,8 +117,12 @@ window.abrirSelecaoVacinaLote = async function(tipoTratamento) {
     });
 };
 
+// 🔥 CORREÇÃO 1: Atualizado para recalcular o frigorífico ao clicar em "Selecionar Todos"
 window.toggleSelecionarTodos = function(masterCheckbox) {
     document.querySelectorAll('.chk-animal-lote').forEach(chk => chk.checked = masterCheckbox.checked);
+    if (typeof window.atualizarTotalFrigorifico === 'function' && document.getElementById('txt-total-frig-ids')) {
+        window.atualizarTotalFrigorifico();
+    }
 };
 
 window.executarTratamentoLote = function(animalIds, tipo) {
@@ -168,12 +172,15 @@ window.atualizarTotalLeilao = function() {
     document.getElementById('txt-total-leilao').innerText = (qtd * preco).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
 
+// 🔥 CORREÇÃO 2: Atualizado para somar apenas os bois selecionados nos checkboxes
 window.atualizarTotalFrigorifico = function() {
-    const raca = document.getElementById('swal-raca-frig').value.toLowerCase(); 
-    const qtd = parseInt(document.getElementById('swal-qtd-frig').value) || 0;
-    const txtTotal = document.getElementById('txt-total-frig');
+    const checkboxes = document.querySelectorAll('.chk-animal-lote:checked');
+    const ids = Array.from(checkboxes).map(chk => parseInt(chk.value));
+    const txtTotal = document.getElementById('txt-total-frig-ids');
     
-    if (!raca || qtd <= 0) {
+    if (!txtTotal) return;
+
+    if (ids.length === 0) {
         txtTotal.innerText = "R$ 0,00";
         return;
     }
@@ -183,24 +190,19 @@ window.atualizarTotalFrigorifico = function() {
     
     fetch('/api/animal/estimar_frigorifico', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ raca: raca, quantidade: qtd, fazenda_id: fazendaId })
+        body: JSON.stringify({ animal_ids: ids, fazenda_id: fazendaId })
     })
     .then(r => r.json()).then(d => {
         if(d.sucesso) {
-            if(d.encontrados === 0) {
-                txtTotal.innerHTML = `<span style="font-size:14px; color:#f44336;">Nenhum no curral</span>`;
-            } else {
-                let avisoQtd = d.encontrados < qtd ? `<br><span style="font-size:11px; color:#ff9800;">(Apenas ${d.encontrados} encontrados)</span>` : "";
-                let avisoMercado = `<span style="font-size:12px; color:#aaa;">Índice Mercado: <b style="color:${d.fator >= 1 ? '#4caf50' : '#f44336'}">${Math.round(d.fator * 100)}%</b></span><br>`;
-                txtTotal.innerHTML = avisoMercado + d.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) + avisoQtd;
-            }
+            let avisoMercado = `<span style="font-size:12px; color:#aaa;">Índice Mercado: <b style="color:${d.fator >= 1 ? '#4caf50' : '#f44336'}">${Math.round(d.fator * 100)}%</b></span><br>`;
+            txtTotal.innerHTML = avisoMercado + '<span style="color:#4caf50;">' + d.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) + '</span>';
         } else txtTotal.innerText = "R$ 0,00";
     }).catch(() => { txtTotal.innerText = "Erro ao pesar"; });
 };
 
 // 👉 NOVA FUNÇÃO DE VENDA INDIVIDUAL (Escolhe Leilão ou Frigorífico)
 window.prepararVendaComercial = function(id, peso, raca) {
-    fecharModal('modal-curral');
+    if (typeof fecharModal === 'function') fecharModal('modal-curral');
     Swal.fire({
         title: 'Comercializar Animal #' + id,
         text: 'Como deseja vender este animal?',
@@ -301,7 +303,7 @@ window.abrirVendaLeilao = function(id_animal, raca) {
 }
 
 window.prepararVendaLoteCurral = function() {
-    fecharModal('modal-curral');
+    if (typeof fecharModal === 'function') fecharModal('modal-curral');
     Swal.fire({
         title: 'Comercializar Lote', text: 'Qual será o destino desses animais?',
         icon: 'question', background: '#2a2a2a', color: '#fff', showDenyButton: true, showCancelButton: true,
@@ -350,135 +352,73 @@ window.abrirModalLoteLeilao = function() {
     });
 }
 
-window.abrirModalLoteFrigorifico = function() {
-    Swal.fire({
-        title: 'Vender ao Frigorífico',
-        html: `
-            <select id="swal-raca-frig" class="swal2-input" onchange="atualizarTotalFrigorifico()" style="background:#111; color:#fff; border:1px solid #444; width:85%; margin:10px auto; display:block;">
-                <option value="" disabled selected>Raça...</option>
-                <option value="nelore">Nelore</option><option value="angus">Angus</option><option value="girolando">Girolando</option>
-                <option value="guzera">Guzerá</option><option value="brahman">Brahman</option><option value="cavalo">Cavalo</option>
-                <option value="ovelha">Ovelha</option><option value="porco">Porco (Chiqueiro)</option><option value="galinha">Galinha</option>
-            </select>
-            <input id="swal-qtd-frig" type="number" class="swal2-input" placeholder="Qtd" min="1" value="1" style="background:#111; color:#fff; border:1px solid #444; width:85%; margin:10px auto; display:block;" oninput="atualizarTotalFrigorifico()">
-            
-            <div style="text-align: right; width: 85%; margin: 0 auto 5px;">
-                <a href="#" onclick="abrirGraficoCotacao(); return false;" style="color: #64b5f6; font-size: 12px; text-decoration: none;"><i class="fas fa-chart-line"></i> Gráfico de Cotação da Raça</a>
-            </div>
+// 🔥 CORREÇÃO 3: Nova modal de Frigorífico estilo "Checkboxes" idêntica a de Vacinas
+window.abrirModalLoteFrigorifico = async function() {
+    const resposta = await fetch('/api/pecuaria/listar_curral');
+    const dados = await resposta.json();
 
-            <div style="background:#1a1a1a; border:1px dashed #444; border-radius:8px; padding:10px; margin-top:5px; width:85%; margin-left:auto; margin-right:auto;">
-                <div style="font-size:13px; color:#aaa;">Balança do Frigorífico (Pesagem Real)</div>
-                <div style="font-size:20px; font-weight:bold;">Total Estimado: <b style="color:#4caf50;" id="txt-total-frig">R$ 0,00</b></div>
+    if (!dados.animais || dados.animais.length === 0) {
+        Swal.fire('Aviso', 'Nenhum animal no curral para vender.', 'info');
+        return;
+    }
+
+    let htmlCheckboxes = `
+        <div style="text-align: left; max-height: 45vh; overflow-y: auto; padding: 5px;">
+            <div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                <label style="cursor: pointer; font-size: 13px; color: #4caf50; font-weight: bold;">
+                    <input type="checkbox" id="selecionar-todos-lote" onclick="toggleSelecionarTodos(this)"> Selecionar Todos
+                </label>
+                <span style="font-size: 11px; color: #aaa;">Total: ${dados.animais.length} animais</span>
             </div>
-        `,
-        background: '#2a2a2a', color: '#fff', confirmButtonColor: '#b91c1c', confirmButtonText: 'Vender Lote', showCancelButton: true,
+    `;
+
+    dados.animais.forEach(a => {
+        htmlCheckboxes += `
+            <label style="display: flex; align-items: center; justify-content: space-between; background: #222; padding: 10px; margin-bottom: 6px; border-radius: 6px; cursor: pointer; border: 1px solid #444;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <input type="checkbox" class="chk-animal-lote" value="${a.id}" onchange="window.atualizarTotalFrigorifico()" style="width: 18px; height: 18px; cursor: pointer; flex-shrink: 0; margin-right: 5px;">
+                    <div>
+                        <div style="font-weight: bold; font-size: 14px; color: #fff; text-transform: capitalize;">${a.raca} (${a.fase})</div>
+                        <span style="font-size: 11px; color: #888;">ID: #${a.id} | Sexo: ${a.sexo} | Peso: ${formatarPeso(a.peso)}</span>
+                    </div>
+                </div>
+            </label>
+        `;
+    });
+    htmlCheckboxes += `</div>`;
+
+    htmlCheckboxes += `
+        <div style="background:#1a1a1a; border:1px dashed #444; border-radius:8px; padding:10px; margin-top:15px; width:100%;">
+            <div style="font-size:14px; color:#aaa;">Balança do Frigorífico (Pesagem Real)</div>
+            <div style="font-size:22px; font-weight:bold; color:#4caf50;" id="txt-total-frig-ids">R$ 0,00</div>
+        </div>
+    `;
+
+    Swal.fire({
+        title: 'Vender Lote ao Frigorífico',
+        html: htmlCheckboxes,
+        background: '#2a2a2a', color: '#fff',
+        showCancelButton: true, confirmButtonText: 'Vender Lote', cancelButtonText: 'Cancelar', confirmButtonColor: '#b91c1c',
         preConfirm: () => {
-            const raca = document.getElementById('swal-raca-frig').value;
-            const qtd = document.getElementById('swal-qtd-frig').value;
-            if(!raca || !qtd || qtd < 1) Swal.showValidationMessage('Preencha os valores!');
-            return { raca, quantidade: qtd, fazenda_id: window.location.pathname.split('/').pop() };
+            const checkboxes = document.querySelectorAll('.chk-animal-lote:checked');
+            const ids = Array.from(checkboxes).map(chk => parseInt(chk.value));
+            if (ids.length === 0) Swal.showValidationMessage('Selecione pelo menos um animal!');
+            return ids;
         }
-    }).then((r) => {
-        if(r.isConfirmed) {
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const fazendaId = window.location.pathname.split('/').pop();
+            
+            Swal.fire({ title: 'Carregando caminhões...', didOpen: () => Swal.showLoading() });
+            
             fetch('/api/animal/vender_lote_curral', {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(r.value)
-            }).then(res => res.json()).then(d => {
-                if(d.sucesso) Swal.fire('Vendido!', d.msg, 'success').then(()=> { localStorage.setItem('modal_aberto_fazenda', 'modal-curral'); location.reload(); });
+                body: JSON.stringify({ animal_ids: result.value, fazenda_id: fazendaId })
+            })
+            .then(r => r.json()).then(d => {
+                if(d.sucesso) Swal.fire('Vendido! 💰', d.msg, 'success').then(()=> { localStorage.setItem('modal_aberto_fazenda', 'modal-curral'); location.reload(); });
                 else Swal.fire('Erro', d.erro, 'error');
             });
         }
-    });
-}
-
-// ==========================================
-// GRÁFICO DINÂMICO DE COTAÇÕES COM CHART.JS
-// ==========================================
-window.abrirGraficoCotacao = function() {
-    const raca = document.getElementById('swal-raca-frig').value;
-    if(!raca) {
-        Swal.showValidationMessage('Selecione uma raça primeiro para ver o gráfico!');
-        return;
-    }
-    
-    Swal.fire({ title: 'Buscando Cotações...', didOpen: () => Swal.showLoading(), allowOutsideClick: false });
-    
-    fetch('/api/mercado/dados_grafico', {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ raca: raca })
-    })
-    .then(r => r.json()).then(dados => {
-        if(dados.sucesso) {
-            if (typeof Chart === 'undefined') {
-                let script = document.createElement('script');
-                script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
-                document.head.appendChild(script);
-                script.onload = () => renderizarGrafico(dados);
-            } else {
-                renderizarGrafico(dados);
-            }
-        } else {
-            Swal.fire('Erro', 'Não foi possível carregar as cotações.', 'error');
-        }
-    });
-}
-
-// 👉 CÓDIGO RESTAURADO! Essa era a parte que tinha cortado
-function renderizarGrafico(dados) {
-    let corTendencia = dados.fator_atual >= 1.0 ? '#4caf50' : '#f44336';
-    let iconeTendencia = dados.fator_atual >= 1.0 ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down';
-    let msgMercado = dados.fator_atual >= 1.0 ? "Mercado em Alta!" : "Mercado em Baixa!";
-    
-    Swal.fire({
-        title: `Cotação do ${dados.raca}`,
-        html: `
-            <div style="margin-bottom: 10px; font-size: 15px; color: ${corTendencia}; font-weight: bold;">
-                <i class="fas ${iconeTendencia}"></i> ${msgMercado} (${Math.round(dados.fator_atual * 100)}%)
-            </div>
-            <div style="width: 100%; height: 250px; background: #111; padding: 10px; border-radius: 8px;">
-                <canvas id="graficoCanvas"></canvas>
-            </div>
-        `,
-        background: '#2a2a2a', color: '#fff',
-        showConfirmButton: true, confirmButtonText: '<i class="fas fa-undo"></i> Voltar ao Frigorífico',
-        confirmButtonColor: '#2e7d32',
-        didOpen: () => {
-            const ctx = document.getElementById('graficoCanvas').getContext('2d');
-            new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: dados.labels,
-                    datasets: [{
-                        label: `Preço por ${dados.unidade}`,
-                        data: dados.valores,
-                        borderColor: '#ff9800',
-                        backgroundColor: 'rgba(255, 152, 0, 0.2)',
-                        borderWidth: 3,
-                        pointBackgroundColor: '#ff9800',
-                        pointRadius: 5,
-                        fill: true,
-                        tension: 0.3
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        y: { ticks: { color: '#ccc' }, grid: { color: '#444' } },
-                        x: { ticks: { color: '#ccc' }, grid: { color: '#444' } }
-                    }
-                }
-            });
-        }
-    }).then(() => {
-        abrirModalLoteFrigorifico();
-        setTimeout(() => {
-            const select = document.getElementById('swal-raca-frig');
-            if(select) {
-                select.value = dados.raca.toLowerCase();
-                atualizarTotalFrigorifico();
-            }
-        }, 100);
     });
 }

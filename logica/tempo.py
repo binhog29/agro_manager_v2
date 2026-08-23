@@ -94,10 +94,23 @@ def avancar_tempo_manual():
     dados = request.get_json()
     
     horas_avancar = int(dados.get('horas', 0))
-    custo = float(dados.get('custo', 0.0))
+    
+    # 🔥 TABELA DE PREÇOS BLINDADA NO SERVIDOR
+    # O JavaScript pode enviar o custo que quiser, o Python só vai obedecer a esta tabela!
+    TABELA_CUSTOS = {
+        1: 1000.0,
+        6: 5000.0,
+        24: 20000.0,
+        168: 120000.0
+    }
+    
+    if horas_avancar not in TABELA_CUSTOS:
+        return jsonify({'sucesso': False, 'erro': 'Quantidade de horas inválida ou tentativa de fraude.'})
+        
+    custo = TABELA_CUSTOS[horas_avancar]
 
     if usuario.saldo < custo:
-        return jsonify({'sucesso': False, 'erro': 'Saldo insuficiente para pagar os custos deste período.'})
+        return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente para pagar os custos operacionais (R$ {custo:,.2f}).'})
 
     if custo > 0:
         usuario.saldo -= custo
@@ -105,7 +118,7 @@ def avancar_tempo_manual():
             jogador_id=usuario.id,
             tipo='saida',
             valor=custo,
-            descricao=f'Despesas de Tempo ({horas_avancar}h)'
+            descricao=f'Custos Operacionais ({horas_avancar}h adiantadas)'
         )
 
     avisos_motor = []
@@ -128,7 +141,6 @@ def tempo_atual():
 
     usuario = Jogador.query.filter_by(username=session['usuario']).first()
     
-    # 🔥 A MÁGICA VOLTA AQUI: Calcula todo o tempo offline antes de devolver a hora atualizada para a tela!
     GerenciadorTempo.calcular_progresso_offline(usuario)
     
     return jsonify({

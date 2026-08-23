@@ -1,28 +1,22 @@
 <div id="modal-represa" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; justify-content: center; align-items: center; font-family: 'Poppins', sans-serif;">
     <div style="background: #222; width: 90%; max-width: 400px; border-radius: 15px; border: 1px solid #444; position: relative; padding-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.8);">
         
-        <!-- Botão Fechar (Estilo Tronco) -->
         <div onclick="fecharModal('modal-represa')" style="position: absolute; top: 12px; right: 15px; color: #f44336; font-size: 22px; cursor: pointer;"><i class="fas fa-times"></i></div>
 
-        <!-- Título -->
         <div style="text-align: center; padding: 20px 10px 10px; border-bottom: 1px dashed #444;">
             <h3 style="margin: 0; color: #fff; font-size: 18px;"><i class="fas fa-water" style="color: #64b5f6;"></i> Represa (Piscicultura)</h3>
         </div>
 
-        <!-- Imagem Pequena -->
         <img src="/static/img/represa.png" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2316/2316668.png'" style="width: 80px; height: 80px; object-fit: contain; display: block; margin: 15px auto;">
 
         <div style="padding: 0 20px;">
-            <button onclick="alimentarHabitat('represa')" style="width: 100%; background: #2e7d32; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; margin-bottom: 15px; cursor: pointer;">
-                <i class="fas fa-seedling"></i> Jogar Ração na Água
-            </button>
+            <div id="painel-comedouro-represa" style="margin-bottom: 12px;"></div>
             
-            <div id="lista-represa" style="max-height: 220px; overflow-y: auto; background: #1a1a1a; border-radius: 8px; padding: 10px; border: 1px inset #333; margin-bottom: 15px;">
+            <div id="lista-represa" style="max-height: 180px; overflow-y: auto; background: #1a1a1a; border-radius: 8px; padding: 10px; border: 1px inset #333; margin-bottom: 15px;">
                 <!-- O JS preenche aqui -->
             </div>
 
-            <!-- Botão Vender Integrado -->
-            <button onclick="abrirModalLoteFrigorifico()" style="width: 100%; background: #b91c1c; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer;">
+            <button onclick="abrirModalRepresaVenda()" style="width: 100%; background: #b91c1c; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer;">
                 <i class="fas fa-sack-dollar"></i> Comercializar Peixes
             </button>
         </div>

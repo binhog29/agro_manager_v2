@@ -112,14 +112,33 @@ class Propriedade(db.Model):
     cap_armazem = db.Column(db.Integer, default=200)
     cap_curral = db.Column(db.Integer, default=10)
     cap_barracao = db.Column(db.Integer, default=0)
-    cap_camara_fria = db.Column(db.Integer, default=0)       
+    cap_camara_fria = db.Column(db.Integer, default=0)
+    
 
     # Melhorias Gerais
     tem_represa_geral = db.Column(db.Boolean, default=False)
     tem_chiqueiro = db.Column(db.Boolean, default=False)
     tem_galinheiro = db.Column(db.Boolean, default=False)
     tem_energia_solar = db.Column(db.Boolean, default=False) 
-    nivel_seguranca = db.Column(db.Integer, default=0)       
+    nivel_seguranca = db.Column(db.Integer, default=0)
+    
+    # 🐟 Represa (Piscicultura)
+    tem_represa_geral = db.Column(db.Boolean, default=False)
+    represa_tem_comedouro = db.Column(db.Boolean, default=False)
+    represa_qtd_racao = db.Column(db.Float, default=0.0)
+    est_racao_peixe = db.Column(db.Float, default=0.0)
+
+    # 🐷 Chiqueiro (Suinocultura)
+    tem_chiqueiro = db.Column(db.Boolean, default=False)
+    chiqueiro_tem_comedouro = db.Column(db.Boolean, default=False)
+    chiqueiro_qtd_racao = db.Column(db.Float, default=0.0)
+    est_racao_suino = db.Column(db.Float, default=0.0)
+
+    # 🐔 Galinheiro (Avicultura)
+    tem_galinheiro = db.Column(db.Boolean, default=False)
+    galinheiro_tem_comedouro = db.Column(db.Boolean, default=False)
+    galinheiro_qtd_racao = db.Column(db.Float, default=0.0)
+    est_racao_ave = db.Column(db.Float, default=0.0)
 
     # Estoques Agrícolas
     est_milho = db.Column(db.Integer, default=0)

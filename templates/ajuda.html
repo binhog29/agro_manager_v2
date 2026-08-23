@@ -16,7 +16,7 @@
         /* Estilo Sanfona (Accordion) */
         details { background: #1e1e1e; border: 1px solid #333; border-radius: 8px; margin-bottom: 12px; overflow: hidden; }
         summary { padding: 15px; font-weight: bold; font-size: 16px; cursor: pointer; color: #4caf50; display: flex; align-items: center; gap: 10px; outline: none; }
-        summary::-webkit-details-marker { display: none; } /* Remove setinha nativa */
+        summary::-webkit-details-marker { display: none; }
         
         .conteudo { padding: 15px; border-top: 1px solid #333; font-size: 14px; line-height: 1.6; color: #ddd; background: #181818; }
         .conteudo strong { color: #fff; }
@@ -33,26 +33,21 @@
 <body>
 
     <div class="header">
-        <h1><i class="fas fa-book"></i> Guia do Fazendeiro</h1>
-        <p>Tudo o que você precisa saber para não falir</p>
+        <h1><i class="fas fa-book"></i> Guia Completo do Fazendeiro</h1>
+        <p>Manual oficial de operações do Agro Manager</p>
     </div>
 
     <div class="container">
 
+        <!-- 1. AGRICULTURA -->
         <details>
             <summary><i class="fas fa-seedling"></i> 1. Agricultura e Tipos de Plantas</summary>
             <div class="conteudo">
-                Existem 3 tipos de plantas no jogo e cada uma se comporta de um jeito diferente na hora de colher:<br><br>
-                <strong>🌱 Culturas Anuais (Soja, Milho, Arroz, etc):</strong> Plantou, cresceu, colheu. A planta morre após a colheita e a terra fica limpa para o próximo plantio.<br><br>
-                <strong>🌳 Culturas Perenes (Banana, Cacau, etc):</strong> São árvores! Após a primeira colheita, elas entram em um <strong>período de descanso</strong> (dias de pausa) e voltam a produzir sem você precisar plantar de novo. Mas atenção: conforme você colhe, elas <strong>envelhecem</strong> e a produção cai!<br><br>
-                <strong>🍂 Culturas Sazonais (Café):</strong> Funciona como a perene, mas é exigente com o clima. Ela só libera os frutos na estação certa (Ex: Outono e Inverno).
-            </div>
-        </details>
-
-        <details>
-            <summary><i class="fas fa-tractor"></i> 2. Tempos de Colheita e Preparo</summary>
-            <div class="conteudo">
-                Cada planta exige um preparo de solo diferente. O maquinário errado não planta!
+                Existem 3 categorias principais de plantio na sua fazenda:<br><br>
+                <strong>🌱 Culturas Anuais (Soja, Milho, Arroz, etc):</strong> Plantou, cresceu, colheu. A planta morre após a colheita e a terra fica limpa para o próximo ciclo.<br><br>
+                <strong>🌳 Culturas Perenes (Banana, Cacau, etc):</strong> São árvores frutíferas. Após a primeira colheita, entram em descanso temporário e voltam a produzir sozinhas. Atenção: com o tempo elas envelhecem e o rendimento diminui.<br><br>
+                <strong>🍂 Culturas Sazonais (Café):</strong> Exigentes com o clima, produzem frutos apenas na estação correta (Outono e Inverno).
+                
                 <table>
                     <tr><th>Cultura</th><th>Preparo</th><th>Tempo (Aprox.)</th></tr>
                     <tr><td>Soja / Milho</td><td>Arado</td><td>90 a 100 dias</td></tr>
@@ -61,26 +56,65 @@
                     <tr><td>Algodão / Mandioca</td><td>Arado</td><td>150 a 240 dias</td></tr>
                     <tr><td>Banana / Abacaxi</td><td>Coveado</td><td>300 a 400 dias</td></tr>
                     <tr><td>Café / Cacau</td><td>Coveado</td><td>365 a 500 dias</td></tr>
-                    <tr><td>Açaí / Cupuaçu</td><td>Coveado</td><td>+700 dias</td></tr>
                 </table>
             </div>
         </details>
 
+        <!-- 2. PECUÁRIA E HABITATS -->
         <details>
-            <summary><i class="fas fa-cow"></i> 3. Pecuária: Como não perder o Gado</summary>
+            <summary><i class="fas fa-cow"></i> 2. Pecuária e Alimentação Automática</summary>
             <div class="conteudo">
-                O motor biológico dos animais é rigoroso. Se você não cuidar, eles morrem!<br><br>
-                <strong>No Curral (Tronco):</strong> O gado não tem acesso a pasto. Eles dependem 100% que você abasteça a fazenda com comida manual. Se esquecer os animais aqui muito tempo, a saúde cai rapidamente e eles vão para o cemitério.<br><br>
-                <strong>No Pasto:</strong> Para o gado sobreviver bem, o lote precisa ter a infraestrutura completa (<span class="destaque">Cerca, Bebedouro e Cocho</span>). E não basta ter o cocho, você precisa enchê-lo de <strong>Sal Mineral</strong> e garantir que a qualidade do Capim esteja alta.
+                O manejo animal foi inteiramente modernizado para garantir autonomia:<br><br>
+                <strong>🐮 No Curral e Pasto:</strong> O gado exige infraestrutura completa (<span class="destaque">Cerca, Bebedouro e Cocho</span>) abastecida com <strong>Sal Mineral</strong> e ração de pasto.<br><br>
+                <strong>🐔 Galinheiro, Chiqueiro e Represa:</strong> Construa um depósito de ração em cada habitat e abasteça-o! 
+                <ul>
+                    <li><strong>Galinheiro:</strong> Consome Milho armazenado no Silo.</li>
+                    <li><strong>Chiqueiro:</strong> Você escolhe se deseja alimentar com Soja ou Milho do Silo.</li>
+                    <li><strong>Represa:</strong> Consome Ração de Peixe comprada na Loja.</li>
+                </ul>
+                <strong>🤖 Automação:</strong> Enquanto houver ração no depósito do habitat, <strong>os animais se alimentam sozinhos e mantêm a fome zerada</strong>. Só se o depósito secar é que eles passarão a sentir fome e perder saúde.
             </div>
         </details>
 
+        <!-- 3. GESTÃO DE EQUIPE (RH) -->
         <details>
-            <summary><i class="fas fa-warehouse"></i> 4. Limites de Estoque</summary>
+            <summary><i class="fas fa-users"></i> 3. Gestão de Equipe e Funcionários (RH)</summary>
             <div class="conteudo">
-                Fique de olho na capacidade da sua infraestrutura:<br><br>
-                <strong>📦 Armazém:</strong> Guarda seus insumos (Sal, Ração, Adubo, Vacinas). Se lotar, você não conseguirá comprar mais nada na loja.<br><br>
-                <strong>🌾 Silo:</strong> Guarda a sua produção agrícola. Se o Silo estiver cheio na hora em que o seu trator estiver colhendo, a colheita será interrompida! Lembre-se de sempre vender seus grãos no mercado para liberar espaço.
+                Nenhum grande fazendeiro toca um império sozinho. Acesse o Alojamento (RH) para contratar profissionais que trazem bônus passivos e operacionais:<br><br>
+                <strong>🛡️ Peões:</strong> Protegem e cuidam do bem-estar dos animais.<br>
+                <strong>🚜 Tratoristas:</strong> Garantem +15% de bônus e eficiência nas colheitas.<br>
+                <strong>💰 Capatazes:</strong> Aumentam em +10% o valor das vendas no mercado.<br>
+                <strong>💉 Veterinários:</strong> Reduzem drasticamente o risco de doenças no rebanho.<br>
+                <strong>🌱 Agrônomos:</strong> Aceleram o desenvolvimento das safras no campo.
+            </div>
+        </details>
+
+        <!-- 4. ESTOQUES -->
+        <details>
+            <summary><i class="fas fa-warehouse"></i> 4. Limites de Estoque (Armazém e Silo)</summary>
+            <div class="conteudo">
+                Monitore de perto a capacidade de armazenamento da fazenda:<br><br>
+                <strong>📦 Armazém:</strong> Guarda insumos gerais como Sal, Ração de Peixe, Adubos, Diesel, Vacinas e Medicamentos. Se lotar, novas compras na loja são bloqueadas.<br><br>
+                <strong>🌾 Silo:</strong> Guarda a produção agrícola e grãos (Milho, Soja, Arroz, Feijão). Se o Silo estiver totalmente cheio na hora da colheita automática do trator, o processo será interrompido até que você libere espaço vendendo no mercado.
+            </div>
+        </details>
+
+        <!-- 5. MULTIPLAYER E SOCIAL -->
+        <details>
+            <summary><i class="fas fa-comments"></i> 5. Multiplayer: Chat Global e Visitas</summary>
+            <div class="conteudo">
+                O campo agora está conectado em tempo real!<br><br>
+                <strong>💬 Chat Global (Comunidade):</strong> Troque ideias, negocie safras e bata papo com todos os fazendeiros do servidor através do botão de comunidade na Sede.<br><br>
+                <strong>👁️ Modo Turista:</strong> Acesse o Mapa Global, clique na terra de outros jogadores e visite a fazenda deles para inspecionar suas estruturas e estratégias de sucesso.
+            </div>
+        </details>
+
+        <!-- 6. RECEITA FEDERAL -->
+        <details>
+            <summary><i class="fas fa-gavel"></i> 6. Leis Fiscais e Receita Federal</summary>
+            <div class="conteudo">
+                Para manter uma economia limpa e competitiva, a <strong>Receita Federal do Jogo</strong> monitora o extrato financeiro e as transações globais do servidor.<br><br>
+                <strong>⚖️ Punições:</strong> Tentativas de fraudes, manipulações indevidas ou exploits de bugs resultam em autuações administrativas imediatas e descontos de multas severas no caixa da fazenda infratora. Jogue limpo e prospere!
             </div>
         </details>
 

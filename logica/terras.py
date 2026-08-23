@@ -29,6 +29,9 @@ def obras_terra():
         
         registrar_transacao(usuario.id, 'entrada', venda_madeira, f'Venda de Madeira Bruta ({lote.nome})')
         registrar_transacao(usuario.id, 'saida', custo_trator, f'Aluguel Trator/Desmatamento ({lote.nome})')
+        # 🔥 Trava de Segurança e Ganho de XP
+        usuario.xp = usuario.xp
+        usuario.xp += 15  # XP ganho pela tarefa
         mensagem = f'Mato limpo! A madeira rendeu R$ 1.500 e o trator custou R$ 500. Lucro de R$ 1.000!'
 
     elif acao == 'cercar':
@@ -38,6 +41,9 @@ def obras_terra():
         lote.status = 'cercado'
         lote.tem_cerca = True
         registrar_transacao(usuario.id, 'saida', custo, f'Construção de Cercas ({lote.nome})')
+        # 🔥 Trava de Segurança e Ganho de XP
+        usuario.xp = usuario.xp
+        usuario.xp += 15  # XP ganho pela tarefa
         mensagem = 'Hectare cercado com sucesso! Pronto para receber capim.'
 
     elif acao == 'arar':
@@ -46,6 +52,9 @@ def obras_terra():
         usuario.saldo -= custo
         lote.status = 'arado'
         registrar_transacao(usuario.id, 'saida', custo, f'Preparo de Solo/Arado ({lote.nome})')
+        # 🔥 Trava de Segurança e Ganho de XP
+        usuario.xp = usuario.xp
+        usuario.xp += 15  # XP ganho pela tarefa
         mensagem = 'Solo arado e nivelado! Pronto para plantio de Grãos e Cereais.'
 
     elif acao == 'covear':
@@ -54,6 +63,9 @@ def obras_terra():
         usuario.saldo -= custo
         lote.status = 'coveado'
         registrar_transacao(usuario.id, 'saida', custo, f'Abertura de Covas/Pomar ({lote.nome})')
+        # 🔥 Trava de Segurança e Ganho de XP
+        usuario.xp = usuario.xp
+        usuario.xp += 15  # XP ganho pela tarefa
         mensagem = 'Covas abertas e adubadas! Pronto para receber mudas de Frutas/Café.'
 
     elif acao in ['plantar_braquiaria', 'plantar_mombaca']:
@@ -61,10 +73,16 @@ def obras_terra():
             custo = 300
             especie_capim = 'braquiaria'
             nome_exibicao = 'Braquiária'
+            # 🔥 Trava de Segurança e Ganho de XP
+            usuario.xp = usuario.xp
+            usuario.xp += 15  # XP ganho pela tarefa
         else:
             custo = 450
             especie_capim = 'mombaca'
             nome_exibicao = 'Mombaça'
+            # 🔥 Trava de Segurança e Ganho de XP
+            usuario.xp = usuario.xp
+            usuario.xp += 15  # XP ganho pela tarefa
 
         if usuario.saldo < custo: 
             return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente para sementes de {nome_exibicao}.'})
@@ -78,7 +96,7 @@ def obras_terra():
         
     else:
         return jsonify({'sucesso': False, 'erro': 'Ação inválida.'})
-
+            
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': mensagem})
 
@@ -96,6 +114,9 @@ def infra_pasto():
         usuario.saldo -= custo
         lote.tem_cocho = True
         registrar_transacao(usuario.id, 'saida', custo, f'Construção de Cocho ({lote.nome})')
+        # 🔥 Trava de Segurança e Ganho de XP
+        usuario.xp = usuario.xp
+        usuario.xp += 15  # XP ganho pela tarefa
         msg = "Cocho construído! Agora você pode servir sal e suplemento."
 
     elif obra == 'cocho_racao':
@@ -104,6 +125,9 @@ def infra_pasto():
         usuario.saldo -= custo
         lote.tem_cocho_racao = True
         registrar_transacao(usuario.id, 'saida', custo, f'Linha de Ração ({lote.nome})')
+        # 🔥 Trava de Segurança e Ganho de XP
+        usuario.xp = usuario.xp
+        usuario.xp += 15  # XP ganho pela tarefa
         msg = "Linha de Ração construída! Agora você pode realizar trato intensivo."
 
     elif obra == 'bebedouro':
@@ -112,6 +136,9 @@ def infra_pasto():
         usuario.saldo -= custo
         lote.tem_bebedouro = True
         registrar_transacao(usuario.id, 'saida', custo, f'Escavação de Bebedouro ({lote.nome})')
+        # 🔥 Trava de Segurança e Ganho de XP
+        usuario.xp = usuario.xp
+        usuario.xp += 15  # XP ganho pela tarefa
         msg = "Tanque de água escavado com sucesso!"
     else:
         return jsonify({'sucesso': False, 'erro': 'Obra inválida.'})
@@ -121,6 +148,11 @@ def infra_pasto():
 
 @terras_bp.route('/api/fazenda/reverter_pasto', methods=['POST'])
 def reverter_pasto():
+    # 🔥 CORREÇÃO 1: Precisamos puxar quem é o jogador logado primeiro!
+    if 'usuario' not in session: 
+        return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
+    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+
     dados = request.get_json()
     pasto_id = dados.get('pasto_id')
     pasto = Lote.query.get(pasto_id)
@@ -136,6 +168,14 @@ def reverter_pasto():
     pasto.tem_cocho = False
     pasto.tem_cocho_racao = False
     pasto.tem_bebedouro = False
+    
+    # 🔥 Trava de Segurança e Ganho ou perda de XP
+    if getattr(usuario, 'xp', None) is None:
+        usuario.xp = 0
+        
+    # 🔥 CORREÇÃO 2: Puxamos a perda de XP para fora do 'if' (recuo para trás)
+    usuario.xp -= 15  
+    
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': 'Pasto destruído e revertido para terra nua!'})
 
@@ -144,7 +184,9 @@ def reverter_pasto():
 # ==========================================
 @terras_bp.route('/api/fazenda/reverter_cultivo', methods=['POST'])
 def reverter_cultivo():
-    if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
+    # 🔥 CORREÇÃO 1: Precisamos puxar quem é o jogador logado primeiro!
+    if 'usuario' not in session: 
+        return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
     usuario = Jogador.query.filter_by(username=session['usuario']).first()
     
     dados = request.get_json()
@@ -169,6 +211,15 @@ def reverter_cultivo():
     lote.produtividade_atual = 100
     lote.nivel_pragas = 0
     lote.fertilidade_solo = 100
-
+    
+    # 🔥 Trava de Segurança e Ganho ou perda de XP
+    if getattr(usuario, 'xp', None) is None:
+        usuario.xp = 0
+        
+    # 🔥 CORREÇÃO 2: Puxamos a perda de XP para fora do 'if' (recuo para trás)
+    usuario.xp -= 15  
+    
     db.session.commit()
-    return jsonify({'sucesso': True, 'msg': 'Lavoura removida com sucesso! A terra voltou a ficar limpa.'})
+    return jsonify({'sucesso': True, 'msg': 'Pasto destruído e revertido para terra nua!'})
+        
+        

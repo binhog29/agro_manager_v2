@@ -69,7 +69,7 @@ def contratar_funcionario():
         equipe = Equipe(propriedade_id=propriedade.id)
         db.session.add(equipe)
 
-       # 🚀 MAGIA DO OOP: Pega o valor, e se o banco retornar Vazio (None), assume 0
+    # 🚀 MAGIA DO OOP: Pega o valor, e se o banco retornar Vazio (None), assume 0
     qtd_atual = getattr(equipe, id_cargo, 0)
     if qtd_atual is None:
         qtd_atual = 0
@@ -79,12 +79,13 @@ def contratar_funcionario():
     usuario.saldo -= cargo_obj.custo
     registrar_transacao(usuario.id, 'saida', cargo_obj.custo, f'Contratação de {cargo_obj.nome}')
 
-    # Dá um bônus de XP pela contratação!
-    if usuario.adicionar_xp(200):
-        pass 
+    # 🔥 Trava de Segurança e Ganho de XP pela Contratação
+    if getattr(usuario, 'xp', None) is None:
+        usuario.xp = 0
+    usuario.xp += 50
 
     db.session.commit()
-    return jsonify({'sucesso': True, 'msg': f'{cargo_obj.nome} contratado com sucesso para {propriedade.nome}! '})
+    return jsonify({'sucesso': True, 'msg': f'{cargo_obj.nome} contratado com sucesso para {propriedade.nome}!'})
 
 def cobrar_folha_pagamento(jogador, horas_passadas):
     """Usado pelo motor de tempo para descontar os salários"""

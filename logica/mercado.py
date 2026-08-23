@@ -203,6 +203,13 @@ def comprar_ia():
         novo = Animal(propriedade_id=propriedade.id, raca=raca, fase=fase.capitalize(), sexo=sexo, peso=peso_animal, onde_esta=habitat, origem='Mercado Oficial')
         animais_para_adicionar.append(novo)
 
+     # 🔥 Trava de Segurança e Ganho ou perda de XP
+    if getattr(usuario, 'xp', None) is None:
+        usuario.xp = 0
+        
+    # 🔥 CORREÇÃO 2: Puxamos a perda de XP para fora do 'if' (recuo para trás)
+    usuario.xp += 10
+    
     db.session.add_all(animais_para_adicionar)
     db.session.commit()
     

@@ -52,13 +52,19 @@ def comprar_fazenda(prop_id):
     jogador.saldo -= propriedade.preco
     propriedade.dono_id = jogador.id
     
-    # --- NOVO: REGISTRA NO FLUXO DE CAIXA ---
+    # --- REGISTRA NO FLUXO DE CAIXA ---
     registrar_transacao(
         jogador_id=jogador.id, 
         tipo='saida', 
         valor=propriedade.preco, 
         descricao=f'Compra de Terra: {propriedade.nome}'
     )
+    
+    # 🔥 Trava de Segurança e Ganho de XP por Expandir o Território
+    if getattr(jogador, 'xp', None) is None:
+        jogador.xp = 0
+    jogador.xp += 200 # Grande conquista por adquirir uma fazenda!
+
     db.session.commit()
     return jsonify({'sucesso': True})
 

@@ -11,7 +11,8 @@
         <img src="/static/img/celeiro.png" class="img-modal-destaque" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2829/2829839.png'">
         
         <div style="background: #111; border-radius: 10px; height: 24px; margin: 15px 0; position: relative; overflow: hidden; border: 1px solid #333;">
-            {% set total_insumos = (fazenda.est_sal + fazenda.est_racao + fazenda.est_adubo + fazenda.est_veneno + fazenda.est_combustivel + fazenda.est_vacina_aftosa + fazenda.est_vacina_brucelose + fazenda.est_medicamento_geral + fazenda.est_suplemento_engorda) %}
+            <!-- 🔥 ADICIONADO fazenda.est_racao_peixe NO CÁLCULO TOTAL -->
+            {% set total_insumos = (fazenda.est_sal + fazenda.est_racao + fazenda.est_adubo + fazenda.est_veneno + fazenda.est_combustivel + fazenda.est_vacina_aftosa + fazenda.est_vacina_brucelose + fazenda.est_medicamento_geral + fazenda.est_suplemento_engorda + fazenda.est_racao_peixe) %}
             {% set porcentagem_ins = (total_insumos / fazenda.cap_armazem) * 100 if fazenda.cap_armazem > 0 else 0 %}
             
             <div style="width: {{ porcentagem_ins }}%; background: #8d6e63; height: 100%; transition: width 0.5s;"></div>
@@ -31,13 +32,15 @@
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <!-- 🔥 ADICIONADO 'racao_peixe' NA LISTA DE EXIBIÇÃO DO ARMAZÉM -->
             {% set lista_insumos = [
                 ('sal','Sal'), ('racao','Ração'), ('adubo','Adubo'), 
                 ('veneno','Defensivo'), ('combustivel','Diesel'),
                 ('vacina_aftosa','Vacina Aftosa'), 
                 ('vacina_brucelose','Vacina Brucelose'),
                 ('medicamento_geral','Medicamento Geral'), 
-                ('suplemento_engorda','Suplemento Engorda')
+                ('suplemento_engorda','Suplemento Engorda'),
+                ('racao_peixe','Ração de Peixe')
             ] %}
             
             {% for chave, nome in lista_insumos %}

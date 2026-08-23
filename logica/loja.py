@@ -11,7 +11,6 @@ def comprar_item():
     dados = request.get_json()
     item_chave = dados.get('item') 
     
-    # 🔒 CAMADA DE SEGURANÇA 1: Bloqueio de Injeção de Valores
     try:
         quantidade = int(dados.get('quantidade', 1))
         preco_unidade = float(dados.get('preco', 0))
@@ -37,28 +36,27 @@ def comprar_item():
         return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente!'})
 
     try:
-        # 🔒 DIVISÃO DE CATEGORIAS REALISTAS: O que vai pra onde?
-        itens_armazem = ['sal', 'racao', 'adubo', 'veneno', 'combustivel', 'vacina_aftosa', 'vacina_brucelose', 'medicamento_geral', 'suplemento_engorda']
+        # 🔥 Ração de peixe incluída corretamente nos itens do armazém
+        itens_armazem = [
+            'sal', 'racao', 'adubo', 'veneno', 'combustivel', 
+            'vacina_aftosa', 'vacina_brucelose', 'medicamento_geral', 
+            'suplemento_engorda', 'racao_peixe'
+        ]
         itens_silo_graos = ['soja', 'milho', 'arroz', 'feijao'] 
         itens_galpao = ['algodao', 'cana', 'mandioca', 'cafe', 'cacau', 'acai', 'cupuacu', 'pimenta', 'banana', 'abacaxi', 'melancia']
         
-        # 1. Checa limite do Armazém se for insumo
         if nome_banco in itens_armazem:
             total_atual = sum(getattr(fazenda, f'est_{i}', 0) for i in itens_armazem if hasattr(fazenda, f'est_{i}'))
             if (total_atual + quantidade) > fazenda.cap_armazem:
                 espaco_livre = fazenda.cap_armazem - total_atual
                 return jsonify({'sucesso': False, 'erro': f'Armazém lotado! Você só tem espaço livre para mais {espaco_livre} un.'})
                 
-        # 2. Checa limite do Silo APENAS para grãos
         elif nome_banco in itens_silo_graos:
             total_silo = sum(getattr(fazenda, f'est_{i}', 0) for i in itens_silo_graos if hasattr(fazenda, f'est_{i}'))
             if (total_silo + quantidade) > fazenda.cap_silo:
                 espaco_livre = fazenda.cap_silo - total_silo
                 return jsonify({'sucesso': False, 'erro': f'Silo de Grãos cheio! Você só tem {espaco_livre} kg de espaço. Expanda-o primeiro!'})
 
-        # 3. Os itens de Galpão passam livres da trava do Silo.
-
-        # Processa a compra se passou na fiscalização
         nome_coluna = f'est_{nome_banco}'
         estoque_atual = getattr(fazenda, nome_coluna)
         
@@ -73,15 +71,16 @@ def comprar_item():
         )
         db.session.add(nova_transacao)
         
+        if getattr(jogador, 'xp', None) is None:
+            jogador.xp = 0
+        jogador.xp += 10
+        
         db.session.commit()
         return jsonify({'sucesso': True, 'msg': f'Compra realizada com sucesso!'})
         
     except AttributeError:
         return jsonify({'sucesso': False, 'erro': f'A coluna {nome_coluna} não existe no banco de dados!'})
 
-# ==========================================
-# NOVA ROTA: CHECKOUT DO CARRINHO DE COMPRAS
-# ==========================================
 @loja_bp.route('/api/loja/checkout_carrinho', methods=['POST'])
 def checkout_carrinho():
     if 'usuario' not in session: 
@@ -100,13 +99,16 @@ def checkout_carrinho():
     custo_total_carrinho = 0
     resumo_compra = []
 
-    itens_armazem = ['sal', 'racao', 'adubo', 'veneno', 'combustivel', 'vacina_aftosa', 'vacina_brucelose', 'medicamento_geral', 'suplemento_engorda']
+    itens_armazem = [
+        'sal', 'racao', 'adubo', 'veneno', 'combustivel', 
+        'vacina_aftosa', 'vacina_brucelose', 'medicamento_geral', 
+        'suplemento_engorda', 'racao_peixe'
+    ]
     itens_silo_graos = ['soja', 'milho', 'arroz', 'feijao']
 
     qtd_total_armazem = 0
     qtd_total_silo = 0
 
-    # 1. Validação Matemática
     for item in carrinho:
         try:
             qtd = int(item.get('quantidade', 0))
@@ -126,11 +128,9 @@ def checkout_carrinho():
         elif chave in itens_silo_graos:
             qtd_total_silo += qtd
 
-    # 2. Verifica o Dinheiro
     if jogador.saldo < custo_total_carrinho:
         return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente! Sua compra custa R$ {custo_total_carrinho:.2f}'})
 
-    # 3. Verifica Limites de Espaço Coletivo
     total_atual_armazem = sum(getattr(fazenda, f'est_{i}', 0) for i in itens_armazem if hasattr(fazenda, f'est_{i}'))
     if (total_atual_armazem + qtd_total_armazem) > fazenda.cap_armazem:
         return jsonify({'sucesso': False, 'erro': 'Você não tem espaço no Armazém para todos esses insumos!'})
@@ -139,7 +139,6 @@ def checkout_carrinho():
     if (total_atual_silo + qtd_total_silo) > fazenda.cap_silo:
         return jsonify({'sucesso': False, 'erro': 'Você não tem espaço no Silo para todas essas sementes!'})
 
-    # 4. Entrega os itens no banco de dados
     for item in carrinho:
         chave = item.get('item', '').replace('sem_', '')
         qtd = int(item.get('quantidade', 0))
@@ -152,7 +151,6 @@ def checkout_carrinho():
 
     jogador.saldo -= custo_total_carrinho
     
-    # 5. Registra transação única
     texto_desc = "Compra Múltipla: " + ", ".join(resumo_compra)
     if len(texto_desc) > 200: texto_desc = texto_desc[:197] + "..." 
 
@@ -163,6 +161,11 @@ def checkout_carrinho():
         descricao=texto_desc
     )
     db.session.add(nova_transacao)
+    
+    if getattr(jogador, 'xp', None) is None:
+        jogador.xp = 0
+    jogador.xp += (10 * len(carrinho))
+    
     db.session.commit()
 
     return jsonify({'sucesso': True, 'msg': f'Sua compra de R$ {custo_total_carrinho:.2f} foi entregue na fazenda!'})

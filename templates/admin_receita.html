@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Receita Federal - Auditoria do Servidor</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        body { background: #121212; color: #fff; font-family: 'Poppins', sans-serif; padding: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        .card { background: #1e1e1e; border: 1px solid #333; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #333; }
+        th { color: #f9a825; background: #252525; }
+        .entrada { color: #4caf50; font-weight: bold; }
+        .saida { color: #ff5252; font-weight: bold; }
+        .btn-voltar { background: #2e7d32; color: #fff; padding: 8px 15px; border-radius: 5px; text-decoration: none; font-weight: bold; display: inline-block; margin-bottom: 15px; }
+        .btn-multar { background: #d32f2f; color: #fff; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 11px; }
+        .btn-multar:hover { background: #b71c1c; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="{{ url_for('mapa') }}" class="btn-voltar"><i class="fas fa-arrow-left"></i> Voltar ao Jogo</a>
+        
+        <h1><i class="fas fa-landmark" style="color: #f9a825;"></i> Receita Federal (Fiscalização)</h1>
+        <p style="color: #aaa;">Painel de auditoria de transações e combate à lavagem de dinheiro e exploits no servidor.</p>
+
+        <!-- Top 5 Jogadores Mais Ricos (Alvos de Investigação) -->
+        <div class="card">
+            <h3><i class="fas fa-user-secret"></i> Jogadores Sob Investigação (Top Saldos)</h3>
+            <table>
+                <tr>
+                    <th>Fazendeiro</th>
+                    <th>Nível</th>
+                    <th>Saldo Atual em Conta</th>
+                    <th>Ações Fiscais</th>
+                </tr>
+                {% for m in milionarios %}
+                <tr>
+                    <td><b>{{ m.username }}</b></td>
+                    <td>Nvl {{ m.nivel or 1 }}</td>
+                    <td style="color: #4caf50; font-weight: bold;">R$ {{ "{:,.2f}".format(m.saldo) }}</td>
+                    <td>
+                        <button class="btn-multar" onclick="aplicarMultaAdmin({{ m.id }}, '{{ m.username }}')">
+                            <i class="fas fa-gavel"></i> Multar
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+
+        <!-- Extrato Global de Transações -->
+        <div class="card">
+            <h3><i class="fas fa-receipt"></i> Últimas 100 Transações do Servidor</h3>
+            <table>
+                <tr>
+                    <th>Data / Hora</th>
+                    <th>Fazendeiro</th>
+                    <th>Tipo</th>
+                    <th>Valor</th>
+                    <th>Descrição da Operação</th>
+                </tr>
+                {% for t in auditoria %}
+                <tr>
+                    <td style="color: #888; font-size: 11px;">{{ t.data.strftime('%d/%m/%Y %H:%M:%S') }}</td>
+                    <td><b>{{ t.fazendeiro }}</b> <span style="color:#aaa; font-size:10px;">(Nvl {{ t.nivel }})</span></td>
+                    <td>
+                        {% if t.tipo == 'entrada' %}
+                            <span class="entrada"><i class="fas fa-arrow-down"></i> ENTRADA</span>
+                        {% else %}
+                            <span class="saida"><i class="fas fa-arrow-up"></i> SAÍDA</span>
+                        {% endif %}
+                    </td>
+                    <td>R$ {{ "{:,.2f}".format(t.valor) }}</td>
+                    <td>{{ t.descricao }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+    </div>
+
+    <script>
+        async function aplicarMultaAdmin(jogadorId, nomeFazendeiro) {
+            const { value: formValues } = await Swal.fire({
+                title: `Aplicar Multa em ${nomeFazendeiro}`,
+                html: `
+                    <input id="swal-input-valor" class="swal2-input" placeholder="Valor da Multa (R$)" type="number" step="0.01">
+                    <input id="swal-input-motivo" class="swal2-input" placeholder="Motivo da Infração" type="text">
+                `,
+                background: '#2a2a2a',
+                color: '#fff',
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: 'Aplicar Multa',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#d32f2f',
+                preConfirm: () => {
+                    return [
+                        document.getElementById('swal-input-valor').value,
+                        document.getElementById('swal-input-motivo').value
+                    ]
+                }
+            });
+
+            if (formValues) {
+                const valor = parseFloat(formValues[0]);
+                const motivo = formValues[1] || 'Infração fiscal / Exploit detectado';
+
+                if (!valor || valor <= 0) {
+                    Swal.fire('Erro', 'Insira um valor válido para a multa!', 'error');
+                    return;
+                }
+
+                Swal.fire({ title: 'Processando multa...', didOpen: () => Swal.showLoading() });
+
+                fetch(`/admin/multar/${jogadorId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ valor: valor, motivo: motivo })
+                })
+                .then(r => r.json())
+                .then(d => {
+                    if (d.sucesso) {
+                        Swal.fire('Multa Aplicada!', d.msg, 'success').then(() => location.reload());
+                    } else {
+                        Swal.fire('Atenção', d.erro, 'warning');
+                    }
+                })
+                .catch(() => {
+                    Swal.fire('Erro', 'Falha na comunicação com o servidor.', 'error');
+                });
+            }
+        }
+    </script>
+</body>
+</html>

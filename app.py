@@ -6,7 +6,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_migrate import Migrate 
 
-from database import db, Jogador, Propriedade, Animal, HistoricoMorte
+from database import db, Jogador, Propriedade, Animal, HistoricoMorte, Transacao
 
 from logica.social import social_bp
 from logica.mercado import mercado_bp
@@ -33,14 +33,12 @@ app.secret_key = 'chave_super_secreta_para_sessoes'
 db.init_app(app)
 migrate = Migrate(app, db) 
 
-# Limite global removido para não bloquear o jogo
 limiter = Limiter(
     get_remote_address,
     app=app,
     storage_uri="memory://"
 )
 
-# Registrando todos os módulos (Blueprints)
 app.register_blueprint(funcionarios_bp)
 app.register_blueprint(social_bp)
 app.register_blueprint(mercado_bp)
@@ -61,6 +59,32 @@ with app.app_context():
     from database import popular_mapa_inicial
     popular_mapa_inicial()
 
+# ==========================================
+# FUNÇÃO SEGURA DE NÍVEL (Não quebra APIs)
+# ==========================================
+def verificar_nivel(jogador):
+    if not jogador:
+        return
+        
+    if getattr(jogador, 'xp', None) is None:
+        jogador.xp = 0
+    if getattr(jogador, 'nivel', None) is None:
+        jogador.nivel = 1
+        
+    xp_necessario = 1000
+    subiu_nivel = False
+    
+    while jogador.xp >= xp_necessario:
+        jogador.xp -= xp_necessario
+        jogador.nivel += 1
+        subiu_nivel = True
+        
+    if subiu_nivel:
+        db.session.commit()
+
+# ==========================================
+# ROTAS DO SISTEMA
+# ==========================================
 @app.route('/')
 @app.route('/login')
 def login():
@@ -127,6 +151,7 @@ def mapa():
     
     if jogador_atual:
         GerenciadorTempo.calcular_progresso_offline(jogador_atual)
+        verificar_nivel(jogador_atual)  # 🔥 Atualiza o nível ao abrir o Mapa
         
     return render_template('mapa.html', jogador=jogador_atual)
 
@@ -173,23 +198,80 @@ def perfil():
         
     jogador_atual = Jogador.query.filter_by(username=session['usuario']).first()
     
-    # 🧮 CORREÇÃO DO NÍVEL E XP
     if jogador_atual:
-        # Garante que os campos existem para evitar erros
-        if not hasattr(jogador_atual, 'xp') or jogador_atual.xp is None:
-            jogador_atual.xp = 0
-        if not hasattr(jogador_atual, 'nivel') or jogador_atual.nivel is None:
-            jogador_atual.nivel = 1
-            
-        # Calcula o nível correto caso tenha acumulado muito XP
-        xp_necessario = 1000
-        while jogador_atual.xp >= xp_necessario:
-            jogador_atual.xp -= xp_necessario
-            jogador_atual.nivel += 1
-            
-        db.session.commit()
+        verificar_nivel(jogador_atual) # 🔥 Atualiza o nível ao abrir o Perfil
         
     return render_template('perfil.html', jogador=jogador_atual)
+
+@app.route('/admin/receita-federal')
+def receita_federal():
+    if 'usuario' not in session:
+        return redirect(url_for('login'))
+        
+    usuario_atual = Jogador.query.filter_by(username=session['usuario']).first()
+    if not usuario_atual or not getattr(usuario_atual, 'is_admin', False):
+        return "Acesso negado. Área restrita à Receita Federal do Jogo!", 403
+
+    # Busca as últimas 100 transações
+    transacoes = Transacao.query.order_by(Transacao.data.desc()).limit(100).all()
+    
+    # Monta uma lista associando cada transação ao seu respectivo Jogador para evitar erros
+    auditoria = []
+    for t in transacoes:
+        dono = db.session.get(Jogador, t.jogador_id)
+        auditoria.append({
+            'data': t.data,
+            'fazendeiro': dono.username if dono else "Desconhecido",
+            'nivel': getattr(dono, 'nivel', 1) if dono else 1,
+            'tipo': t.tipo,
+            'valor': t.valor,
+            'descricao': t.descricao
+        })
+
+    milionarios = Jogador.query.order_by(Jogador.saldo.desc()).limit(5).all()
+
+    return render_template(
+        'admin_receita.html', 
+        user=usuario_atual, 
+        auditoria=auditoria,
+        milionarios=milionarios
+    )
+
+@app.route('/admin/multar/<int:jogador_id>', methods=['POST'])
+def aplicar_multa(jogador_id):
+    if 'usuario' not in session:
+        return jsonify({'sucesso': False, 'erro': 'Não autorizado'})
+        
+    usuario_atual = Jogador.query.filter_by(username=session['usuario']).first()
+    if not usuario_atual or not getattr(usuario_atual, 'is_admin', False):
+        return jsonify({'sucesso': False, 'erro': 'Acesso negado'}), 403
+
+    dados = request.get_json() or {}
+    try:
+        valor_multa = float(dados.get('valor', 0))
+    except ValueError:
+        return jsonify({'sucesso': False, 'erro': 'Valor da multa inválido'})
+        
+    motivo = dados.get('motivo', 'Infração fiscal / Exploit detectado')
+
+    alvo = db.session.get(Jogador, jogador_id)
+    if not alvo:
+        return jsonify({'sucesso': False, 'erro': 'Jogador não encontrado'})
+
+    # Desconta o saldo com segurança
+    alvo.saldo = max(0.0, alvo.saldo - valor_multa)
+
+    # Registra no extrato usando a tabela Transacao diretamente para evitar falhas
+    nova_transacao = Transacao(
+        jogador_id=alvo.id,
+        tipo='saida',
+        valor=valor_multa,
+        descricao=f'⚖️ MULTA DA RECEITA FEDERAL: {motivo}'
+    )
+    db.session.add(nova_transacao)
+    db.session.commit()
+    
+    return jsonify({'sucesso': True, 'msg': f'Multa de R$ {valor_multa:,.2f} aplicada com sucesso em {alvo.username}!'})
 
 @app.route('/ajuda')
 def ajuda():
@@ -241,9 +323,9 @@ def fazenda(prop_id):
         
     visitante = False
     
-    # Se for o dono, calcula o tempo offline dele. Se não, é só um visitante!
     if propriedade.dono_id == jogador.id:
         GerenciadorTempo.calcular_progresso_offline(jogador)
+        verificar_nivel(jogador) # 🔥 Atualiza o nível ao abrir a Fazenda
     else:
         visitante = True
 

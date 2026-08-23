@@ -65,6 +65,12 @@ def vender_grao():
         descricao=f"Venda de Silo: {quantidade_venda}x {item_chave.capitalize()}"
     )
     db.session.add(nova_transacao)
+    
+    # 🔥 Trava de Segurança e Ganho de XP pela Venda
+    if getattr(jogador, 'xp', None) is None:
+        jogador.xp = 0
+    jogador.xp += 10
+    
     db.session.commit()
     
     return jsonify({'sucesso': True, 'msg': f'Venda de {quantidade_venda}x {item_chave.capitalize()} gerou R$ {valor_total:.2f}!'})
@@ -100,6 +106,12 @@ def expandir_silo():
         descricao=f"Melhoria: Expansão do Silo (+{AUMENTO_CAPACIDADE} kg)"
     )
     db.session.add(nova_transacao)
+    
+    # 🔥 Trava de Segurança e Ganho de XP pela Expansão
+    if getattr(jogador, 'xp', None) is None:
+        jogador.xp = 0
+    jogador.xp += 10
+    
     db.session.commit()
 
     return jsonify({'sucesso': True, 'msg': f'Silo expandido! Nova capacidade: {fazenda.cap_silo} kg.'})
