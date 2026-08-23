@@ -172,6 +172,23 @@ def perfil():
         return redirect(url_for('login'))
         
     jogador_atual = Jogador.query.filter_by(username=session['usuario']).first()
+    
+    # 🧮 CORREÇÃO DO NÍVEL E XP
+    if jogador_atual:
+        # Garante que os campos existem para evitar erros
+        if not hasattr(jogador_atual, 'xp') or jogador_atual.xp is None:
+            jogador_atual.xp = 0
+        if not hasattr(jogador_atual, 'nivel') or jogador_atual.nivel is None:
+            jogador_atual.nivel = 1
+            
+        # Calcula o nível correto caso tenha acumulado muito XP
+        xp_necessario = 1000
+        while jogador_atual.xp >= xp_necessario:
+            jogador_atual.xp -= xp_necessario
+            jogador_atual.nivel += 1
+            
+        db.session.commit()
+        
     return render_template('perfil.html', jogador=jogador_atual)
 
 @app.route('/ajuda')
