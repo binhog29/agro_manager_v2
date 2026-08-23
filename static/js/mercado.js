@@ -9,11 +9,31 @@ fetch('/api/mercado/precos')
     .then(data => { window.PRECOS_BASE = data; })
     .catch(err => console.error("Erro ao carregar preços:", err));
 
+// ==========================================
+// ATUALIZAR PREÇO E PESO DINAMICAMENTE
+// ==========================================
 window.atualizarPrecoDinamico = function(id_ia) {
+    const key = id_ia ? id_ia.toLowerCase() : '';
     const fase = document.getElementById('fase-' + id_ia).value;
-    const precoOriginal = window.PRECOS_BASE[id_ia] ? window.PRECOS_BASE[id_ia][fase] : 0;
-    const precoComMargem = Math.floor(precoOriginal * 1.1);
-    document.getElementById('val-' + id_ia).innerText = precoComMargem.toLocaleString('pt-BR');
+    
+    const dadosAnimal = window.PRECOS_BASE[key];
+    
+    if (dadosAnimal) {
+        // 1. Atualiza o Preço dinamicamente
+        const precoFinal = dadosAnimal[fase] || 0;
+        const spanVal = document.getElementById('val-' + id_ia);
+        if (spanVal) {
+            spanVal.innerText = Math.round(precoFinal).toLocaleString('pt-BR');
+        }
+        
+        // 2. Atualiza o Peso dinamicamente junto com a fase (Filhote ou Adulto)
+        const pesoSpan = document.getElementById('peso-' + id_ia);
+        if (pesoSpan) {
+            const pesoDinamico = fase === 'filhote' ? dadosAnimal.peso_filhote : dadosAnimal.peso_adulto;
+            const unidade = dadosAnimal.unidade || '@';
+            pesoSpan.innerText = `${pesoDinamico} ${unidade}`;
+        }
+    }
 }
 
 // O "Cérebro" que lembra o que estamos comprando
@@ -23,19 +43,20 @@ let compraAtual = { tipo: '', id_ia: '', id_anuncio: '', precoUnidade: 0, fase: 
 // COMPRA DA INTELIGÊNCIA ARTIFICIAL (IA)
 // ==========================================
 window.prepararCompraIA = function(id_ia) {
+    const key = id_ia ? id_ia.toLowerCase() : '';
     const fase = document.getElementById('fase-' + id_ia).value;
     const sexo = document.getElementById('sexo-' + id_ia).value;
-    const precoOriginal = window.PRECOS_BASE[id_ia][fase];
-    const precoComMargem = Math.floor(precoOriginal * 1.1);
     
-    // Salva que é uma compra da IA
-    compraAtual = { tipo: 'ia', id_ia: id_ia, precoUnidade: precoComMargem, fase: fase, sexo: sexo };
+    const precoFinal = window.PRECOS_BASE[key] ? window.PRECOS_BASE[key][fase] : 0;
+    
+    // Salva que é uma compra da IA usando a chave tratada
+    compraAtual = { tipo: 'ia', id_ia: key, precoUnidade: precoFinal, fase: fase, sexo: sexo };
     
     document.getElementById('modal-animal-nome').innerText = `${fase.charAt(0).toUpperCase() + fase.slice(1)} - ${id_ia.charAt(0).toUpperCase() + id_ia.slice(1)} (${sexo})`;
     
     const qtdInput = document.getElementById('modal-quantidade');
     qtdInput.value = 1;
-    qtdInput.disabled = false; // Na IA você pode comprar quantos quiser
+    qtdInput.disabled = false;
 
     definirCaminhao(id_ia);
     atualizarTotalModal();

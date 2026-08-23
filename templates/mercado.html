@@ -57,13 +57,18 @@
         {% endif %}
     </div>
 
-    <div class="section-title"><i class="fas fa-truck-moving"></i> Fornecedores Oficiais (IA)</div>
+        <div class="section-title"><i class="fas fa-truck-moving"></i> Fornecedores Oficiais (IA)</div>
     <div class="grid-ia">
         {% for item in anuncios_ia %}
         <div class="ia-card">
             <h4>{{ item.id_ia }}</h4>
             <img src="/static/img/{{ item.id_ia }}.png" onerror="this.src='/static/img/nelore.png'">
             
+            <!-- 👉 AQUI ADICIONAMOS O EXIBIDOR DE PESO/ARROBA -->
+            <div style="color: #4caf50; font-size: 12px; font-weight: bold; margin-bottom: 5px;">
+                ⚖️ <span id="peso-{{ item.id_ia }}">{{ item.peso_texto }}</span>
+            </div>
+
             <select id="fase-{{ item.id_ia }}" class="seletor" onchange="atualizarPrecoDinamico('{{ item.id_ia }}')">
                 <option value="filhote">Filhote</option>
                 <option value="adulto" selected>Adulto</option>

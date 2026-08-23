@@ -6,9 +6,9 @@ import random
 mercado_bp = Blueprint('mercado', __name__)
 
 PRECOS_REAIS = {
-    'bovino_corte': 250.0,  # R$ 250,00 por @ (Arroba)
-    'bovino_leite': 210.0,  # R$ 210,00 por @
-    'equino': 150.0,        # R$ 150,00 por @
+    'bovino_corte': 250.0,  # R$ 250,00 por Arroba (@)
+    'bovino_leite': 210.0,  # R$ 210,00 por Arroba (@)
+    'equino': 150.0,        # R$ 150,00 por Arroba (@)
     'suino': 12.0,          # R$ 12,00 por Kg
     'ave': 8.0,             # R$ 8,00 por Kg
     'peixe': 15.0,          # R$ 15,00 por Kg
@@ -41,7 +41,6 @@ def get_precos():
                 
         preco_base = PRECOS_REAIS.get(familia, 200.0) * fator
         
-        # ⚖️ CONVERSÃO CORRETA: Se for Arroba (@), converte Kg dividindo por 15
         if familia in ['bovino_corte', 'bovino_leite', 'equino']:
             peso_formatado_adulto = round(peso_adulto_kg / 15.0, 1)
             peso_formatado_filhote = round(peso_filhote_kg / 15.0, 1)
@@ -53,7 +52,7 @@ def get_precos():
             valor_adulto = (peso_adulto_kg * preco_base) * 1.10
             unidade = 'Kg'
 
-        valor_filhote = (info.get('filhote', 1500) * fator) * 1.10
+        valor_filhote = (info.get('filhote', 1100) * fator) * 1.10
         
         precos_dinamicos[raca] = {
             'filhote': int(valor_filhote),
@@ -90,14 +89,19 @@ def ver_mercado():
         
         preco_base = PRECOS_REAIS.get(familia_animal, 200.0) * fator_mercado
         
-        # ⚖️ CONVERSÃO KG PARA ARROBA (@)
         if familia_animal in ['bovino_corte', 'bovino_leite', 'equino']:
             peso_arrobas = peso_adulto_kg / 15.0
             valor_adulto_justo = (peso_arrobas * preco_base) * 1.10
+            info_peso_texto = f"{peso_arrobas:.1f} @"
         else:
             valor_adulto_justo = (peso_adulto_kg * preco_base) * 1.10
+            info_peso_texto = f"{peso_adulto_kg:.0f} Kg"
         
-        vendedores_ia.append({'id_ia': raca, 'valor': int(valor_adulto_justo)})
+        vendedores_ia.append({
+            'id_ia': raca, 
+            'valor': int(valor_adulto_justo),
+            'peso_texto': info_peso_texto
+        })
         
     return render_template('mercado.html', 
                            anuncios=anuncios, 
@@ -118,8 +122,11 @@ def comprar_ia():
     sexo = dados.get('sexo')
     raca_lower = raca.lower() if raca else ''
     
-    quantidade = int(dados.get('quantidade', 1))
-    if quantidade <= 0: return jsonify({'sucesso': False, 'erro': 'Quantidade inválida.'})
+    try:
+        quantidade = int(dados.get('quantidade', 1))
+        if quantidade <= 0: return jsonify({'sucesso': False, 'erro': 'Quantidade inválida.'})
+    except ValueError:
+        return jsonify({'sucesso': False, 'erro': 'Quantidade inválida.'})
         
     destino_id = dados.get('destino_id')
 
@@ -153,7 +160,7 @@ def comprar_ia():
     fator_mercado = calcular_fator_dia(usuario.dia, usuario.mes, usuario.ano)
     
     if fase == 'filhote':
-        preco_base_filhote = TABELA_PRECOS.get(raca_lower, {}).get('filhote', 1500)
+        preco_base_filhote = TABELA_PRECOS.get(raca_lower, {}).get('filhote', 1100)
         preco_unitario = (preco_base_filhote * fator_mercado) * 1.10 
         peso_animal = peso_jovem_kg
     else:
