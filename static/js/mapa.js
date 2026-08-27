@@ -186,7 +186,8 @@ document.addEventListener('DOMContentLoaded', function() {
             if (cidadeSalvaNome) {
                 let cidadeSalva = CIDADES.find(c => c.nome === cidadeSalvaNome);
                 if (cidadeSalva) {
-                    let terrasDaCidade = todasAsTerras.filter(f => cidadeSalva.keywords.some(k => f.nome.includes(k)));
+                    // 🔥 CORREÇÃO 1: Usa f.cidade para agrupar as terras corretamente
+                    let terrasDaCidade = todasAsTerras.filter(f => f.cidade === cidadeSalva.nome);
                     darZoomNaRegiao(cidadeSalva, terrasDaCidade, true); 
                 } else {
                     renderizarAncoras();
@@ -202,7 +203,8 @@ document.addEventListener('DOMContentLoaded', function() {
         layerAncoras.clearLayers();      
 
         CIDADES.forEach(cidade => {
-            let terrasDaCidade = todasAsTerras.filter(f => cidade.keywords.some(k => f.nome.includes(k)));
+            // 🔥 CORREÇÃO 2: Usa f.cidade para contar e renderizar os pinos da cidade
+            let terrasDaCidade = todasAsTerras.filter(f => f.cidade === cidade.nome);
             
             if(terrasDaCidade.length > 0) {
                 let iconHtml = `

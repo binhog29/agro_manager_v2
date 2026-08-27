@@ -162,6 +162,9 @@ def api_mapa_global():
     if 'usuario' in session:
         usuario_logado = Jogador.query.filter_by(username=session['usuario']).first()
 
+    # Lista oficial na mesma ordem da geração do banco de dados
+    cidades_lista = ['Mutum Paraná', 'Rio Madeira', 'Jirau', 'Jaci Paraná', 'Porto Velho', 'São Domingos', 'Itapuã do Oeste', 'Bom Futuro', 'Buritis', 'Alto Paraíso', 'Campo Novo', 'Monte Negro', 'Ariquemes', 'Rio Crespo', 'Cujubim', 'Machadinho', 'Jaru', 'São Miguel', 'Alvorada', 'Ouro Preto', 'Nova Brasilândia', 'Castanheiras', 'Santa Luzia', 'Cacoal', 'Alta Floresta', 'Rolim de Moura', 'Ji-Paraná']
+
     propriedades = Propriedade.query.all()
     lista_props = []
     
@@ -174,6 +177,10 @@ def api_mapa_global():
             dono_nome = dono.username if dono else "Desconhecido"
             if usuario_logado and p.dono_id == usuario_logado.id:
                 e_minha = True
+
+        # 🔥 A MÁGICA: Descobre a cidade dividindo o ID por 20 (Já que cada cidade tem 20 lotes)
+        idx_cidade = (p.id - 1) // 20
+        nome_cidade = cidades_lista[idx_cidade] if idx_cidade < len(cidades_lista) else "Desconhecida"
             
         lista_props.append({
             'id': p.id,
@@ -182,7 +189,8 @@ def api_mapa_global():
             'tipo': p.tipo,
             'dono_id': p.dono_id,
             'dono_nome': dono_nome,
-            'e_minha': e_minha
+            'e_minha': e_minha,
+            'cidade': nome_cidade  # Enviamos a cidade exata, imune a renomeações!
         })
         
     return jsonify(lista_props)
