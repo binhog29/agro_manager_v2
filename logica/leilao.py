@@ -2,6 +2,7 @@ from flask import Blueprint, session, request, jsonify
 from sqlalchemy import func
 from database import db, Jogador, Anuncio, Propriedade, Animal
 from logica.economia import registrar_transacao
+from logica.constantes import TABELA_PRECOS # 🔥 Importando os preços reais para a Malha Fina
 
 leilao_bp = Blueprint('leilao', __name__)
 
@@ -9,6 +10,11 @@ leilao_bp = Blueprint('leilao', __name__)
 def anunciar_leilao():
     if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Faça login primeiro.'})
     usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    
+    # 🛡️ ANTI-FAKE: Trava de Nível
+    if getattr(usuario, 'nivel', 1) < 3:
+        return jsonify({'sucesso': False, 'erro': 'Nível muito baixo! Alcance o Nível 3 para usar o Leilão.'})
+        
     dados = request.get_json()
     animal_id = int(dados.get('animal_id', 0))
     valor = float(dados.get('valor', 0))
@@ -19,6 +25,13 @@ def anunciar_leilao():
         raca = dados.get('raca', '').lower()
         quantidade = int(dados.get('quantidade', 1))
         fazenda_id = int(dados.get('fazenda_id', 0))
+        
+        # 🛡️ ANTI-LAVAGEM: Teto de Preço (Máx 3x o valor base do animal adulto)
+        preco_base = TABELA_PRECOS.get(raca, {}).get('adulto', 1000)
+        limite_valor = preco_base * 5.0
+        
+        if valor > limite_valor:
+            return jsonify({'sucesso': False, 'erro': f'Preço abusivo detectado! A Receita Federal definiu o teto para {raca.capitalize()} em R$ {limite_valor:,.2f}.'})
             
         prop = Propriedade.query.get(fazenda_id)
         if not prop or prop.dono_id != usuario.id: return jsonify({'sucesso': False, 'erro': 'Acesso negado.'})
@@ -35,6 +48,15 @@ def anunciar_leilao():
 
     animal = Animal.query.get(animal_id)
     if not animal: return jsonify({'sucesso': False, 'erro': 'Animal não encontrado.'})
+    
+    # 🛡️ ANTI-LAVAGEM: Teto de Preço Individual
+    raca = animal.raca.lower()
+    preco_base = TABELA_PRECOS.get(raca, {}).get('adulto', 1000)
+    limite_valor = preco_base * 5.0
+    
+    if valor > limite_valor:
+        return jsonify({'sucesso': False, 'erro': f'Preço abusivo detectado! O teto para {raca.capitalize()} é R$ {limite_valor:,.2f}.'})
+        
     prop = Propriedade.query.get(animal.propriedade_id)
     if not prop or prop.dono_id != usuario.id: return jsonify({'sucesso': False, 'erro': 'Este animal não é seu.'})
 
@@ -64,6 +86,11 @@ def cancelar_anuncio():
 def comprar_leilao():
     if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Faça login primeiro.'})
     usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    
+    # 🛡️ ANTI-FAKE: Trava de Nível para Comprar
+    if getattr(usuario, 'nivel', 1) < 3:
+        return jsonify({'sucesso': False, 'erro': 'Apenas fazendeiros Nível 3+ podem comprar na comunidade.'})
+        
     dados = request.get_json()
     anuncio_id = dados.get('anuncio_id')
     fazenda_id = dados.get('fazenda_id')
@@ -94,7 +121,6 @@ def comprar_leilao():
         limite = propriedade.cap_curral if hasattr(propriedade, 'cap_curral') else 10
         if animais_atuais >= limite: return jsonify({'sucesso': False, 'erro': 'Tronco lotado!'})
 
-    # 👇 CORREÇÃO: Alinhado fora do "else" do habitat para pegar todos os animais!
     usa_caminhao = dados.get('usa_caminhao', False)
     custo_frete = 0.0
 
@@ -105,20 +131,17 @@ def comprar_leilao():
         if not tem_caminhao:
             return jsonify({'sucesso': False, 'erro': f'Fraude detectada: Sem {modelo_necessario} na fazenda!'})
     else:
-        custo_frete = 50.0  # Frete fixo por cabeça no leilão sem caminhão
+        custo_frete = 50.0  
 
     valor_compra = anuncio.valor + custo_frete
     if usuario.saldo < valor_compra: return jsonify({'sucesso': False, 'erro': 'Saldo insuficiente.'})
 
     vendedor = Jogador.query.get(anuncio.vendedor_id)
     if vendedor:
-        vendedor.saldo += anuncio.valor # O vendedor ganha o valor do animal puro
+        vendedor.saldo += anuncio.valor 
         registrar_transacao(vendedor.id, 'entrada', anuncio.valor, f'Venda Leilão: {animal.raca.capitalize()}')
 
-    # 👇 CORREÇÃO: Cobrança feita apenas UMA VEZ
     usuario.saldo -= valor_compra
-    
-    # Registra no caixa avisando se pagou frete ou não
     texto_frete = " (Frete Grátis)" if usa_caminhao else " + Frete"
     registrar_transacao(usuario.id, 'saida', valor_compra, f'Compra Leilão: {animal.raca.capitalize()}{texto_frete}')
 
@@ -127,5 +150,4 @@ def comprar_leilao():
     animal.origem = 'Comunidade'
     db.session.delete(anuncio)
     db.session.commit()
-    
     return jsonify({'sucesso': True, 'msg': f'Você arrematou um {animal.raca.capitalize()}!'})
