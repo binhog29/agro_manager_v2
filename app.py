@@ -12,7 +12,6 @@ from logica.social import social_bp
 from logica.mercado import mercado_bp
 from logica.economia import economia_bp
 from logica.agricultura import agricultura_bp
-from logica.pecuaria import pecuaria_bp
 from logica.tempo import tempo_bp, GerenciadorTempo
 from logica.terras import terras_bp
 from logica.cultivo import cultivo_bp
@@ -22,6 +21,10 @@ from logica.armazem import armazem_bp
 from logica.funcionarios import funcionarios_bp
 from logica.frigorifico import frigorifico_bp
 from logica.leilao import leilao_bp
+from logica.gado import gado_bp
+from logica.habitats import habitats_bp
+from logica.infraestrutura import infra_bp
+from logica.barracao import barracao_bp
 
 app = Flask(__name__)
 
@@ -44,7 +47,6 @@ app.register_blueprint(social_bp)
 app.register_blueprint(mercado_bp)
 app.register_blueprint(economia_bp)
 app.register_blueprint(agricultura_bp)
-app.register_blueprint(pecuaria_bp)
 app.register_blueprint(tempo_bp)
 app.register_blueprint(terras_bp)
 app.register_blueprint(cultivo_bp)
@@ -53,6 +55,10 @@ app.register_blueprint(silo_bp)
 app.register_blueprint(armazem_bp)
 app.register_blueprint(frigorifico_bp)
 app.register_blueprint(leilao_bp)
+app.register_blueprint(gado_bp)
+app.register_blueprint(habitats_bp)
+app.register_blueprint(infra_bp)
+app.register_blueprint(barracao_bp)
 
 with app.app_context():
     db.create_all()
@@ -60,7 +66,7 @@ with app.app_context():
     popular_mapa_inicial()
 
 # ==========================================
-# FUNÇÃO SEGURA DE NÍVEL (Não quebra APIs)
+# FUNÇÃO SEGURA DE NÍVEL (Unificada com o database.py)
 # ==========================================
 def verificar_nivel(jogador):
     if not jogador:
@@ -71,15 +77,10 @@ def verificar_nivel(jogador):
     if getattr(jogador, 'nivel', None) is None:
         jogador.nivel = 1
         
-    xp_necessario = 1000
-    subiu_nivel = False
+    # Chama o método oficial da classe Jogador que dá o dinheiro de prêmio!
+    subiu = jogador.adicionar_xp(0) 
     
-    while jogador.xp >= xp_necessario:
-        jogador.xp -= xp_necessario
-        jogador.nivel += 1
-        subiu_nivel = True
-        
-    if subiu_nivel:
+    if subiu:
         db.session.commit()
 
 # ==========================================

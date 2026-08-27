@@ -1,0 +1,38 @@
+<div id="modal-rh" class="modal-fundo" onclick="fecharSeClicarFora(event, 'modal-rh')">
+    <div class="modal-janela" style="border-top: 5px solid #4caf50; background: #1e1e1e; max-width: 500px;">
+        <span class="fechar-btn" onclick="fecharModal('modal-rh')">&times;</span>
+        
+        <h2 class="modal-titulo" style="color: #4caf50;">
+            <img src="/static/img/alojamento.png" style="height: 28px; vertical-align: middle; margin-right: 8px;">
+            Alojamento (RH)
+        </h2>
+
+        <!-- Tela de Carregamento -->
+        <div id="rh-loading" style="text-align: center; padding: 20px; color: #aaa;">
+            <i class="fas fa-spinner fa-spin"></i> Buscando dados da equipe...
+        </div>
+
+        <!-- Conteúdo do RH (Oculto até carregar) -->
+        <div id="rh-content" style="display: none;">
+            <h4 style="color: #4caf50; margin: 0 0 10px 0; font-size: 16px; border-bottom: 1px solid #444; padding-bottom: 5px; text-align: left;">
+                <i class="fas fa-users"></i> Sua Equipe
+                <span id="rh-folha-total" style="float: right; color: #ff5252; font-size: 12px;">Folha: R$ 0/h</span>
+            </h4>
+            
+            <div id="rh-lista-equipe" style="max-height: 25vh; overflow-y: auto; margin-bottom: 20px; padding-right: 5px; text-align: left;">
+                <!-- O JavaScript vai injetar a equipe aqui -->
+            </div>
+            
+            <h4 style="color: #f9a825; margin: 0 0 10px 0; font-size: 16px; border-bottom: 1px solid #444; padding-bottom: 5px; text-align: left;">
+                <i class="fas fa-briefcase"></i> Contratar Profissionais
+            </h4>
+            
+            <div id="rh-lista-contratar" style="max-height: 35vh; overflow-y: auto; padding-right: 5px; text-align: left;">
+                <!-- O JavaScript vai injetar os candidatos aqui -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Linkando o JavaScript isolado do RH -->
+    <script src="{{ url_for('static', filename='js/alojamento.js') }}?v=1"></script>
+</div>

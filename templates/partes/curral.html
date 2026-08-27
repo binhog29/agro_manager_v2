@@ -1,19 +1,29 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/curral.css') }}?v=1">
 <div id="modal-curral" class="modal-fundo" onclick="fecharSeClicarFora(event, 'modal-curral')">
-    <div class="modal-janela" style="max-width: 480px; border-top: 5px solid #795548;">
+    
+    <!-- 🔥 A MÁGICA DO FUNDO ANIMADO ACONTECE AQUI! -->
+    <div class="modal-janela" style="max-width: 480px; border-top: 5px solid #795548; 
+        {% if gado_curral|length > 0 %}
+            background: linear-gradient(rgba(26, 26, 26, 0.75), rgba(26, 26, 26, 0.95)), url('/static/img/bois_curral.gif'); background-size: cover; background-position: center;
+        {% else %}
+            background: #1a1a1a;
+        {% endif %}
+        ">
+        
         <span class="fechar-btn" onclick="fecharModal('modal-curral')">&times;</span>
         
-        <h2 class="modal-titulo">
+        <h2 class="modal-titulo" style="text-shadow: 1px 1px 4px #000;">
             <img src="/static/img/curral.png" style="height: 28px; vertical-align: middle;"> Curral de Manejo
         </h2>
         
         <img src="/static/img/curral.png" class="img-modal-destaque" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2829/2829774.png'">
         
-        <div style="background: #222; padding: 12px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #444; display: flex; justify-content: space-between; align-items: center;">
+        <!-- Caixinha de Lotação translúcida -->
+        <div style="background: rgba(34, 34, 34, 0.85); padding: 12px; border-radius: 12px; margin-bottom: 15px; border: 1px solid rgba(68, 68, 68, 0.5); display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
             <div style="text-align: left;">
-                <b style="font-size: 13px; color: #aaa;">📊 Lotação do Tronco</b>
-                <div style="font-size: 18px; font-weight: 900; color: #4caf50;">
-                    {{ gado_curral|length }} / {{ fazenda.cap_curral|default(10) }} <small style="font-size: 11px; color: #888;">animais</small>
+                <b style="font-size: 13px; color: #ccc; text-shadow: 1px 1px 2px #000;">📊 Lotação do Tronco</b>
+                <div style="font-size: 18px; font-weight: 900; color: #4caf50; text-shadow: 1px 1px 2px #000;">
+                    {{ gado_curral|length }} / {{ fazenda.cap_curral|default(10) }} <small style="font-size: 11px; color: #aaa;">animais</small>
                 </div>
             </div>
             <button onclick="confirmarExpansaoCurral()" style="background: #5d4037; color: white; border: none; padding: 8px 12px; border-radius: 8px; font-size: 11px; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #3e2723;">
@@ -22,20 +32,21 @@
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px;">
-            <button onclick="abrirSelecaoVacinaLote('aftosa')" style="background:#1e3a8a; padding:8px; border-radius:10px; font-size:11px; border:1px solid #1e40af; color:#fff; cursor:pointer; text-align:left; font-weight:bold;">
+            <button onclick="abrirSelecaoVacinaLote('aftosa')" style="background:#1e3a8a; padding:8px; border-radius:10px; font-size:11px; border:1px solid #1e40af; color:#fff; cursor:pointer; text-align:left; font-weight:bold; box-shadow: 0 3px 6px rgba(0,0,0,0.4);">
                 💉 Aftosa: {{ fazenda.est_vacina_aftosa }} un <span style="float:right; font-size:9px; background:#1d4ed8; padding:2px 5px; border-radius:4px;">Aplicar Lote</span>
             </button>
-            <button onclick="abrirSelecaoVacinaLote('brucelose')" style="background:#78350f; padding:8px; border-radius:10px; font-size:11px; border:1px solid #92400e; color:#fff; cursor:pointer; text-align:left; font-weight:bold;">
+            <button onclick="abrirSelecaoVacinaLote('brucelose')" style="background:#78350f; padding:8px; border-radius:10px; font-size:11px; border:1px solid #92400e; color:#fff; cursor:pointer; text-align:left; font-weight:bold; box-shadow: 0 3px 6px rgba(0,0,0,0.4);">
                 🧪 Brucelose: {{ fazenda.est_vacina_brucelose }} un <span style="float:right; font-size:9px; background:#b45309; padding:2px 5px; border-radius:4px;">Aplicar Lote</span>
             </button>
-            <button onclick="abrirSelecaoVacinaLote('medicamento')" style="background:#4a044e; padding:8px; border-radius:10px; font-size:11px; border:1px solid #701a75; color:#fff; cursor:pointer; text-align:left; font-weight:bold; grid-column: span 2;">
+            <button onclick="abrirSelecaoVacinaLote('medicamento')" style="background:#4a044e; padding:8px; border-radius:10px; font-size:11px; border:1px solid #701a75; color:#fff; cursor:pointer; text-align:left; font-weight:bold; grid-column: span 2; box-shadow: 0 3px 6px rgba(0,0,0,0.4);">
                 💊 Med. Geral: {{ fazenda.est_medicamento_geral }} un <span style="float:right; font-size:9px; background:#7e22ce; padding:2px 5px; border-radius:4px;">Aplicar Lote</span>
             </button>
         </div>
 
-        <div style="background: #450a0a; border: 1px solid #7f1d1d; padding: 12px; border-radius: 12px; margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between;">
+        <!-- Caixinha do Frigorífico translúcida -->
+        <div style="background: rgba(69, 10, 10, 0.85); border: 1px solid rgba(127, 29, 29, 0.6); padding: 12px; border-radius: 12px; margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
             <div style="text-align: left;">
-                <b style="color: #fca5a5; font-size: 13px;">💰 Comercializar em Lote</b>
+                <b style="color: #fca5a5; font-size: 13px; text-shadow: 1px 1px 2px #000;">💰 Comercializar em Lote</b>
                 <p style="font-size: 11px; color: #f87171; margin: 0;">Venda rápida para frigorífico</p>
             </div>
             <button onclick="prepararVendaLoteCurral()" style="background: #b91c1c; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; font-size: 12px; cursor: pointer; box-shadow: 0 3px 0 #7f1d1d;">
@@ -47,15 +58,17 @@
             {% set total_visivel = 0 %}
             {% for animal in gado_curral %}
                 {% if (animal.onde_esta or '')|lower == 'curral' or not animal.onde_esta or animal.onde_esta == '' %}
-                    <div style="background: #333; border: 1px solid #444; border-radius: 12px; padding: 15px; margin-bottom: 10px;">
-                        <div style="display: flex; align-items: center; gap: 12px; border-bottom: 1px dashed #555; padding-bottom: 10px; margin-bottom: 10px;">
+                    
+                    <!-- Cartão do animal translúcido -->
+                    <div style="background: rgba(51, 51, 51, 0.85); border: 1px solid rgba(68, 68, 68, 0.5); border-radius: 12px; padding: 15px; margin-bottom: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                        <div style="display: flex; align-items: center; gap: 12px; border-bottom: 1px dashed rgba(85, 85, 85, 0.5); padding-bottom: 10px; margin-bottom: 10px;">
                             <img src="/static/img/{{ animal.raca|lower }}.png" width="45" onerror="this.src='/static/img/nelore.png'">
                             <div style="flex:1; text-align:left;">
-                                <b style="font-size:15px; color:#fff;">{{ animal.raca }} ({{ animal.fase }})</b>
-                                <div style="font-size:11px; color:#aaa;">ID: #{{ animal.id }} | {{ animal.sexo }}</div>
+                                <b style="font-size:15px; color:#fff; text-shadow: 1px 1px 2px #000;">{{ animal.raca }} ({{ animal.fase }})</b>
+                                <div style="font-size:11px; color:#ccc;">ID: #{{ animal.id }} | {{ animal.sexo }}</div>
                             </div>
                             <div style="text-align:right;">
-                                <b style="color:#4caf50; font-size:18px;">
+                                <b style="color:#4caf50; font-size:18px; text-shadow: 1px 1px 2px #000;">
                                     {% if animal.peso >= 15.0 %}
                                         {{ "%.1f"|format(animal.peso / 15.0) }} @
                                     {% else %}
@@ -81,7 +94,6 @@
 
                             <button onclick="prepararApartamento({{ animal.id }})" style="background:#455a64; color:white; border:none; padding:8px; border-radius:6px; font-size:10px; font-weight:bold; box-shadow: 0 3px 0 #263238; grid-column: span 2;">🚚 APARTAR</button>
                             
-                            <!-- 🔥 ESTA É A MÁGICA: O botão puxa a função inteligente que você já tem no JS -->
                             <button onclick="prepararVendaComercial({{ animal.id }}, {{ animal.peso }}, '{{ animal.raca }}')" style="background:#e65100; color:white; border:none; padding:8px; border-radius:6px; font-size:10px; font-weight:bold; box-shadow: 0 3px 0 #bf360c;">💰 VENDER</button>
                         </div>
                     </div>

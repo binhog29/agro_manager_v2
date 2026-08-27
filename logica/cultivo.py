@@ -4,6 +4,14 @@ from logica.economia import registrar_transacao
 
 cultivo_bp = Blueprint('cultivo', __name__)
 
+# 🔥 MULTIPLICADOR DE ÁREA: Tamanho do Lote por Tipo de Fazenda
+MULTIPLICADOR_AREA = {
+    'Chácara': 1,
+    'Sítio': 5,
+    'Fazenda': 15,
+    'Latifúndio': 30
+}
+
 # =======================================================
 # ARQUITETURA OOP: AS 3 CLASSES DA BIOLOGIA VEGETAL
 # =======================================================
@@ -19,8 +27,7 @@ class Cultura:
         self.tipo_biologia = 'anual'
 
     def processar_pos_colheita(self, lote):
-        lote.status = 'limpo'
-        lote.tipo_cultivo = None
+        lote.status = self.preparo_exigido 
         lote.dias_plantado = 0.0
         lote.ciclos_colhidos = 0
         lote.dias_descanso = 0.0
@@ -52,15 +59,11 @@ class CulturaPerene(Cultura):
 
     def processar_pos_colheita(self, lote):
         lote.ciclos_colhidos = getattr(lote, 'ciclos_colhidos', 0) + 1
-        
         if lote.ciclos_colhidos >= self.max_ciclos:
             lote.produtividade_atual = 20
         else:
             lote.produtividade_atual = 100
-            
         lote.status = 'plantado'
-        # 🔥 SOLUÇÃO MESTRA: Recua o tempo de vida orgânico da planta em vez de usar a coluna fantasma.
-        # A banana vai para 285 dias e leva exatos 15 dias na barrinha para atingir 300 de novo!
         lote.dias_plantado = float(self.tempo_colheita - self.tempo_descanso)
         lote.dias_descanso = 0.0
 
@@ -68,9 +71,7 @@ class CulturaPerene(Cultura):
         if dias_descanso > 0:
             progresso_pct = min(100, int(((self.tempo_descanso - dias_descanso) / self.tempo_descanso) * 100))
             return "Descanso Pós-Colheita", progresso_pct, int(dias_descanso)
-        
         return super().obter_estagio_e_progresso(dias_plantado, dias_descanso, estacao_atual)
-
 
 class CulturaSazonal(CulturaPerene):
     def __init__(self, nome, custo_semente, producao_kg, tempo_colheita, preparo_exigido, custo_maquina_plantio, custo_maquina_colheita, tempo_descanso, max_ciclos, estacoes_fruto):
@@ -79,18 +80,16 @@ class CulturaSazonal(CulturaPerene):
         self.estacoes_fruto = estacoes_fruto
 
     def obter_estagio_e_progresso(self, dias_plantado, dias_descanso=0, estacao_atual='primavera'):
-        # Se ela acabou de ser colhida, o dias_plantado estará recuado. Ela volta a mostrar as fases de crescimento (Ex: Floração)
         if dias_descanso > 0 or dias_plantado < self.tempo_colheita:
             return super().obter_estagio_e_progresso(dias_plantado, dias_descanso, estacao_atual)
         
         if estacao_atual not in self.estacoes_fruto:
             estacoes_formatadas = "/".join([e.capitalize() for e in self.estacoes_fruto])
             return f"Aguardando Clima ({estacoes_formatadas})", 100, 0
-            
         return "Ponto de Colheita", 100, 0
 
 # =======================================================
-# CATÁLOGO DE PLANTAS
+# CATÁLOGO DE PLANTAS (Custo Base por 1 ha)
 # =======================================================
 CATALOGO_CULTIVOS = {
     'soja': Cultura('Soja', 350, 3600, 100, 'arado', 300, 500),
@@ -109,7 +108,6 @@ CATALOGO_CULTIVOS = {
     'acai': CulturaPerene('Açaí', 450, 5000, 730, 'coveado', 150, 200, tempo_descanso=30, max_ciclos=12),
     'cupuacu': CulturaPerene('Cupuaçu', 400, 2000, 730, 'coveado', 150, 200, tempo_descanso=30, max_ciclos=10),
     'pimenta': CulturaPerene('Pimenta', 300, 2500, 120, 'coveado', 100, 150, tempo_descanso=20, max_ciclos=6),
-
     'cafe': CulturaSazonal('Café Clonal', 500, 4000, 365, 'coveado', 150, 300, tempo_descanso=90, max_ciclos=10, estacoes_fruto=['outono', 'inverno'])
 }
 
@@ -120,10 +118,12 @@ def detalhes_cultivo():
     if not lote: return jsonify({'sucesso': False})
     
     jogador = Jogador.query.filter_by(username=session['usuario']).first()
-    fazenda = Propriedade.query.filter_by(dono_id=jogador.id).first()
+    fazenda = Propriedade.query.get(lote.fazenda_id)
+    area = MULTIPLICADOR_AREA.get(fazenda.tipo, 1)
     
     resposta = {
         'sucesso': True,
+        'area': area, # 🔥 Envia o tamanho pro JS saber quanto cobrar
         'fertilidade': getattr(lote, 'fertilidade_solo', 100),
         'pragas': getattr(lote, 'nivel_pragas', 0),
         'produtividade': getattr(lote, 'produtividade_atual', 100),
@@ -131,7 +131,8 @@ def detalhes_cultivo():
         'est_veneno': getattr(fazenda, 'est_veneno', 0),
         'ciclos': getattr(lote, 'ciclos_colhidos', 0),
         'descanso': getattr(lote, 'dias_descanso', 0.0),
-        'status': lote.status
+        'status': lote.status,
+        'sistema_irrigacao': getattr(lote, 'sistema_irrigacao', 'nenhum')
     }
 
     if lote.tipo_cultivo and lote.status in ['plantado', 'colhendo']:
@@ -156,19 +157,33 @@ def plantar():
     lote = Lote.query.get(dados.get('lote_id'))
     tipo = dados.get('tipo_cultivo')
 
-    if tipo not in CATALOGO_CULTIVOS: 
-        return jsonify({'sucesso': False, 'erro': 'Semente não cadastrada no catálogo.'})
+    if tipo not in CATALOGO_CULTIVOS: return jsonify({'sucesso': False, 'erro': 'Semente não cadastrada.'})
     
+    fazenda = Propriedade.query.get(lote.fazenda_id)
+    area = MULTIPLICADOR_AREA.get(fazenda.tipo, 1) # 🔥 Multiplicador de Custo
     dna_planta = CATALOGO_CULTIVOS[tipo]
 
     if lote.status != dna_planta.preparo_exigido:
         prep_nome = "Arada (Trator)" if dna_planta.preparo_exigido == 'arado' else "com Covas Abertas"
-        return jsonify({'sucesso': False, 'erro': f'Esta cultura exige que a terra esteja {prep_nome}.'})
+        return jsonify({'sucesso': False, 'erro': f'Exige terra {prep_nome}.'})
 
-    custo_total = dna_planta.custo_semente + dna_planta.custo_maquina_plantio
+    # 🔥 CUSTO GIGANTE PARA FAZENDAS GRANDES
+    custo_total = (dna_planta.custo_semente + dna_planta.custo_maquina_plantio) * area
 
     if usuario.saldo < custo_total:
-        return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente. Custo: R$ {custo_total} (Mudas/Sementes + Maquinário)'})
+        return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente. Você precisa de R$ {custo_total:,.2f} para plantar {area}ha.'})
+
+    cultura_anterior = getattr(lote, 'tipo_cultivo', None)
+    nova_produtividade = 100
+    msg_extra = ""
+
+    if cultura_anterior:
+        if cultura_anterior == tipo:
+            nova_produtividade = 80
+            msg_extra = "⚠️ Monocultura baixou a produtividade para 80%."
+        else:
+            nova_produtividade = 100
+            msg_extra = "🌱 Solo renovado pela Rotação de Culturas!"
 
     usuario.saldo -= custo_total
     
@@ -177,19 +192,19 @@ def plantar():
     lote.dias_plantado = 0
     lote.ciclos_colhidos = 0
     lote.dias_descanso = 0.0
-    lote.produtividade_atual = 100
+    lote.produtividade_atual = nova_produtividade
     lote.nivel_pragas = 0
     lote.fertilidade_solo = max(0, getattr(lote, 'fertilidade_solo', 100) - 20)
 
-    registrar_transacao(usuario.id, 'saida', custo_total, f'Plantio de {dna_planta.nome} ({lote.nome})')
+    registrar_transacao(usuario.id, 'saida', custo_total, f'Plantio de {dna_planta.nome} ({area}ha)')
     db.session.commit()
-    return jsonify({'sucesso': True, 'msg': f'{dna_planta.nome} plantado com sucesso!'})
+    
+    return jsonify({'sucesso': True, 'msg': f'{dna_planta.nome} plantado com sucesso! {msg_extra}'})
 
 @cultivo_bp.route('/api/cultivo/manejo', methods=['POST'])
 def manejo_lavoura():
     if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
     usuario = Jogador.query.filter_by(username=session['usuario']).first()
-    fazenda = Propriedade.query.filter_by(dono_id=usuario.id).first()
     dados = request.get_json()
     lote = Lote.query.get(dados.get('lote_id'))
     acao = dados.get('acao') 
@@ -197,103 +212,112 @@ def manejo_lavoura():
     if not lote or lote.status not in ['plantado', 'colhendo']:
         return jsonify({'sucesso': False, 'erro': 'Lote inválido para manejo.'})
 
+    fazenda = Propriedade.query.get(lote.fazenda_id)
+    area = MULTIPLICADOR_AREA.get(fazenda.tipo, 1) # 🔥 Requer mais estoque!
+
     if acao == 'adubar':
-        if getattr(fazenda, 'est_adubo', 0) < 1:
-            return jsonify({'sucesso': False, 'erro': 'Sem Adubo no armazém!'})
+        if getattr(fazenda, 'est_adubo', 0) < area:
+            return jsonify({'sucesso': False, 'erro': f'Sem Adubo! Você precisa de {area} sc para esta área.'})
         if getattr(lote, 'fertilidade_solo', 100) >= 100:
-            return jsonify({'sucesso': False, 'erro': 'O solo já está com 100% de fertilidade!'})
+            return jsonify({'sucesso': False, 'erro': 'Solo já está 100% fértil!'})
             
-        fazenda.est_adubo -= 1
+        fazenda.est_adubo -= area
         lote.fertilidade_solo = min(100, getattr(lote, 'fertilidade_solo', 100) + 40)
-        msg = "Adubo aplicado! Fertilidade do solo aumentada."
+        msg = f"Foram aplicados {area} sacos de Adubo!"
 
     elif acao == 'pulverizar':
-        if getattr(fazenda, 'est_veneno', 0) < 1:
-            return jsonify({'sucesso': False, 'erro': 'Sem Defensivos no armazém!'})
+        if getattr(fazenda, 'est_veneno', 0) < area:
+            return jsonify({'sucesso': False, 'erro': f'Sem Defensivos! Você precisa de {area} gl.'})
         if getattr(lote, 'nivel_pragas', 0) == 0:
             return jsonify({'sucesso': False, 'erro': 'A lavoura não tem pragas no momento!'})
             
-        fazenda.est_veneno -= 1
+        fazenda.est_veneno -= area
         lote.nivel_pragas = 0
-        msg = "Lavoura pulverizada! Pragas eliminadas."
+        msg = f"Gastos {area} galões de Veneno. Pragas eliminadas!"
     else:
         return jsonify({'sucesso': False, 'erro': 'Manejo inválido.'})
 
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': msg})
 
+
 @cultivo_bp.route('/api/cultivo/colher', methods=['POST'])
 def colher():
     if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
     usuario = Jogador.query.filter_by(username=session['usuario']).first()
-    fazenda = Propriedade.query.filter_by(dono_id=usuario.id).first()
     dados = request.get_json()
     lote = Lote.query.get(dados.get('lote_id'))
 
-    # Adicionei 'colheita_incompleta' caso você decida mudar o status visual no JS depois
-    if not lote or lote.status not in ['colhendo', 'colheita_incompleta']: 
-        return jsonify({'sucesso': False, 'erro': 'A lavoura não está no ponto de colheita.'})
+    if not lote or lote.status not in ['plantado', 'colhendo', 'colheita_incompleta']: 
+        return jsonify({'sucesso': False, 'erro': 'A lavoura não pode ser colhida no momento.'})
 
+    fazenda = Propriedade.query.get(lote.fazenda_id)
+    area = MULTIPLICADOR_AREA.get(fazenda.tipo, 1)
     tipo = lote.tipo_cultivo
     dna_planta = CATALOGO_CULTIVOS.get(tipo)
     
-    # 1. Descobre o total que tem na roça hoje
+    estagio, _, _ = dna_planta.obter_estagio_e_progresso(
+        getattr(lote, 'dias_plantado', 0), getattr(lote, 'dias_descanso', 0), getattr(usuario, 'estacao_atual', 'primavera')
+    )
+    
+    if estagio != "Ponto de Colheita" and lote.status not in ['colhendo', 'colheita_incompleta']:
+        return jsonify({'sucesso': False, 'erro': 'A lavoura ainda não está no ponto de colheita.'})
+    
     produtividade = getattr(lote, 'produtividade_atual', 100)
-    kg_totais_disponiveis = int(dna_planta.producao_kg * (produtividade / 100.0))
+    
+    # 🚜 INJEÇÃO DE RH: BÔNUS DO TRATORISTA (+15% de rendimento na colheita)
+    from logica.funcionarios import obter_bonus_equipe
+    bonus_rh = obter_bonus_equipe(fazenda.id)
+    multiplicador_trator = bonus_rh.get('bonus_colheita', 1.0)
+    
+    # 🔥 COLHEITA GIGANTE (x15, x30 hectares) COM O BÔNUS DO TRATORISTA APLICADO
+    kg_totais_disponiveis = int(dna_planta.producao_kg * area * (produtividade / 100.0) * multiplicador_trator)
 
     itens_silo_graos = ['soja', 'milho', 'arroz', 'feijao']
     kg_a_colher = kg_totais_disponiveis
-    espaco_livre = 9999999 # Valor alto seguro caso não seja grão
+    espaco_livre = 9999999 
 
-    # 2. Validação de espaço no Silo
+    # 🔥 IDENTIFICA O DESTINO CORRETO PARA A MENSAGEM
+    local_armazenamento = "Silo de Grãos" if tipo in itens_silo_graos else "Galpão Agrícola"
+
     if tipo in itens_silo_graos:
         total_silo = sum(getattr(fazenda, f'est_{i}', 0) for i in itens_silo_graos if hasattr(fazenda, f'est_{i}'))
         espaco_livre = fazenda.cap_silo - total_silo
         
         if espaco_livre <= 0:
-            return jsonify({'sucesso': False, 'erro': 'Silo de Grãos 100% cheio! Você precisa vender no mercado antes de colher.'})
+            return jsonify({'sucesso': False, 'erro': 'Silo Cheio! Expanda o silo ou venda os grãos atuais.'})
             
-        # Define se colhe tudo ou só o que cabe no silo
         kg_a_colher = min(kg_totais_disponiveis, espaco_livre)
 
-    # Verifica se é uma colheita parcial
     colheita_parcial = kg_a_colher < kg_totais_disponiveis
-    
-    # 3. Calcula o custo da máquina proporcionalmente (se colher metade, paga só metade agora)
     proporcao_colhida = kg_a_colher / kg_totais_disponiveis if kg_totais_disponiveis > 0 else 1
-    custo_real = int(dna_planta.custo_maquina_colheita * proporcao_colhida)
+    
+    # 🔥 CUSTO GIGANTE DE COLHEITA
+    custo_real = int(dna_planta.custo_maquina_colheita * area * proporcao_colhida)
 
     if usuario.saldo < custo_real:
-        return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente para a Colheita (R$ {custo_real}).'})
+        return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente para bancar os tratores (R$ {custo_real:,.2f}).'})
 
-    # 4. Adiciona os grãos no Silo
     coluna_estoque = f'est_{tipo}'
     try:
         estoque_atual = getattr(fazenda, coluna_estoque, 0)
         setattr(fazenda, coluna_estoque, estoque_atual + kg_a_colher)
     except AttributeError:
-        return jsonify({'sucesso': False, 'erro': 'Este item ainda não tem espaço configurado.'})
+        return jsonify({'sucesso': False, 'erro': 'Erro de estoque.'})
     
     usuario.saldo -= custo_real
-    registrar_transacao(usuario.id, 'saida', custo_real, f'Custos de Colheita ({lote.nome})')
+    registrar_transacao(usuario.id, 'saida', custo_real, f'Colheita de {dna_planta.nome} ({area}ha)')
 
-    # 5. O Pulo do Gato (O que acontece com a lavoura)
     msg_final = ""
-    
     if colheita_parcial:
-        # A lavoura fica no campo, apenas reduzimos a produtividade para refletir o que já foi tirado
         nova_produtividade = produtividade - (produtividade * proporcao_colhida)
         lote.produtividade_atual = nova_produtividade
-        lote.status = 'colhendo' # Mantemos 'colhendo' para o seu botão de colher continuar aparecendo no HTML
-        msg_final = f'⚠️ Silo encheu no meio do serviço! Foram colhidos {kg_a_colher} kg. Venda no mercado e volte para terminar.'
+        lote.status = 'colheita_incompleta' 
+        msg_final = f'⚠️ {local_armazenamento} encheu! Foram colhidos {kg_a_colher} kg. Venda no mercado e volte para terminar.'
     else:
-        # Colheu 100% com sucesso, segue o fluxo normal do seu jogo
         lote.fertilidade_solo = max(0, getattr(lote, 'fertilidade_solo', 100) - 30)
         dna_planta.processar_pos_colheita(lote)
-        msg_final = f'Colheita finalizada! {kg_a_colher} kg de {dna_planta.nome} armazenados com sucesso.'
-        
-        if getattr(lote, 'ciclos_colhidos', 0) >= getattr(dna_planta, 'max_ciclos', 99):
-            msg_final += f"\n⚠️ Alerta: Este pé de {dna_planta.nome} ficou velho. A produtividade da próxima safra será drástica!"
+        msg_final = f'Colheita finalizada! {kg_a_colher} kg armazenados no {local_armazenamento}.'
 
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': msg_final})
@@ -303,13 +327,40 @@ def abandonar_terra():
     if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
     dados = request.get_json()
     lote = Lote.query.get(dados.get('lote_id'))
-    
     if lote:
         lote.status = 'mato'
-        lote.tipo_cultivo = None
+        lote.tipo_cultivo = None 
         lote.dias_plantado = 0
         lote.ciclos_colhidos = 0
         lote.dias_descanso = 0
         db.session.commit()
-        return jsonify({'sucesso': True, 'msg': 'A terra foi abandonada e o mato tomou conta.'})
+        return jsonify({'sucesso': True, 'msg': 'Terra consumida pelo mato.'})
     return jsonify({'sucesso': False, 'erro': 'Lote não encontrado.'})
+
+@cultivo_bp.route('/api/cultivo/comprar_irrigacao', methods=['POST'])
+def comprar_irrigacao():
+    if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
+    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    dados = request.get_json()
+    lote = Lote.query.get(dados.get('lote_id'))
+    
+    if not lote: return jsonify({'sucesso': False, 'erro': 'Lote não encontrado.'})
+    if lote.sistema_irrigacao != 'nenhum': return jsonify({'sucesso': False, 'erro': 'Já possui irrigação!'})
+        
+    fazenda = Propriedade.query.get(lote.fazenda_id)
+    area = MULTIPLICADOR_AREA.get(fazenda.tipo, 1)
+    custo_pivo = 5000.0 * area # 🔥 Pivô gigantesco é mais caro!
+    
+    if usuario.saldo < custo_pivo:
+        return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente. O Pivô custa R$ {custo_pivo:,.2f}.'})
+        
+    usuario.saldo -= custo_pivo
+    lote.sistema_irrigacao = 'pivo'
+    
+    try:
+        from logica.economia import registrar_transacao
+        registrar_transacao(usuario.id, 'saida', custo_pivo, f'Pivô de Irrigação ({area}ha)')
+    except: pass
+        
+    db.session.commit()
+    return jsonify({'sucesso': True, 'msg': 'Pivô de Irrigação instalado!'})

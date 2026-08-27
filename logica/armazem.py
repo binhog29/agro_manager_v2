@@ -74,19 +74,39 @@ def expandir_armazem():
     if 'usuario' not in session:
         return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
 
-    # CUSTO E GANHO DA EXPANSAO (No seu HTML diz +300 un)
-    CUSTO_EXPANSAO = 4000
-    AUMENTO_CAPACIDADE = 300
+    dados = request.get_json() or {}
+    fazenda_id = dados.get('fazenda_id')
+    pacote = dados.get('pacote', 'pequeno') # Descobre qual o pacote escolhido
+
+    # Tabela de pacotes de expansão do Armazém
+    PACOTES_OBRA_ARMAZEM = {
+        'pequeno': {'custo': 4000, 'capacidade': 300},
+        'medio': {'custo': 35000, 'capacidade': 3500},
+        'grande': {'custo': 300000, 'capacidade': 35000},
+        'gigante': {'custo': 2500000, 'capacidade': 300000}
+    }
+
+    if pacote not in PACOTES_OBRA_ARMAZEM:
+        return jsonify({'sucesso': False, 'erro': 'Pacote de obra inválido.'})
+
+    CUSTO_EXPANSAO = PACOTES_OBRA_ARMAZEM[pacote]['custo']
+    AUMENTO_CAPACIDADE = PACOTES_OBRA_ARMAZEM[pacote]['capacidade']
 
     usuario_sessao = session['usuario']
     jogador = Jogador.query.filter_by(username=usuario_sessao).first()
     if not jogador:
         jogador = Jogador.query.get(usuario_sessao)
 
-    fazenda = Propriedade.query.filter_by(dono_id=jogador.id).first()
+    if fazenda_id:
+        fazenda = Propriedade.query.filter_by(id=fazenda_id, dono_id=jogador.id).first()
+    else:
+        fazenda = Propriedade.query.filter_by(dono_id=jogador.id).first()
+
+    if not fazenda:
+        return jsonify({'sucesso': False, 'erro': 'Fazenda não encontrada.'})
 
     if jogador.saldo < CUSTO_EXPANSAO:
-        return jsonify({'sucesso': False, 'erro': f'Você precisa de R$ {CUSTO_EXPANSAO:.2f} para expandir o armazém.'})
+        return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente. A obra custa R$ {CUSTO_EXPANSAO:,.2f}.'})
 
     jogador.saldo -= CUSTO_EXPANSAO
     fazenda.cap_armazem += AUMENTO_CAPACIDADE
@@ -95,15 +115,79 @@ def expandir_armazem():
         jogador_id=jogador.id,
         tipo='saida',
         valor=CUSTO_EXPANSAO,
-        descricao=f"Melhoria: Expansão do Armazém (+{AUMENTO_CAPACIDADE} un)"
+        descricao=f"Obra: Expansão do Armazém (+{AUMENTO_CAPACIDADE} un)"
     )
     db.session.add(nova_transacao)
     
-    # 🔥 Trava de Segurança e Ganho de XP pela Expansão
     if getattr(jogador, 'xp', None) is None:
         jogador.xp = 0
     jogador.xp += 10
     
     db.session.commit()
 
-    return jsonify({'sucesso': True, 'msg': f'Armazém expandido! Nova capacidade: {fazenda.cap_armazem} un.'})
+    return jsonify({'sucesso': True, 'msg': f'Obras finalizadas! O Armazém ganhou +{AUMENTO_CAPACIDADE:,.0f} un de capacidade.'})
+
+# ==========================================
+# ROTA EXCLUSIVA: LATICÍNIOS E DERIVADOS
+# ==========================================
+@armazem_bp.route('/api/armazem/vender_derivados', methods=['POST'])
+def vender_derivados():
+    if 'usuario' not in session:
+        return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
+
+    dados = request.get_json()
+    produto = dados.get('produto') # Espera 'leite' ou 'ovos'
+    quantidade = float(dados.get('quantidade', 0))
+    fazenda_id = dados.get('fazenda_id')
+
+    if quantidade <= 0:
+        return jsonify({'sucesso': False, 'erro': 'Quantidade inválida.'})
+
+    # Tabela de preços base dos derivados
+    precos = {
+        'leite': 2.50, # R$ 2,50 por Litro
+        'ovos': 0.50   # R$ 0,50 por Ovo
+    } 
+    
+    if produto not in precos:
+        return jsonify({'sucesso': False, 'erro': 'Produto inválido.'})
+
+    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    
+    # Busca a fazenda de forma segura
+    if fazenda_id:
+        fazenda = Propriedade.query.filter_by(id=fazenda_id, dono_id=usuario.id).first()
+    else:
+        fazenda = Propriedade.query.filter_by(dono_id=usuario.id).first()
+
+    if not fazenda:
+        return jsonify({'sucesso': False, 'erro': 'Fazenda não encontrada.'})
+
+    nome_coluna = f'est_{produto}'
+    estoque_atual = float(getattr(fazenda, nome_coluna, 0.0))
+
+    if estoque_atual < quantidade:
+        return jsonify({'sucesso': False, 'erro': f'Estoque insuficiente de {produto}!'})
+
+    # 💰 INJEÇÃO DE RH: Bônus do Capataz
+    from logica.funcionarios import obter_bonus_equipe
+    bonus_rh = obter_bonus_equipe(fazenda.id)
+    multiplicador_venda = bonus_rh.get('bonus_venda', 1.0)
+
+    # Calcula o valor total com o lucro extra
+    valor_total = (quantidade * precos[produto]) * multiplicador_venda
+
+    # Desconta do estoque e paga o jogador
+    setattr(fazenda, nome_coluna, estoque_atual - quantidade)
+    usuario.saldo += valor_total
+
+    from logica.economia import registrar_transacao
+    registrar_transacao(usuario.id, 'entrada', valor_total, f'Venda de Derivados: {quantidade}x {produto.capitalize()}')
+
+    # Ganho de XP seguro
+    if getattr(usuario, 'xp', None) is None: 
+        usuario.xp = 0
+    usuario.xp += 5
+
+    db.session.commit()
+    return jsonify({'sucesso': True, 'msg': f'Venda de {produto} rendeu R$ {valor_total:,.2f}!'})

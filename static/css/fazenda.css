@@ -5,6 +5,18 @@ body {
     background-color: #1a1a1a;
     color: #fff;
     padding-bottom: 50px;
+    /* Animação suave para todas as telas do jogo */
+    animation: fadeInSuave 0.4s ease-in-out;
+}
+
+@keyframes fadeInSuave {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Garante que os avisos do SweetAlert fiquem sempre na frente dos modais escuros */
+.swal2-container {
+    z-index: 999999 !important;
 }
 
 /* PAINEL SUPERIOR FIXO */
@@ -108,6 +120,11 @@ body {
 
 .menu-item.active {
     background: #e8f5e9; border-color: #2e7d32; color: #2e7d32;
+}
+
+/* Efeito de toque apenas no menu e botões normais para não matar o 3D da sede */
+.menu-item:active, .swal2-confirm:active, .swal2-cancel:active {
+    transform: scale(0.95);
 }
 
 /* ÁREA DE CONTEÚDO */

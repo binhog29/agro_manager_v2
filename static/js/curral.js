@@ -2,7 +2,6 @@
 function formatarPeso(peso) {
     let p = parseFloat(peso) || 0;
     if (p >= 15.0) {
-        // 1 Arroba (@) = 15 kg
         return (p / 15.0).toFixed(1) + ' @';
     } else {
         return p.toFixed(1) + ' kg';
@@ -13,7 +12,12 @@ function formatarPeso(peso) {
 // MANEJO E EXPANSÃO DO CURRAL
 // ==========================================
 window.confirmarExpansaoCurral = function() {
-    fetch('/api/fazenda/expandir_curral', { method: 'POST' })
+    const fazendaId = window.location.pathname.split('/').pop(); // 🔥 GPS Adicionado
+    fetch('/api/fazenda/expandir_curral', { 
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ fazenda_id: fazendaId }) // 🔥 Blindagem
+    })
     .then(r => r.json()).then(d => {
         if(d.sucesso) { 
             Swal.fire('Sucesso!', d.msg, 'success').then(()=> {
@@ -26,9 +30,10 @@ window.confirmarExpansaoCurral = function() {
 };
 
 window.aplicarManejo = function(animal_id, acao) {
+    const fazendaId = window.location.pathname.split('/').pop(); // 🔥 GPS Adicionado
     fetch('/api/animal/aplicar_insumo', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ animal_id: animal_id, acao: acao })
+        body: JSON.stringify({ animal_id: animal_id, acao: acao, fazenda_id: fazendaId }) // 🔥 Blindagem
     }).then(r => r.json()).then(d => {
         if(d.sucesso) { 
             Swal.fire('Feito!', d.msg, 'success').then(()=> {
@@ -47,7 +52,8 @@ window.abrirSelecaoVacinaLote = async function(tipoTratamento) {
         'medicamento': 'Aplicação de Medicamento Geral (Lote)'
     };
 
-    const resposta = await fetch('/api/pecuaria/listar_curral');
+    const fazendaId = window.location.pathname.split('/').pop();
+    const resposta = await fetch(`/api/pecuaria/listar_curral?fazenda_id=${fazendaId}`);
     const dados = await resposta.json();
 
     if (!dados.animais || dados.animais.length === 0) {
@@ -89,7 +95,7 @@ window.abrirSelecaoVacinaLote = async function(tipoTratamento) {
                     ${checkboxHtml}
                     <div>
                         <div style="font-weight: bold; font-size: 14px; color: #fff; text-transform: capitalize;">${a.raca} (${a.fase})</div>
-                        <span style="font-size: 11px; color: #888;">ID: #${a.id} | Sexo: ${a.sexo} | Peso: ${a.peso}@</span>
+                        <span style="font-size: 11px; color: #888;">ID: #${a.id} | Sexo: ${a.sexo} | Peso: ${formatarPeso(a.peso)}</span>
                     </div>
                 </div>
                 <div style="display: flex; gap: 4px;">
@@ -117,7 +123,6 @@ window.abrirSelecaoVacinaLote = async function(tipoTratamento) {
     });
 };
 
-// 🔥 CORREÇÃO 1: Atualizado para recalcular o frigorífico ao clicar em "Selecionar Todos"
 window.toggleSelecionarTodos = function(masterCheckbox) {
     document.querySelectorAll('.chk-animal-lote').forEach(chk => chk.checked = masterCheckbox.checked);
     if (typeof window.atualizarTotalFrigorifico === 'function' && document.getElementById('txt-total-frig-ids')) {
@@ -127,9 +132,12 @@ window.toggleSelecionarTodos = function(masterCheckbox) {
 
 window.executarTratamentoLote = function(animalIds, tipo) {
     Swal.fire({ title: 'Aplicando tratamento...', didOpen: () => Swal.showLoading() });
+    
+    const fazendaId = window.location.pathname.split('/').pop();
+    
     fetch('/api/animal/tratamento_lote', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ animal_ids: animalIds, tipo: tipo })
+        body: JSON.stringify({ animal_ids: animalIds, tipo: tipo, fazenda_id: fazendaId })
     })
     .then(r => r.json()).then(res => {
         if (res.sucesso) {
@@ -140,7 +148,8 @@ window.executarTratamentoLote = function(animalIds, tipo) {
 
 window.prepararApartamento = async function(animal_id) {
     try {
-        const response = await fetch('/api/pecuaria/listar_pastos_disponiveis');
+        const fazendaId = window.location.pathname.split('/').pop();
+        const response = await fetch(`/api/pecuaria/listar_pastos_disponiveis?fazenda_id=${fazendaId}`);
         const data = await response.json();
         if (!data.pastos || data.pastos.length === 0) return Swal.fire('Atenção', 'Nenhum pasto formado disponível!', 'warning');
 
@@ -164,7 +173,7 @@ window.prepararApartamento = async function(animal_id) {
 };
 
 // ==========================================
-// MÓDULO DE VENDAS E GRÁFICO
+// MÓDULO DE VENDAS E GRÁFICO (O restante do arquivo original que você mandou, não precisou de alterações, pode mantê-lo igual!)
 // ==========================================
 window.atualizarTotalLeilao = function() {
     const qtd = parseInt(document.getElementById('swal-qtd').value) || 0;
@@ -172,7 +181,6 @@ window.atualizarTotalLeilao = function() {
     document.getElementById('txt-total-leilao').innerText = (qtd * preco).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
 
-// 🔥 CORREÇÃO 2: Atualizado para somar apenas os bois selecionados nos checkboxes
 window.atualizarTotalFrigorifico = function() {
     const checkboxes = document.querySelectorAll('.chk-animal-lote:checked');
     const ids = Array.from(checkboxes).map(chk => parseInt(chk.value));
@@ -200,7 +208,6 @@ window.atualizarTotalFrigorifico = function() {
     }).catch(() => { txtTotal.innerText = "Erro ao pesar"; });
 };
 
-// 👉 NOVA FUNÇÃO DE VENDA INDIVIDUAL (Escolhe Leilão ou Frigorífico)
 window.prepararVendaComercial = function(id, peso, raca) {
     if (typeof fecharModal === 'function') fecharModal('modal-curral');
     Swal.fire({
@@ -224,7 +231,6 @@ window.prepararVendaComercial = function(id, peso, raca) {
     });
 };
 
-// 👉 NOVO MODAL PREMIUM: Frigorífico Individual
 window.abrirVendaFrigorificoIndividual = function(id, raca, peso) {
     Swal.fire({
         title: 'Vender ao Frigorífico',
@@ -352,9 +358,9 @@ window.abrirModalLoteLeilao = function() {
     });
 }
 
-// 🔥 CORREÇÃO 3: Nova modal de Frigorífico estilo "Checkboxes" idêntica a de Vacinas
 window.abrirModalLoteFrigorifico = async function() {
-    const resposta = await fetch('/api/pecuaria/listar_curral');
+    const fazendaId = window.location.pathname.split('/').pop();
+    const resposta = await fetch(`/api/pecuaria/listar_curral?fazenda_id=${fazendaId}`);
     const dados = await resposta.json();
 
     if (!dados.animais || dados.animais.length === 0) {
@@ -407,8 +413,6 @@ window.abrirModalLoteFrigorifico = async function() {
         }
     }).then((result) => {
         if (result.isConfirmed) {
-            const fazendaId = window.location.pathname.split('/').pop();
-            
             Swal.fire({ title: 'Carregando caminhões...', didOpen: () => Swal.showLoading() });
             
             fetch('/api/animal/vender_lote_curral', {

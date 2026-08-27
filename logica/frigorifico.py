@@ -2,6 +2,7 @@ from flask import Blueprint, session, request, jsonify
 from sqlalchemy import func
 from database import db, Jogador, Propriedade, Animal, TABELA_PRECOS, INFO_ESPECIES
 from logica.economia import registrar_transacao
+from logica.funcionarios import obter_bonus_equipe
 import random
 
 frigorifico_bp = Blueprint('frigorifico', __name__)
@@ -75,7 +76,6 @@ def estimar_frigorifico():
     usuario = Jogador.query.filter_by(username=session['usuario']).first()
     dados = request.get_json()
     
-    # AGORA RECEBE A LISTA DE IDs MARCADOS NA TELA
     animal_ids = dados.get('animal_ids', [])
     propriedade_id = dados.get('fazenda_id')
     
@@ -85,12 +85,16 @@ def estimar_frigorifico():
     if not animal_ids: 
         return jsonify({'sucesso': True, 'valor': 0, 'encontrados': 0, 'fator': 1.0})
 
-    # BUSCA SOMENTE OS ANIMAIS SELECIONADOS NO BANCO
     animais = Animal.query.filter(Animal.id.in_(animal_ids), Animal.propriedade_id == propriedade_id).all()
     if not animais: 
         return jsonify({'sucesso': True, 'valor': 0, 'encontrados': 0, 'fator': 1.0})
         
     fator = CotacaoMercado.calcular_fator_dia(usuario.dia, usuario.mes, usuario.ano)
+    
+    # 💰 INJEÇÃO DE RH: Bônus do Capataz na Estimativa
+    bonus_rh = obter_bonus_equipe(prop.id)
+    multiplicador_venda = bonus_rh.get('bonus_venda', 1.0)
+    
     valor_total = 0
 
     for a in animais:
@@ -106,14 +110,19 @@ def estimar_frigorifico():
         info_preco_db = TABELA_PRECOS.get(raca_alvo, {})
         fase_animal = str(a.fase).strip().lower()
         
+        valor_animal_estimado = 0
         if fase_animal in ['filhote', 'jovem']:
             preco_cabeca = info_preco_db.get('filhote', 1100)
-            valor_total += preco_cabeca * fator
+            valor_animal_estimado = preco_cabeca * fator
         else:
             if familia_animal in ['bovino_corte', 'bovino_leite', 'equino']:
-                valor_total += (a.peso / 15.0) * preco_cotacao
+                valor_animal_estimado = (a.peso / 15.0) * preco_cotacao
             else:
-                valor_total += a.peso * preco_cotacao
+                valor_animal_estimado = a.peso * preco_cotacao
+                
+        # Aplica o multiplicador do Capataz no animal
+        valor_animal_estimado *= multiplicador_venda
+        valor_total += valor_animal_estimado
             
     return jsonify({'sucesso': True, 'valor': valor_total, 'encontrados': len(animais), 'fator': fator})
 
@@ -123,7 +132,6 @@ def vender_lote_curral():
     usuario = Jogador.query.filter_by(username=session['usuario']).first()
     dados = request.get_json()
     
-    # AGORA RECEBE A LISTA DE IDs MARCADOS NA TELA
     animal_ids = dados.get('animal_ids', [])
     propriedade_id = dados.get('fazenda_id')
          
@@ -139,10 +147,13 @@ def vender_lote_curral():
 
     fator = CotacaoMercado.calcular_fator_dia(usuario.dia, usuario.mes, usuario.ano)
     
+    # 💰 INJEÇÃO DE RH: Bônus do Capataz na Venda Real
+    bonus_rh = obter_bonus_equipe(prop.id)
+    multiplicador_venda = bonus_rh.get('bonus_venda', 1.0)
+    
     msg_resumo = []
     valor_total = 0
     quantidade = len(animais)
-    raca_predominante = animais[0].raca.capitalize()
     
     for a in animais:
         raca_alvo = str(a.raca).lower()
@@ -169,17 +180,18 @@ def vender_lote_curral():
                 valor_animal = a.peso * preco_cotacao
                 msg_resumo.append(f"{a.peso:.1f}Kg")
                 
+        # Aplica o lucro extra do Capataz
+        valor_animal *= multiplicador_venda
         valor_total += valor_animal
         db.session.delete(a)
         
     usuario.saldo += valor_total
     
-    # 🔥 MODO SEGURO: Adiciona XP pelas vendas em Lote
     if getattr(usuario, 'xp', None) is None:
         usuario.xp = 0
     usuario.xp += (quantidade * 50)
     
-    registrar_transacao(usuario.id, 'entrada', valor_total, f'Frigorífico ({quantidade}x Múltiplos/Lote) - Detalhes: {", ".join(msg_resumo)[:40]}...')
+    registrar_transacao(usuario.id, 'entrada', valor_total, f'Frigorífico ({quantidade}x Múltiplos) - Detalhes: {", ".join(msg_resumo)[:40]}...')
     
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': f'Venda concluída! O mercado te pagou R$ {valor_total:,.2f}!'})
@@ -225,8 +237,14 @@ def estimar_frigorifico_individual():
             valor_total = (animal.peso / 15.0) * preco_cotacao
         else:
             valor_total = animal.peso * preco_cotacao
+
+    # 🔥 APLICANDO O BÔNUS DO CAPATAZ (RH) NA ESTIMATIVA
+    from logica.funcionarios import obter_bonus_equipe
+    bonus_rh = obter_bonus_equipe(animal.propriedade_id)
+    valor_total *= bonus_rh.get('bonus_venda', 1.0)
         
     return jsonify({'sucesso': True, 'valor': valor_total, 'fator': fator, 'raca': animal.raca.capitalize(), 'peso': animal.peso})
+
 
 @frigorifico_bp.route('/api/animal/vender_individual_curral', methods=['POST'])
 def vender_individual_curral():
@@ -268,10 +286,14 @@ def vender_individual_curral():
         else:
             valor_animal = animal.peso * preco_cotacao
             resumo = f"{animal.peso:.1f}Kg"
+
+    # 🔥 APLICANDO O BÔNUS DO CAPATAZ (RH) NA VENDA REAL
+    from logica.funcionarios import obter_bonus_equipe
+    bonus_rh = obter_bonus_equipe(animal.propriedade_id)
+    valor_animal *= bonus_rh.get('bonus_venda', 1.0)
             
     usuario.saldo += valor_animal
     
-    # 🔥 MODO SEGURO: Adiciona XP pela Venda Individual
     if getattr(usuario, 'xp', None) is None:
         usuario.xp = 0
     usuario.xp += 50

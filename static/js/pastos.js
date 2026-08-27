@@ -30,7 +30,7 @@ window.abrirGerenciamentoPasto = async function(loteId, tipoCapim, temCocho, tem
         <div style="background: #222; padding: 8px; margin-bottom: 6px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between; border-left: 3px solid #555;">
             <div style="text-align: left;">
                 <div style="font-weight: bold; font-size: 13px; color: #fff;">${a.raca}</div>
-                <div style="font-size: 10px; color: #888;">ID: #${a.id} | ${formatarPeso(a.peso)}</div>
+        <div style="font-size: 10px; color: #888;">ID: #${a.id} | Sexo: <b>${a.sexo}</b> | ${formatarPeso(a.peso)}</div>
             </div>
             
             <div style="display: flex; gap: 4px;">
@@ -129,7 +129,6 @@ window.reabastecerCochoPasto = async function(loteId, tipoInsumo) {
 window.abrirLojaInfra = function(loteId, temCocho, temBebedouro, temCochoRacao) {
     let htmlBotoes = '<div style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">';
     
-    // Adicionamos IDs únicos aos botões e passamos o Custo + ID na função
     if (!temCocho) {
         htmlBotoes += `
             <button id="btn-infra-cocho" class="swal2-styled" style="background: #f57c00; width: 100%; font-weight: bold;" onclick="comprarInfraPasto(${loteId}, 'cocho', 400, 'btn-infra-cocho')">
@@ -186,7 +185,6 @@ window.abrirLojaInfra = function(loteId, temCocho, temBebedouro, temCochoRacao) 
     });
 };
 
-// Configuração do "Toast" (Aviso Silencioso no canto da tela)
 const AvisoSilencioso = Swal.mixin({
     toast: true,
     position: 'top-end',
@@ -197,10 +195,10 @@ const AvisoSilencioso = Swal.mixin({
 
 window.comprarInfraPasto = function(loteId, tipoObra, custoObra, btnId) {
     const btn = document.getElementById(btnId);
-    const textoOriginal = btn.innerHTML; // Salva o texto original do botão
-
-    // 1. Muda o botão para modo "Carregando" para evitar cliques duplos
+    let textoOriginal = '';
+    
     if (btn) {
+        textoOriginal = btn.innerHTML;
         btn.disabled = true;
         btn.style.opacity = '0.7';
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Construindo...';
@@ -212,8 +210,6 @@ window.comprarInfraPasto = function(loteId, tipoObra, custoObra, btnId) {
         body: JSON.stringify({ lote_id: loteId, obra: tipoObra })
     }).then(r => r.json()).then(d => {
         if(d.sucesso) {
-            
-            // 2. Se deu certo, transforma o botão em "Concluído" (Verde)
             if(btn) {
                 btn.style.background = '#4caf50';
                 btn.style.opacity = '0.8';
@@ -224,14 +220,11 @@ window.comprarInfraPasto = function(loteId, tipoObra, custoObra, btnId) {
                 else if(tipoObra === 'bebedouro') btn.innerHTML = '<img src="/static/img/tanque.png" style="width: 20px; vertical-align: middle; margin-right: 8px;"><i class="fas fa-check"></i> Água Instalada';
             }
 
-            // 3. Dispara o aviso silencioso no canto da tela!
             AvisoSilencioso.fire({ icon: 'success', title: d.msg });
 
-            // 4. A Mágica: Procura o dinheiro na tela e desconta o valor em tempo real
             let carteiras = document.querySelectorAll('.carteira, #saldo-jogador, .saldo, div[class*="saldo"]'); 
             carteiras.forEach(el => {
                 let textoAtual = el.innerText;
-                // Extrai apenas os números do HTML atual
                 let valorNumerico = parseFloat(textoAtual.replace(/[^\d,-]/g, '').replace(',', '.'));
                 if(!isNaN(valorNumerico)) {
                     let novoValor = valorNumerico - custoObra;
@@ -240,7 +233,6 @@ window.comprarInfraPasto = function(loteId, tipoObra, custoObra, btnId) {
             });
 
         } else {
-            // Se falhou (sem dinheiro, etc), devolve o botão original e mostra o erro
             if(btn) {
                 btn.disabled = false;
                 btn.style.opacity = '1';
@@ -258,13 +250,18 @@ window.comprarInfraPasto = function(loteId, tipoObra, custoObra, btnId) {
     });
 };
 
+// 🔥 AQUI ESTÁ A CORREÇÃO DE OURO: AGORA ELE ENVIA A FAZENDA PARA O PYTHON!
 window.abrirSeletorAnimais = async function(pastoId, acao) {
     let endpointListagem = '';
     let tituloModal = '';
     let destinoFinal = 'pasto_' + pastoId; 
+    
+    // Captura o ID da fazenda atual pela URL (Ex: 235)
+    const fazendaId = window.location.pathname.split('/').pop();
 
     if (acao === 'curral_para_pasto') {
-        endpointListagem = '/api/pecuaria/listar_curral';
+        // Envia o ID para o Python buscar apenas os bois certos!
+        endpointListagem = `/api/pecuaria/listar_curral?fazenda_id=${fazendaId}`;
         tituloModal = 'Trazer do Curral';
     } else {
         endpointListagem = `/api/pecuaria/listar_pasto?pasto_id=${pastoId}`;
@@ -306,7 +303,6 @@ window.abrirSeletorAnimais = async function(pastoId, acao) {
                         <span style="color: #aaa; font-size: 12px;">ID: #${a.id} | Sexo: ${a.sexo}</span>
                     </div>
                 </div>
-                <!-- Usando a formatação dinâmica de peso também no seletor -->
                 <div style="color: #8bc34a; font-weight: bold; font-size: 16px;">${formatarPeso(a.peso)}</div>
             </div>
         `;
@@ -409,23 +405,4 @@ window.reverterPasto = function(loteId) {
             });
         }
     });
-};
-
-window.comprarInfraPasto = function(loteId, tipoObra) {
-    Swal.fire({ title: 'Construindo...', didOpen: () => Swal.showLoading() || true });
-    
-    fetch('/api/fazenda/infra_pasto', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ lote_id: loteId, obra: tipoObra })
-    }).then(r => r.json()).then(d => {
-        if(d.sucesso) {
-            Swal.fire('Sucesso!', d.msg, 'success').then(() => {
-                localStorage.setItem('aba_ativa_fazenda', 'pastos');
-                location.reload();
-            });
-        } else {
-            Swal.fire('Atenção', d.erro, 'warning');
-        }
-    }).catch(e => Swal.fire('Erro', 'Falha na comunicação.', 'error'));
 };

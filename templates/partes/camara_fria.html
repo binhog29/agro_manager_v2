@@ -1,0 +1,52 @@
+<div id="modal-camara" class="modal-fundo" onclick="fecharSeClicarFora(event, 'modal-camara')">
+    <div class="modal-janela" style="border-top: 5px solid #81d4fa; background: #1a1a1a;">
+        <span class="fechar-btn" onclick="fecharModal('modal-camara')">&times;</span>
+        
+        <h2 class="modal-titulo" style="color: #81d4fa; text-shadow: 1px 1px 3px #000;">
+            🧊 Câmara Fria
+        </h2>
+        
+        <p style="color: #aaa; font-size: 13px; margin-bottom: 20px;">Estoque refrigerado de Laticínios e Derivados</p>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            
+            <!-- CAIXA DO LEITE -->
+            <div style="background: #222; padding: 15px; border-radius: 12px; border: 1px solid #444; display: flex; flex-direction: column; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                <img src="/static/img/leite.png" style="height:60px; margin-bottom:10px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));" onerror="this.src='https://cdn-icons-png.flaticon.com/512/869/869469.png'">
+                <span style="font-size: 14px; color: #ccc; font-weight: bold;">Leite Cru</span>
+                <b style="font-size: 20px; color: #81d4fa;">{{ "%.1f"|format(fazenda.est_leite|default(0)) }} Litros</b>
+                
+                {% if fazenda.est_leite > 0 %}
+                    <button onclick="venderDerivados('leite', 'Leite Cru', {{ fazenda.est_leite }})" style="background: #2e7d32; color: white; border: none; padding: 10px; border-radius: 8px; font-size: 12px; margin-top: 15px; width: 100%; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #1b5e20;">
+                        VENDER 💰
+                    </button>
+                {% else %}
+                    <button disabled style="background: #444; color: #888; border: none; padding: 10px; border-radius: 8px; font-size: 12px; margin-top: 15px; width: 100%; font-weight: bold; cursor: not-allowed;">
+                        VAZIO
+                    </button>
+                {% endif %}
+            </div>
+
+            <!-- CAIXA DOS OVOS -->
+            <div style="background: #222; padding: 15px; border-radius: 12px; border: 1px solid #444; display: flex; flex-direction: column; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                <img src="/static/img/ovos.png" style="height:60px; margin-bottom:10px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));" onerror="this.src='https://cdn-icons-png.flaticon.com/512/837/837560.png'">
+                <span style="font-size: 14px; color: #ccc; font-weight: bold;">Ovos Caipira</span>
+                <b style="font-size: 20px; color: #ffca28;">{{ fazenda.est_ovos|default(0) }} Unid.</b>
+                
+                {% if fazenda.est_ovos > 0 %}
+                    <button onclick="venderDerivados('ovos', 'Ovos Caipira', {{ fazenda.est_ovos }})" style="background: #2e7d32; color: white; border: none; padding: 10px; border-radius: 8px; font-size: 12px; margin-top: 15px; width: 100%; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #1b5e20;">
+                        VENDER 💰
+                    </button>
+                {% else %}
+                    <button disabled style="background: #444; color: #888; border: none; padding: 10px; border-radius: 8px; font-size: 12px; margin-top: 15px; width: 100%; font-weight: bold; cursor: not-allowed;">
+                        VAZIO
+                    </button>
+                {% endif %}
+            </div>
+            
+        </div>
+    </div>
+    
+    <!-- Puxando o arquivo JS externo corretamente -->
+    <script src="{{ url_for('static', filename='js/camara_fria.js') }}?v=1"></script>
+</div>

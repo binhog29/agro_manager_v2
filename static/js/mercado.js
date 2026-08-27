@@ -1,4 +1,3 @@
-
 // ==========================================
 // INICIALIZAÇÃO SEGURA
 // ==========================================
@@ -15,29 +14,66 @@ fetch('/api/mercado/precos')
 window.atualizarPrecoDinamico = function(id_ia) {
     const key = id_ia ? id_ia.toLowerCase() : '';
     const fase = document.getElementById('fase-' + id_ia).value;
-    
     const dadosAnimal = window.PRECOS_BASE[key];
     
     if (dadosAnimal) {
-        // 1. Atualiza o Preço dinamicamente
         const precoFinal = dadosAnimal[fase] || 0;
         const spanVal = document.getElementById('val-' + id_ia);
-        if (spanVal) {
-            spanVal.innerText = Math.round(precoFinal).toLocaleString('pt-BR');
-        }
+        if (spanVal) spanVal.innerText = Math.round(precoFinal).toLocaleString('pt-BR');
         
-        // 2. Atualiza o Peso dinamicamente junto com a fase (Filhote ou Adulto)
         const pesoSpan = document.getElementById('peso-' + id_ia);
         if (pesoSpan) {
             const pesoDinamico = fase === 'filhote' ? dadosAnimal.peso_filhote : dadosAnimal.peso_adulto;
-            const unidade = dadosAnimal.unidade || '@';
-            pesoSpan.innerText = `${pesoDinamico} ${unidade}`;
+            pesoSpan.innerText = `${pesoDinamico} ${dadosAnimal.unidade || '@'}`;
         }
     }
 }
 
 // O "Cérebro" que lembra o que estamos comprando
-let compraAtual = { tipo: '', id_ia: '', id_anuncio: '', precoUnidade: 0, fase: '', sexo: '' };
+let compraAtual = { tipo: '', id_ia: '', id_anuncio: '', precoUnidade: 0, fase: '', sexo: '', raca: '' };
+
+// Listener para quando o jogador trocar de fazenda no modal
+document.addEventListener('DOMContentLoaded', () => {
+    const modalDestino = document.getElementById('modal-destino');
+    if(modalDestino) modalDestino.addEventListener('change', verificarCaminhaoDestino);
+});
+
+// ==========================================
+// VERIFICADOR DE CAMINHÃO (FRETE GRÁTIS)
+// ==========================================
+window.verificarCaminhaoDestino = async function() {
+    const destino = document.getElementById('modal-destino').value;
+    const raca = compraAtual.id_ia || compraAtual.raca;
+    if (!destino || !raca) return;
+
+    // Define qual caminhão precisamos procurar
+    const peixes = ['tambaqui', 'pirarucu', 'pacu', 'matrinxa', 'jaraqui', 'curimata', 'surubim', 'pintado', 'cachara', 'tucunare', 'piau'];
+    const modeloNecessario = peixes.includes(raca.toLowerCase()) ? 'Caminhão Baú (Frios)' : 'Caminhão Boiadeiro';
+
+    const checkbox = document.getElementById('check-caminhao-proprio');
+    const aviso = checkbox.parentElement.nextElementSibling; // Pega o <small> abaixo do checkbox
+
+    try {
+        // Consulta o barracão da fazenda selecionada
+        const res = await fetch(`/api/barracao/listar?fazenda_id=${destino}`);
+        const data = await res.json();
+
+        if (data.sucesso && data.maquinas.some(m => m.modelo === modeloNecessario)) {
+            checkbox.disabled = false;
+            checkbox.checked = true; // Auto-seleciona pro jogador não esquecer!
+            aviso.innerText = `✅ Você possui um ${modeloNecessario} no Barracão! Frete Grátis.`;
+            aviso.style.color = '#4caf50';
+        } else {
+            checkbox.disabled = true;
+            checkbox.checked = false;
+            aviso.innerText = `❌ Sem ${modeloNecessario} nesta fazenda. Frete será cobrado.`;
+            aviso.style.color = '#f44336';
+        }
+    } catch (e) {
+        console.error(e);
+    }
+    atualizarTotalModal();
+}
 
 // ==========================================
 // COMPRA DA INTELIGÊNCIA ARTIFICIAL (IA)
@@ -46,12 +82,9 @@ window.prepararCompraIA = function(id_ia) {
     const key = id_ia ? id_ia.toLowerCase() : '';
     const fase = document.getElementById('fase-' + id_ia).value;
     const sexo = document.getElementById('sexo-' + id_ia).value;
-    
     const precoFinal = window.PRECOS_BASE[key] ? window.PRECOS_BASE[key][fase] : 0;
     
-    // Salva que é uma compra da IA usando a chave tratada
-    compraAtual = { tipo: 'ia', id_ia: key, precoUnidade: precoFinal, fase: fase, sexo: sexo };
-    
+    compraAtual = { tipo: 'ia', id_ia: key, raca: key, precoUnidade: precoFinal, fase: fase, sexo: sexo };
     document.getElementById('modal-animal-nome').innerText = `${fase.charAt(0).toUpperCase() + fase.slice(1)} - ${id_ia.charAt(0).toUpperCase() + id_ia.slice(1)} (${sexo})`;
     
     const qtdInput = document.getElementById('modal-quantidade');
@@ -59,29 +92,26 @@ window.prepararCompraIA = function(id_ia) {
     qtdInput.disabled = false;
 
     definirCaminhao(id_ia);
-    atualizarTotalModal();
     document.getElementById('modal-logistica').style.display = 'flex';
+    verificarCaminhaoDestino(); // Checa o caminhão logo ao abrir
 }
 
 // ==========================================
 // COMPRA DA COMUNIDADE (P2P)
 // ==========================================
 window.prepararCompraComunidade = function(id_anuncio, raca, valor) {
-    // Salva que é uma compra de player real
     compraAtual = { tipo: 'comunidade', id_anuncio: id_anuncio, precoUnidade: parseFloat(valor), raca: raca };
-    
     document.getElementById('modal-animal-nome').innerText = `Lote Comunidade - ${raca.charAt(0).toUpperCase() + raca.slice(1)}`;
     
     const qtdInput = document.getElementById('modal-quantidade');
     qtdInput.value = 1;
-    qtdInput.disabled = true; // Bloqueia! Não dá pra comprar só "metade" de um boi de outro jogador
+    qtdInput.disabled = true;
 
     definirCaminhao(raca);
-    atualizarTotalModal();
     document.getElementById('modal-logistica').style.display = 'flex';
+    verificarCaminhaoDestino(); // Checa o caminhão logo ao abrir
 }
 
-// --- FUNÇÕES COMPARTILHADAS DE LOGÍSTICA ---
 function definirCaminhao(raca) {
     const peixes = ['tambaqui', 'pirarucu', 'pacu', 'matrinxa', 'jaraqui', 'curimata', 'surubim', 'pintado', 'cachara', 'tucunare', 'piau'];
     const imgCaminhao = document.getElementById('img-veiculo');
@@ -96,7 +126,7 @@ window.fecharModal = function() {
 window.atualizarTotalModal = function() {
     const qtd = parseInt(document.getElementById('modal-quantidade').value) || 0;
     const usaCaminhaoProprio = document.getElementById('check-caminhao-proprio').checked;
-    const fretePorCabeca = usaCaminhaoProprio ? 0 : 50.0;
+    const fretePorCabeca = usaCaminhaoProprio ? 0 : 50.0; // 🔥 A Mágica do frete aqui!
     
     const custoGado = qtd * compraAtual.precoUnidade;
     const custoFrete = qtd * fretePorCabeca;
@@ -111,26 +141,21 @@ window.atualizarTotalModal = function() {
 window.confirmarCompra = function() {
     const qtd = document.getElementById('modal-quantidade').value;
     const destino = document.getElementById('modal-destino').value;
+    const usaCaminhao = document.getElementById('check-caminhao-proprio').checked; // Captura se usou
     
-    if(!destino) {
-        Swal.fire('Atenção', 'Você precisa comprar uma propriedade no mapa para receber a carga!', 'warning');
-        return;
-    }
-
-    // Trava a tela para evitar duplo clique
+    if(!destino) return Swal.fire('Atenção', 'Você precisa de uma propriedade!', 'warning');
     document.getElementById('modal-logistica').style.opacity = '0.5';
 
-    // ROTEADOR: Manda pro backend correto dependendo de quem estamos comprando
     if (compraAtual.tipo === 'comunidade') {
         fetch('/api/mercado/comprar_leilao', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ anuncio_id: compraAtual.id_anuncio, fazenda_id: parseInt(destino) })
+            body: JSON.stringify({ anuncio_id: compraAtual.id_anuncio, fazenda_id: parseInt(destino), usa_caminhao: usaCaminhao })
         })
         .then(r => r.json()).then(tratarResposta).catch(tratarErro);
     } else {
         fetch('/api/mercado/comprar_ia', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ raca: compraAtual.id_ia, fase: compraAtual.fase, sexo: compraAtual.sexo, quantidade: qtd, destino_id: destino })
+            body: JSON.stringify({ raca: compraAtual.raca, fase: compraAtual.fase, sexo: compraAtual.sexo, quantidade: qtd, destino_id: destino, usa_caminhao: usaCaminhao })
         })
         .then(r => r.json()).then(tratarResposta).catch(tratarErro);
     }
@@ -148,14 +173,10 @@ function tratarResposta(d) {
 }
 
 function tratarErro(e) {
-    console.error(e);
     Swal.fire({ title: 'Erro de Ligação', text: 'O servidor não respondeu.', icon: 'warning', background: '#2a2a2a', color: '#fff' });
     document.getElementById('modal-logistica').style.opacity = '1';
 }
 
-// ==========================================
-// CANCELAR ANÚNCIO
-// ==========================================
 window.cancelar = function(anuncioId) {
     Swal.fire({ title: 'Cancelar Anúncio?', text: "O animal voltará para o curral.", icon: 'warning', background: '#2a2a2a', color: '#fff', showCancelButton: true, confirmButtonColor: '#f44336', confirmButtonText: 'Sim, cancelar!' })
     .then((result) => {

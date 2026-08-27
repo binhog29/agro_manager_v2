@@ -1,25 +1,27 @@
 from flask import Blueprint, jsonify, request, session
 from database import db, Jogador, Propriedade, Transacao
+from logica.funcionarios import obter_bonus_equipe
 
 silo_bp = Blueprint('silo', __name__)
 
-# TABELA DE PREÇOS DE VENDA (Ajuste os valores como preferir!)
+# TABELA DE PREÇOS DE VENDA (Economia "Agro-Barão" - Alto Lucro!)
 PRECOS_VENDA = {
-    'milho': 150,
-    'soja': 250,
-    'cafe': 400,
-    'arroz': 120,
-    'feijao': 200,
-    'algodao': 300,
-    'cana': 100,
-    'mandioca': 80,
-    'pimenta': 220,
-    'cacau': 450,
-    'acai': 350,
-    'cupuacu': 300,
-    'banana': 150,
-    'abacaxi': 180,
-    'melancia': 90
+    'milho': 5.00,       # 6.000kg = R$ 30.000 por Hectare
+    'soja': 8.50,        # 3.600kg = R$ 30.600 por Hectare
+    'arroz': 7.00,       # 4.200kg = R$ 29.400 por Hectare
+    'feijao': 12.00,     # 2.000kg = R$ 24.000 por Hectare
+    'algodao': 15.00,    # 3.000kg = R$ 45.000 por Hectare
+    'mandioca': 2.50,    # 20.000kg = R$ 50.000 (Demora 240 dias para colher!)
+    'cana': 0.80,        # 80.000kg = R$ 64.000 (Demora quase 1 ano)
+    'tomate': 5.50,
+    'banana': 4.00,
+    'abacaxi': 3.50,
+    'melancia': 3.00,
+    'pimenta': 18.00,
+    'cacau': 35.00,
+    'acai': 14.00,
+    'cupuacu': 16.00,
+    'cafe': 25.00
 }
 
 @silo_bp.route('/api/silo/vender', methods=['POST'])
@@ -28,21 +30,26 @@ def vender_grao():
         return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
 
     dados = request.get_json()
-    item_chave = dados.get('item') # ex: 'milho'
+    item_chave = dados.get('item') # ex: 'milho' ou 'mandioca'
     quantidade_venda = int(dados.get('quantidade', 0))
+    fazenda_id = dados.get('fazenda_id') 
 
     if quantidade_venda <= 0:
         return jsonify({'sucesso': False, 'erro': 'Quantidade inválida.'})
-
-    preco_unidade = PRECOS_VENDA.get(item_chave, 50) # Pega o preço da tabela
-    valor_total = quantidade_venda * preco_unidade
 
     usuario_sessao = session['usuario']
     jogador = Jogador.query.filter_by(username=usuario_sessao).first()
     if not jogador:
         jogador = Jogador.query.get(usuario_sessao)
 
-    fazenda = Propriedade.query.filter_by(dono_id=jogador.id).first()
+    if fazenda_id:
+        fazenda = Propriedade.query.filter_by(id=fazenda_id, dono_id=jogador.id).first()
+    else:
+        fazenda = Propriedade.query.filter_by(dono_id=jogador.id).first()
+
+    if not fazenda:
+        return jsonify({'sucesso': False, 'erro': 'Fazenda não encontrada.'})
+
     nome_coluna = f'est_{item_chave}'
     
     try:
@@ -51,67 +58,101 @@ def vender_grao():
         return jsonify({'sucesso': False, 'erro': 'Erro no banco de dados.'})
 
     if estoque_atual < quantidade_venda:
-        return jsonify({'sucesso': False, 'erro': f'Você não tem essa quantidade toda no silo!'})
+        return jsonify({'sucesso': False, 'erro': f'Você não tem essa quantidade toda no estoque!'})
+
+    # 🔥 IDENTIFICA AUTOMATICAMENTE DE ONDE SAIU A VENDA
+    itens_silo = ['soja', 'milho', 'arroz', 'feijao']
+    local_venda = "Silo" if item_chave in itens_silo else "Galpão"
+
+    # 💰 INJEÇÃO DE RH: Bônus do Capataz nas Vendas
+    preco_unidade = PRECOS_VENDA.get(item_chave, 50) 
+    from logica.funcionarios import obter_bonus_equipe
+    bonus_rh = obter_bonus_equipe(fazenda.id)
+    multiplicador_venda = bonus_rh.get('bonus_venda', 1.0)
+    
+    valor_total = (quantidade_venda * preco_unidade) * multiplicador_venda
 
     # 1. Desconta o estoque e adiciona o saldo
     setattr(fazenda, nome_coluna, estoque_atual - quantidade_venda)
     jogador.saldo += valor_total
+
+    # 🔥 CORREÇÃO DO EXTRATO: Texto 100% dinâmico (com e sem bônus)
+    if multiplicador_venda > 1.0:
+        texto_venda = f"Venda de {local_venda}: {quantidade_venda}x {item_chave.capitalize()} (+10% Capataz)"
+    else:
+        texto_venda = f"Venda de {local_venda}: {quantidade_venda}x {item_chave.capitalize()}"
 
     # 2. Registra no fluxo de caixa (ENTRADA)
     nova_transacao = Transacao(
         jogador_id=jogador.id,
         tipo='entrada',
         valor=valor_total,
-        descricao=f"Venda de Silo: {quantidade_venda}x {item_chave.capitalize()}"
+        descricao=texto_venda
     )
     db.session.add(nova_transacao)
     
-    # 🔥 Trava de Segurança e Ganho de XP pela Venda
     if getattr(jogador, 'xp', None) is None:
         jogador.xp = 0
     jogador.xp += 10
     
     db.session.commit()
     
-    return jsonify({'sucesso': True, 'msg': f'Venda de {quantidade_venda}x {item_chave.capitalize()} gerou R$ {valor_total:.2f}!'})
+    return jsonify({'sucesso': True, 'msg': f'Venda de {quantidade_venda}x {item_chave.capitalize()} gerou R$ {valor_total:,.2f}!'})
 
 @silo_bp.route('/api/silo/expandir', methods=['POST'])
 def expandir_silo():
     if 'usuario' not in session:
         return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
 
-    # CUSTO E GANHO DA EXPANSAO (Ajuste como quiser)
-    CUSTO_EXPANSAO = 5000
-    AUMENTO_CAPACIDADE = 500
+    dados = request.get_json() or {}
+    fazenda_id = dados.get('fazenda_id')
+    pacote = dados.get('pacote', 'pequeno') # 🔥 Novo: Descobre qual obra o jogador quer
+
+    # 🔥 TABELA DE OBRAS DO SILO (Com desconto para as obras maiores)
+    PACOTES_OBRA = {
+        'pequeno': {'custo': 5000, 'capacidade': 500},
+        'medio': {'custo': 45000, 'capacidade': 5000},
+        'grande': {'custo': 400000, 'capacidade': 50000},
+        'gigante': {'custo': 3500000, 'capacidade': 500000}
+    }
+
+    if pacote not in PACOTES_OBRA:
+        return jsonify({'sucesso': False, 'erro': 'Pacote de obra inválido.'})
+
+    CUSTO_EXPANSAO = PACOTES_OBRA[pacote]['custo']
+    AUMENTO_CAPACIDADE = PACOTES_OBRA[pacote]['capacidade']
 
     usuario_sessao = session['usuario']
     jogador = Jogador.query.filter_by(username=usuario_sessao).first()
     if not jogador:
         jogador = Jogador.query.get(usuario_sessao)
 
-    fazenda = Propriedade.query.filter_by(dono_id=jogador.id).first()
+    if fazenda_id:
+        fazenda = Propriedade.query.filter_by(id=fazenda_id, dono_id=jogador.id).first()
+    else:
+        fazenda = Propriedade.query.filter_by(dono_id=jogador.id).first()
+
+    if not fazenda:
+        return jsonify({'sucesso': False, 'erro': 'Fazenda não encontrada.'})
 
     if jogador.saldo < CUSTO_EXPANSAO:
-        return jsonify({'sucesso': False, 'erro': f'Você precisa de R$ {CUSTO_EXPANSAO:.2f} para expandir o silo.'})
+        return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente. A obra custa R$ {CUSTO_EXPANSAO:,.2f}.'})
 
-    # 1. Cobra o dinheiro e aumenta a capacidade
     jogador.saldo -= CUSTO_EXPANSAO
     fazenda.cap_silo += AUMENTO_CAPACIDADE
 
-    # 2. Registra no fluxo de caixa (SAÍDA)
     nova_transacao = Transacao(
         jogador_id=jogador.id,
         tipo='saida',
         valor=CUSTO_EXPANSAO,
-        descricao=f"Melhoria: Expansão do Silo (+{AUMENTO_CAPACIDADE} kg)"
+        descricao=f"Obra: Expansão do Silo (+{AUMENTO_CAPACIDADE} kg)"
     )
     db.session.add(nova_transacao)
     
-    # 🔥 Trava de Segurança e Ganho de XP pela Expansão
     if getattr(jogador, 'xp', None) is None:
         jogador.xp = 0
     jogador.xp += 10
     
     db.session.commit()
 
-    return jsonify({'sucesso': True, 'msg': f'Silo expandido! Nova capacidade: {fazenda.cap_silo} kg.'})
+    return jsonify({'sucesso': True, 'msg': f'Obras finalizadas! O Silo ganhou +{AUMENTO_CAPACIDADE:,.0f} kg de capacidade.'})

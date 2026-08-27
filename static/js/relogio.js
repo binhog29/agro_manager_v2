@@ -91,7 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('agro_local_a', anoJogo);
 
         atualizarTelaTempo();
-    }, 1000); 
+    }, 500); 
 });
 
 // Funções Globais de Controle do Modal de Avisos

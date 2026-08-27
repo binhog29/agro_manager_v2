@@ -3,6 +3,10 @@
     <!-- LÓGICA: Verifica se existe pelo menos um lote com status de 'pasto' -->
     {% set meus_pastos = fazenda.lotes | selectattr('status', 'equalto', 'pasto') | list %}
     
+    <!-- 🔥 LÓGICA DO LIMITE DINÂMICO -->
+    {% set limites = {'Chácara': 10, 'Sítio': 25, 'Fazenda': 50, 'Latifúndio': 100} %}
+    {% set limite_pasto = limites.get(fazenda.tipo, 10) %}
+    
     {% if meus_pastos|length == 0 %}
         <!-- MENSAGEM DE TELA VAZIA -->
         <div style="text-align: center; margin-top: 80px; color: #888; font-style: italic; font-size: 14px; font-weight: 500; font-family: 'Poppins', sans-serif; line-height: 1.6;">
@@ -10,38 +14,50 @@
             Vá até a aba "Terras" e prepare o solo!
         </div>
     {% else %}
-        <!-- GRID DE PASTOS (Seu código original mantido 100% intacto) -->
+        <!-- GRID DE PASTOS -->
         <div style="display: grid; grid-template-columns: 1fr; gap: 15px; padding: 10px;">
             
             {% for lote in fazenda.lotes %}
                 {% if lote.status == 'pasto' %}
-                <div class="card pasto-card" onclick="abrirGerenciamentoPasto({{ lote.id }}, '{{ lote.tipo_capim }}', {{ 'true' if lote.tem_cocho else 'false' }}, {{ 'true' if lote.tem_bebedouro else 'false' }}, {{ 'true' if lote.tem_cocho_racao else 'false' }}, {{ lote.qtd_sal_cocho or 0.0 }}, {{ lote.qtd_racao_cocho or 0.0 }})" style="background: #1a1a1a; border: 1px solid #2e7d32; border-left: 5px solid #2e7d32; border-radius: 12px; padding: 15px; cursor: pointer; display: flex; flex-direction: column; gap: 10px;">
+                
+                <!-- 🔥 A MÁGICA ACONTECE AQUI NO BACKGROUND DO CARD! -->
+                <div class="card pasto-card" onclick="abrirGerenciamentoPasto({{ lote.id }}, '{{ lote.tipo_capim }}', {{ 'true' if lote.tem_cocho else 'false' }}, {{ 'true' if lote.tem_bebedouro else 'false' }}, {{ 'true' if lote.tem_cocho_racao else 'false' }}, {{ lote.qtd_sal_cocho or 0.0 }}, {{ lote.qtd_racao_cocho or 0.0 }})" 
+                    style="
+                    {% if lote.animais_no_lote|length > 0 %}
+                        background: linear-gradient(rgba(26, 26, 26, 0.7), rgba(26, 26, 26, 0.9)), url('/static/img/bois_pastando.gif'); background-size: cover; background-position: center;
+                    {% else %}
+                        background: #1a1a1a;
+                    {% endif %}
+                    border: 1px solid #2e7d32; border-left: 5px solid #2e7d32; border-radius: 12px; padding: 15px; cursor: pointer; display: flex; flex-direction: column; gap: 10px; transition: 0.3s;">
         
                     <div style="display: flex; align-items: center; gap: 12px;">
-                        <img src="/static/img/capim_{{ lote.tipo_capim }}.png" width="50" style="border-radius: 8px; background: #333; padding: 5px;">
+                        
+                        <!-- Ícone fixo mostrando sempre a imagem do Capim -->
+                        <img src="/static/img/capim_{{ lote.tipo_capim }}.png" width="50" style="border-radius: 8px; background: rgba(51, 51, 51, 0.8); padding: 5px;" onerror="this.src='/static/img/capim_braquiaria.png'">
+
                         <div>
-                            <h3 style="margin: 0; color: #fff; font-size: 16px;">{{ lote.nome }}</h3>
-                            <div style="color: #8bc34a; font-size: 13px; font-weight: bold;">{{ lote.tipo_capim|capitalize }} ({{ lote.qualidade_capim }}%)</div>
+                            <h3 style="margin: 0; color: #fff; font-size: 16px; text-shadow: 1px 1px 3px #000;">{{ lote.nome }}</h3>
+                            <div style="color: #8bc34a; font-size: 13px; font-weight: bold; text-shadow: 1px 1px 3px #000;">{{ lote.tipo_capim|capitalize }} ({{ lote.qualidade_capim }}%)</div>
                         </div>
                     </div>
 
                     {% if not lote.tem_cerca or not lote.tem_bebedouro %}
-                    <div style="background: #c62828; color: white; padding: 5px; border-radius: 5px; font-size: 10px; margin-top: 5px; text-align: center;">
+                    <div style="background: rgba(198, 40, 40, 0.9); color: white; padding: 5px; border-radius: 5px; font-size: 10px; margin-top: 5px; text-align: center;">
                         ⚠️ INFRAESTRUTURA PENDENTE! O gado está perdendo peso!
                     </div>
                     {% endif %}
 
-                    <div style="background: #222; padding: 8px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
-                        <span style="color: #aaa; font-size: 12px;">Lotação do Pasto</span>
-                        <span style="color: #fff; font-weight: bold; font-size: 16px;">{{ lote.animais_no_lote|length }} / 10 <i class="fas fa-paw" style="color:#777;"></i></span>
+                    <div style="background: rgba(34, 34, 34, 0.85); padding: 8px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #ccc; font-size: 12px;">Lotação do Pasto</span>
+                        <span style="color: #fff; font-weight: bold; font-size: 16px;">{{ lote.animais_no_lote|length }} / {{ limite_pasto }} <i class="fas fa-paw" style="color:#999;"></i></span>
                     </div>
 
                     <!-- MOSTRA AS 4 INFRAS REALISTAS NA TELA -->
-                    <div style="display: flex; justify-content: space-around; font-size: 11px; font-weight: bold; padding-top: 5px; border-top: 1px solid #333;">
-                        <span style="color: {{ '#4caf50' if lote.tem_cerca else '#555' }}"><i class="fas fa-border-all"></i> Cerca</span>
-                        <span style="color: {{ '#4caf50' if lote.tem_cocho else '#555' }}"><i class="fas fa-cube"></i> Sal</span>
-                        <span style="color: {{ '#4caf50' if lote.tem_cocho_racao else '#555' }}"><i class="fas fa-bars"></i> Ração</span>
-                        <span style="color: {{ '#4caf50' if lote.tem_bebedouro else '#555' }}"><i class="fas fa-tint"></i> Água</span>
+                    <div style="display: flex; justify-content: space-around; font-size: 11px; font-weight: bold; padding-top: 5px; border-top: 1px solid rgba(85, 85, 85, 0.5);">
+                        <span style="color: {{ '#4caf50' if lote.tem_cerca else '#888' }}"><i class="fas fa-border-all"></i> Cerca</span>
+                        <span style="color: {{ '#4caf50' if lote.tem_cocho else '#888' }}"><i class="fas fa-cube"></i> Sal</span>
+                        <span style="color: {{ '#4caf50' if lote.tem_cocho_racao else '#888' }}"><i class="fas fa-bars"></i> Ração</span>
+                        <span style="color: {{ '#4caf50' if lote.tem_bebedouro else '#888' }}"><i class="fas fa-tint"></i> Água</span>
                     </div>
                 </div>
 

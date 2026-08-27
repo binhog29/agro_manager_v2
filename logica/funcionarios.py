@@ -16,13 +16,13 @@ class Cargo:
         self.beneficio = beneficio
 
 class GerenciadorRH:
-    """Catálogo central de profissões da fazenda. Adicione novos aqui facilmente!"""
+    """Catálogo central de profissões da fazenda."""
     CATALOGO = {
         'peoes': Cargo('peoes', 'Peão', 1000.0, 25.0, 'Proteção animal básica'),
-        'tratoristas': Cargo('tratoristas', 'Tratorista', 2500.0, 45.0, '+15% Colheita'),
-        'capatazes': Cargo('capatazes', 'Capataz', 10000.0, 150.0, '+10% Preço de Venda'),
-        'veterinarios': Cargo('veterinarios', 'Veterinário', 8000.0, 120.0, 'Reduz doenças no rebanho'),
-        'agronomos': Cargo('agronomos', 'Agrônomo', 9000.0, 130.0, '-20% Tempo de Safra')
+        'tratoristas': Cargo('tratoristas', 'Tratorista', 2500.0, 45.0, '+15% Colheita (Máx 5)'),
+        'capatazes': Cargo('capatazes', 'Capataz', 10000.0, 150.0, '+10% Venda (Máx 5)'),
+        'veterinarios': Cargo('veterinarios', 'Veterinário', 8000.0, 120.0, 'Reduz doenças'),
+        'agronomos': Cargo('agronomos', 'Agrônomo', 9000.0, 130.0, '-20% Safra (Máx 2)')
     }
 
     @classmethod
@@ -31,10 +31,8 @@ class GerenciadorRH:
 
     @classmethod
     def calcular_folha(cls, equipe, horas):
-        """Calcula o salário de forma dinâmica para todos os cargos existentes"""
         total = 0
         for id_cargo, cargo_obj in cls.CATALOGO.items():
-            # getattr busca a quantidade daquele funcionário no banco automaticamente
             quantidade = getattr(equipe, id_cargo, 0)
             total += quantidade * cargo_obj.salario_hora * horas
         return total
@@ -59,7 +57,7 @@ def contratar_funcionario():
 
     propriedade = Propriedade.query.filter_by(id=propriedade_id, dono_id=usuario.id).first()
     if not propriedade:
-        return jsonify({'sucesso': False, 'erro': 'Propriedade não encontrada ou não pertence a você.'})
+        return jsonify({'sucesso': False, 'erro': 'Propriedade não encontrada.'})
 
     if usuario.saldo < cargo_obj.custo:
         return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente. Custo: R$ {cargo_obj.custo:,.2f}'})
@@ -69,26 +67,28 @@ def contratar_funcionario():
         equipe = Equipe(propriedade_id=propriedade.id)
         db.session.add(equipe)
 
-    # 🚀 MAGIA DO OOP: Pega o valor, e se o banco retornar Vazio (None), assume 0
     qtd_atual = getattr(equipe, id_cargo, 0)
     if qtd_atual is None:
         qtd_atual = 0
+        
+    # 🔥 TRAVA DE BALANCEAMENTO: Máximo de funcionários por cargo!
+    limite_maximo = 2 if id_cargo == 'agronomos' else 5
+    if qtd_atual >= limite_maximo:
+        return jsonify({'sucesso': False, 'erro': f'Alojamento lotado! O limite é de {limite_maximo} {cargo_obj.nome}(s) por fazenda.'})
         
     setattr(equipe, id_cargo, qtd_atual + 1)
 
     usuario.saldo -= cargo_obj.custo
     registrar_transacao(usuario.id, 'saida', cargo_obj.custo, f'Contratação de {cargo_obj.nome}')
 
-    # 🔥 Trava de Segurança e Ganho de XP pela Contratação
     if getattr(usuario, 'xp', None) is None:
         usuario.xp = 0
     usuario.xp += 50
 
     db.session.commit()
-    return jsonify({'sucesso': True, 'msg': f'{cargo_obj.nome} contratado com sucesso para {propriedade.nome}!'})
+    return jsonify({'sucesso': True, 'msg': f'{cargo_obj.nome} contratado com sucesso!'})
 
 def cobrar_folha_pagamento(jogador, horas_passadas):
-    """Usado pelo motor de tempo para descontar os salários"""
     if horas_passadas <= 0:
         return 0
 
@@ -108,17 +108,21 @@ def cobrar_folha_pagamento(jogador, horas_passadas):
     return custo_total
 
 def obter_bonus_equipe(propriedade_id):
-    """Retorna os multiplicadores ativos baseados em quem está contratado"""
+    """Retorna os multiplicadores blindados contra quebras na economia"""
     equipe = Equipe.query.filter_by(propriedade_id=propriedade_id).first()
     if not equipe:
         return {'bonus_colheita': 1.0, 'protecao_animal': False, 'bonus_venda': 1.0, 'reduz_doencas': False, 'acelera_safra': 1.0}
 
+    # 🔥 BLINDAGEM DA ECONOMIA: Teto máximo para os multiplicadores
+    bonus_trator = min(0.75, getattr(equipe, 'tratoristas', 0) * 0.15) # Teto de +75%
+    bonus_venda = min(0.50, getattr(equipe, 'capatazes', 0) * 0.10)    # Teto de +50%
+
     return {
-        'bonus_colheita': 1.0 + (getattr(equipe, 'tratoristas', 0) * 0.15),
+        'bonus_colheita': 1.0 + bonus_trator,
         'protecao_animal': getattr(equipe, 'peoes', 0) > 0,
-        'bonus_venda': 1.0 + (getattr(equipe, 'capatazes', 0) * 0.10),
+        'bonus_venda': 1.0 + bonus_venda,
         'reduz_doencas': getattr(equipe, 'veterinarios', 0) > 0,
-        'acelera_safra': max(0.5, 1.0 - (getattr(equipe, 'agronomos', 0) * 0.20)) # Máximo de 50% de redução
+        'acelera_safra': max(0.5, 1.0 - (getattr(equipe, 'agronomos', 0) * 0.20)) # Teto de -50% no tempo
     }
 
 @funcionarios_bp.route('/api/rh/listar/<int:propriedade_id>', methods=['GET'])
@@ -134,13 +138,11 @@ def listar_equipe(propriedade_id):
         
     equipe = Equipe.query.filter_by(propriedade_id=propriedade.id).first()
     
-    # Se não tem equipe, retorna tudo zerado
     if not equipe:
         return jsonify({'sucesso': True, 'equipe': {
             'peoes': 0, 'tratoristas': 0, 'capatazes': 0, 'veterinarios': 0, 'agronomos': 0
         }})
         
-    # Se tem equipe, devolve a quantidade de cada um
     return jsonify({'sucesso': True, 'equipe': {
         'peoes': getattr(equipe, 'peoes', 0),
         'tratoristas': getattr(equipe, 'tratoristas', 0),
@@ -148,3 +150,36 @@ def listar_equipe(propriedade_id):
         'veterinarios': getattr(equipe, 'veterinarios', 0),
         'agronomos': getattr(equipe, 'agronomos', 0),
     }})
+
+@funcionarios_bp.route('/api/rh/demitir', methods=['POST'])
+def demitir_funcionario():
+    if 'usuario' not in session:
+        return jsonify({'sucesso': False, 'erro': 'Não logado'})
+
+    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    dados = request.get_json()
+    
+    propriedade_id = dados.get('propriedade_id')
+    id_cargo = dados.get('cargo')
+    
+    cargo_obj = GerenciadorRH.obter_cargo(id_cargo)
+    if not cargo_obj:
+        return jsonify({'sucesso': False, 'erro': 'Cargo inválido.'})
+
+    propriedade = Propriedade.query.filter_by(id=propriedade_id, dono_id=usuario.id).first()
+    if not propriedade:
+        return jsonify({'sucesso': False, 'erro': 'Propriedade não encontrada.'})
+
+    equipe = Equipe.query.filter_by(propriedade_id=propriedade.id).first()
+    if not equipe:
+        return jsonify({'sucesso': False, 'erro': 'Você não tem funcionários aqui.'})
+
+    qtd_atual = getattr(equipe, id_cargo, 0)
+    if qtd_atual <= 0:
+        return jsonify({'sucesso': False, 'erro': f'Você não tem nenhum {cargo_obj.nome} para demitir.'})
+        
+    # Remove 1 funcionário do cargo
+    setattr(equipe, id_cargo, qtd_atual - 1)
+
+    db.session.commit()
+    return jsonify({'sucesso': True, 'msg': f'Um {cargo_obj.nome} foi demitido! Menos R$ {cargo_obj.salario_hora}/h na sua folha.'})

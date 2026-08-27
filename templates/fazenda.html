@@ -140,6 +140,17 @@
                         <button class="btn-abrir" style="background-color: #555; color: #999; cursor: not-allowed;" disabled>VISITA 🔒</button>
                     {% endif %}
                 </div>
+                
+                <div class="sede-card">
+                    <img src="/static/img/camara_fria.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/869/869469.png'">
+                    <h4>Câmara Fria</h4>
+                    <p>Leite e Ovos</p>
+                    {% if not visitante %}
+                        <button class="btn-abrir" style="background-color: #0288d1;" onclick="abrirModal('modal-camara')">ABRIR 🧊</button>
+                    {% else %}
+                        <button class="btn-abrir" style="background-color: #555; color: #999; cursor: not-allowed;" disabled>VISITA 🔒</button>
+                    {% endif %}
+                </div>
 
                 <div class="sede-card">
                     <img src="/static/img/curral.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2829/2829774.png'">
@@ -157,7 +168,7 @@
                     <h4>Barracão</h4>
                     <p>Maquinário Agrícola</p>
                     {% if not visitante %}
-                        <button class="btn-abrir" onclick="abrirModal('modal-barracao')">VER 🚜</button>
+                        <button class="btn-abrir" onclick="abrirPainelBarracao()">VER 🚜</button>
                     {% else %}
                         <button class="btn-abrir" style="background-color: #555; color: #999; cursor: not-allowed;" disabled>VISITA 🔒</button>
                     {% endif %}
@@ -178,14 +189,13 @@
                     {% endif %}
                 </div>
                 
-                <!-- CARD DO ALOJAMENTO (RH) -->
                 <div class="sede-card">
                     <img src="/static/img/alojamento.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3135/3135768.png'">
                     <h4>Alojamento</h4>
                     <p>Gerenciar Equipe</p>
                     {% if not visitante %}
                         {% if jogador.nivel >= 3 or jogador.is_admin %}
-                            <button class="btn-abrir" style="background-color: #2e7d32;" onclick="abrirModalFuncionarios()">GERENCIAR 👷</button>
+                            <button class="btn-abrir" style="background-color: #2e7d32;" onclick="abrirModalRH()">GERENCIAR 👷</button>
                         {% else %}
                             <button class="btn-abrir" style="background-color: #555; color: #999; cursor: not-allowed;" disabled>NÍVEL 3 🔒</button>
                         {% endif %}
@@ -224,7 +234,6 @@
                     {% endif %}
                 </div>
 
-                <!-- COMUNIDADE: A visita PODE bater papo, então deixamos ativo! -->
                 <div class="sede-card">
                     <img src="/static/img/comunidade.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2316/2316668.png'">
                     <h4>Comunidade</h4>
@@ -240,6 +249,8 @@
     {% include 'partes/galpao.html' %}
     {% include 'partes/curral.html' %}
     {% include 'partes/armazem.html' %}
+    {% include 'partes/camara_fria.html' %}
+    {% include 'partes/alojamento.html' %}
     {% include 'partes/relogio.html' %}
     {% include 'partes/terras.html' %}
     {% include 'partes/pastos.html' %}
@@ -250,7 +261,9 @@
     {% include 'partes/chiqueiro.html' %}
     {% include 'partes/galinheiro.html' %}
     
-    <script src="{{ url_for('static', filename='js/habitats.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/fazenda.js') }}"></script>
+    
+    <script src="{{ url_for('static', filename='js/habitats.js') }}?v=2"></script>
+    <script src="{{ url_for('static', filename='js/fazenda.js') }}?v=2"></script>
+    <script src="{{ url_for('static', filename='js/barracao.js') }}"></script>
 </body>
 </html>

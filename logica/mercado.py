@@ -157,6 +157,24 @@ def comprar_ia():
             familia_animal = familia
             break
 
+    # 🔥 CORREÇÃO: O Roteador subiu! Agora sabemos o "habitat" antes de calcular o frete!
+    if familia_animal == 'ave' or any(t in raca_lower for t in ['galinha', 'pato', 'peru', 'ave']):
+        habitat = 'galinheiro'
+        if not getattr(propriedade, 'tem_galinheiro', False): return jsonify({'sucesso': False, 'erro': 'Construa um Galinheiro!'})
+    elif familia_animal == 'suino' or any(t in raca_lower for t in ['porco', 'leitao', 'javali', 'suino']):
+        habitat = 'chiqueiro'
+        if not getattr(propriedade, 'tem_chiqueiro', False): return jsonify({'sucesso': False, 'erro': 'Construa um Chiqueiro!'})
+    elif 'peixe' in familia_animal or any(t in raca_lower for t in ['tambaqui', 'pirarucu', 'pacu', 'matrinxa', 'jaraqui', 'curimata', 'surubim', 'pintado', 'cachara', 'tucunare', 'piau', 'peixe']):
+        habitat = 'represa'
+        if not getattr(propriedade, 'tem_represa_geral', False): return jsonify({'sucesso': False, 'erro': 'Construa uma Represa!'})
+    else:
+        habitat = 'curral' 
+        
+    if habitat == 'curral':
+        animais_atuais = Animal.query.filter_by(propriedade_id=propriedade.id, onde_esta='curral').count()
+        limite = propriedade.cap_curral if hasattr(propriedade, 'cap_curral') else 10
+        if animais_atuais + quantidade > limite: return jsonify({'sucesso': False, 'erro': 'Tronco lotado!'})
+
     fator_mercado = calcular_fator_dia(usuario.dia, usuario.mes, usuario.ano)
     
     if fase == 'filhote':
@@ -171,46 +189,43 @@ def comprar_ia():
             preco_unitario = (peso_adulto_kg * preco_base) * 1.10
         peso_animal = peso_adulto_kg
 
+    # 🔥 CORREÇÃO: Alinhamento correto e cálculo inteligente do Caminhão
+    usa_caminhao = dados.get('usa_caminhao', False)
+    
+    if usa_caminhao:
+        modelo_necessario = 'Caminhão Baú (Frios)' if habitat == 'represa' else 'Caminhão Boiadeiro'
+        # Importação segura e local para não gerar ciclo
+        from database import Maquinario
+        tem_caminhao = Maquinario.query.filter_by(propriedade_id=propriedade.id, modelo=modelo_necessario).first()
+        
+        if not tem_caminhao:
+            return jsonify({'sucesso': False, 'erro': f'Fraude detectada: Sem {modelo_necessario} na fazenda!'})
+        custo_frete = 0.0
+    else:
+        custo_frete = quantidade * FRETE_POR_CABECA
+
     custo_gado = preco_unitario * quantidade
-    custo_frete = quantidade * FRETE_POR_CABECA
     custo_total = custo_gado + custo_frete
 
     if usuario.saldo < custo_total:
         return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente! Custa R$ {custo_total:,.2f}'})
 
-    if raca_lower in ['galinha', 'pato', 'peru']:
-        habitat = 'galinheiro'
-        if not getattr(propriedade, 'tem_galinheiro', False): return jsonify({'sucesso': False, 'erro': 'Construa um Galinheiro!'})
-    elif raca_lower == 'porco':
-        habitat = 'chiqueiro'
-        if not getattr(propriedade, 'tem_chiqueiro', False): return jsonify({'sucesso': False, 'erro': 'Construa um Chiqueiro!'})
-    elif raca_lower in ['tambaqui', 'pirarucu', 'pacu', 'matrinxa']:
-        habitat = 'represa'
-        if not getattr(propriedade, 'tem_represa_geral', False): return jsonify({'sucesso': False, 'erro': 'Construa uma Represa!'})
-    else:
-        habitat = 'curral' 
-        
-    if habitat == 'curral':
-        animais_atuais = Animal.query.filter_by(propriedade_id=propriedade.id, onde_esta='curral').count()
-        limite = propriedade.cap_curral if hasattr(propriedade, 'cap_curral') else 10
-        if animais_atuais + quantidade > limite: return jsonify({'sucesso': False, 'erro': 'Tronco lotado!'})
-
     usuario.saldo -= custo_total
-    registrar_transacao(usuario.id, 'saida', custo_total, f'Compra de {quantidade}x {raca.capitalize()} + Frete')
+    
+    texto_frete = " (Frete Grátis)" if usa_caminhao else " + Frete"
+    registrar_transacao(usuario.id, 'saida', custo_total, f'Compra de {quantidade}x {raca.capitalize()}{texto_frete}')
 
     animais_para_adicionar = []
     for _ in range(quantidade):
         novo = Animal(propriedade_id=propriedade.id, raca=raca, fase=fase.capitalize(), sexo=sexo, peso=peso_animal, onde_esta=habitat, origem='Mercado Oficial')
         animais_para_adicionar.append(novo)
 
-     # 🔥 Trava de Segurança e Ganho ou perda de XP
     if getattr(usuario, 'xp', None) is None:
         usuario.xp = 0
         
-    # 🔥 CORREÇÃO 2: Puxamos a perda de XP para fora do 'if' (recuo para trás)
     usuario.xp += 10
     
     db.session.add_all(animais_para_adicionar)
     db.session.commit()
     
-    return jsonify({'sucesso': True, 'msg': f'Entrega realizada! Frete: R${custo_frete:,.2f}.'})
+    return jsonify({'sucesso': True, 'msg': f'Entrega realizada! Animais no {habitat.capitalize()}'})

@@ -8,7 +8,22 @@ import random
 tempo_bp = Blueprint('tempo', __name__)
 
 class GerenciadorTempo:
-    MINUTOS_POR_HORA_JOGO = 1.0
+    # ==========================================
+    # ⚙️ PAINEL DE CONFIGURAÇÃO DE TEMPO
+    # Mude os valores aqui para balancear o jogo facilmente
+    # ==========================================
+    
+    # RITMO ONLINE: Quão rápido o tempo passa com o jogo aberto?
+    # Ex: 0.5 = A cada 30 segundos reais, passa 1 hora no jogo.
+    MINUTOS_POR_HORA_ONLINE = 0.5
+    
+    # RITMO OFFLINE: Quão lento o tempo passa quando ele vai dormir?
+    # Ex: 5.0 = A cada 5 minutos reais, passa 1 hora no jogo (Protege os animais).
+    MINUTOS_POR_HORA_OFFLINE = 5.0 
+    
+    # LIMITE AFK: Quanto tempo inativo até o servidor frear o relógio?
+    # Ex: 5.0 = Se ficar 5 min reais sem agir, entra no ritmo Offline.
+    LIMITE_AFK_MINUTOS = 5.0 
 
     ESTACOES = {
         1: 'verao', 2: 'verao', 3: 'verao',             
@@ -28,11 +43,22 @@ class GerenciadorTempo:
         delta = agora - jogador.ultima_acao
         minutos_passados = delta.total_seconds() / 60.0
 
-        if minutos_passados < cls.MINUTOS_POR_HORA_JOGO:
-            return 0 
+        # LÓGICA INTELIGENTE DE RITMO DUPLO
+        horas_jogo_passadas = 0
+        
+        if minutos_passados <= cls.LIMITE_AFK_MINUTOS:
+            # 1. JOGADOR ATIVO (Menos de 5 min fora) -> Ritmo Rápido
+            horas_jogo_passadas = int(minutos_passados // cls.MINUTOS_POR_HORA_ONLINE)
+        else:
+            # 2. JOGADOR OFFLINE (Foi dormir/fechou o jogo) -> Ritmo Lento
+            # Os primeiros 5 min contam como online, o restante conta como offline
+            horas_online = int(cls.LIMITE_AFK_MINUTOS // cls.MINUTOS_POR_HORA_ONLINE)
+            minutos_restantes = minutos_passados - cls.LIMITE_AFK_MINUTOS
+            horas_offline = int(minutos_restantes // cls.MINUTOS_POR_HORA_OFFLINE)
+            
+            horas_jogo_passadas = horas_online + horas_offline
 
-        horas_jogo_passadas = int(minutos_passados // cls.MINUTOS_POR_HORA_JOGO)
-
+        # Só avança e salva se pelo menos 1 hora do jogo tiver passado
         if horas_jogo_passadas > 0:
             cls.avancar_tempo(jogador, horas_jogo_passadas)
             jogador.ultima_acao = agora
@@ -67,6 +93,13 @@ class GerenciadorTempo:
         # 🔒 ENVIANDO O JOGADOR PARA O MOTOR BIOLÓGICO PROCESSAR APENAS AS TERRAS DELE
         motor = MotorBiologico(clima_atual=getattr(jogador, 'clima_atual', 'sol'), jogador=jogador)
         avisos = motor.processar_turno(horas)
+        
+        # 🔥 CORREÇÃO: COBRAR O SALÁRIO DOS FUNCIONÁRIOS PELAS HORAS PASSADAS
+        from logica.funcionarios import cobrar_folha_pagamento
+        custo_rh = cobrar_folha_pagamento(jogador, horas)
+        if custo_rh > 0:
+            avisos.append(f"💼 Folha de Pagamento: R$ {custo_rh:,.2f} descontados (Ref: {horas}h).")
+
         return avisos
 
     @classmethod
@@ -96,7 +129,6 @@ def avancar_tempo_manual():
     horas_avancar = int(dados.get('horas', 0))
     
     # 🔥 TABELA DE PREÇOS BLINDADA NO SERVIDOR
-    # O JavaScript pode enviar o custo que quiser, o Python só vai obedecer a esta tabela!
     TABELA_CUSTOS = {
         1: 1000.0,
         6: 5000.0,

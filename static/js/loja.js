@@ -92,10 +92,13 @@ window.abrirCheckoutCarrinho = function() {
         if (result.isConfirmed) {
             Swal.fire({ title: 'Processando pagamento...', didOpen: () => Swal.showLoading() });
             
+            // 🔥 BLINDADO: Pega o ID da fazenda atual pela URL para a entrega!
+            const fazendaId = window.location.pathname.split('/').pop();
+            
             fetch('/api/loja/checkout_carrinho', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ carrinho: payload })
+                body: JSON.stringify({ carrinho: payload, fazenda_id: fazendaId })
             })
             .then(r => r.json())
             .then(d => {

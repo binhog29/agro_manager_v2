@@ -3,6 +3,27 @@ from database import db, Jogador, Propriedade, Transacao
 
 loja_bp = Blueprint('loja', __name__)
 
+# ==========================================
+# ⚙️ PAINEL DE CONFIGURAÇÃO DA LOJA
+# ==========================================
+# Para adicionar novos itens no jogo no futuro, basta colocar o nome do banco de dados na lista correta!
+
+ITENS_ARMAZEM = [
+    'sal', 'racao', 'adubo', 'veneno', 'combustivel', 
+    'vacina_aftosa', 'vacina_brucelose', 'medicamento_geral', 
+    'suplemento_engorda', 'racao_peixe'
+]
+
+ITENS_SILO_GRAOS = [
+    'soja', 'milho', 'arroz', 'feijao'
+]
+
+ITENS_GALPAO = [
+    'algodao', 'cana', 'mandioca', 'cafe', 'cacau', 'acai', 
+    'cupuacu', 'pimenta', 'banana', 'abacaxi', 'melancia'
+]
+# ==========================================
+
 @loja_bp.route('/api/loja/comprar', methods=['POST'])
 def comprar_item():
     if 'usuario' not in session:
@@ -10,6 +31,7 @@ def comprar_item():
 
     dados = request.get_json()
     item_chave = dados.get('item') 
+    fazenda_id = dados.get('fazenda_id') # 🔥 Pega a fazenda atual
     
     try:
         quantidade = int(dados.get('quantidade', 1))
@@ -30,29 +52,27 @@ def comprar_item():
     if not jogador:
         jogador = Jogador.query.get(usuario_sessao)
 
-    fazenda = Propriedade.query.filter_by(dono_id=jogador.id).first()
+    # 🔥 BLINDADO: Direciona para a fazenda correta
+    if fazenda_id:
+        fazenda = Propriedade.query.filter_by(id=fazenda_id, dono_id=jogador.id).first()
+    else:
+        fazenda = Propriedade.query.filter_by(dono_id=jogador.id).first()
+
+    if not fazenda:
+        return jsonify({'sucesso': False, 'erro': 'Fazenda de destino não encontrada.'})
 
     if jogador.saldo < custo_total:
         return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente!'})
 
     try:
-        # 🔥 Ração de peixe incluída corretamente nos itens do armazém
-        itens_armazem = [
-            'sal', 'racao', 'adubo', 'veneno', 'combustivel', 
-            'vacina_aftosa', 'vacina_brucelose', 'medicamento_geral', 
-            'suplemento_engorda', 'racao_peixe'
-        ]
-        itens_silo_graos = ['soja', 'milho', 'arroz', 'feijao'] 
-        itens_galpao = ['algodao', 'cana', 'mandioca', 'cafe', 'cacau', 'acai', 'cupuacu', 'pimenta', 'banana', 'abacaxi', 'melancia']
-        
-        if nome_banco in itens_armazem:
-            total_atual = sum(getattr(fazenda, f'est_{i}', 0) for i in itens_armazem if hasattr(fazenda, f'est_{i}'))
+        if nome_banco in ITENS_ARMAZEM:
+            total_atual = sum(getattr(fazenda, f'est_{i}', 0) for i in ITENS_ARMAZEM if hasattr(fazenda, f'est_{i}'))
             if (total_atual + quantidade) > fazenda.cap_armazem:
                 espaco_livre = fazenda.cap_armazem - total_atual
                 return jsonify({'sucesso': False, 'erro': f'Armazém lotado! Você só tem espaço livre para mais {espaco_livre} un.'})
                 
-        elif nome_banco in itens_silo_graos:
-            total_silo = sum(getattr(fazenda, f'est_{i}', 0) for i in itens_silo_graos if hasattr(fazenda, f'est_{i}'))
+        elif nome_banco in ITENS_SILO_GRAOS:
+            total_silo = sum(getattr(fazenda, f'est_{i}', 0) for i in ITENS_SILO_GRAOS if hasattr(fazenda, f'est_{i}'))
             if (total_silo + quantidade) > fazenda.cap_silo:
                 espaco_livre = fazenda.cap_silo - total_silo
                 return jsonify({'sucesso': False, 'erro': f'Silo de Grãos cheio! Você só tem {espaco_livre} kg de espaço. Expanda-o primeiro!'})
@@ -88,23 +108,25 @@ def checkout_carrinho():
         
     usuario_sessao = session['usuario']
     jogador = Jogador.query.filter_by(username=usuario_sessao).first()
-    fazenda = Propriedade.query.filter_by(dono_id=jogador.id).first()
 
     dados = request.get_json()
     carrinho = dados.get('carrinho', [])
+    fazenda_id = dados.get('fazenda_id') # 🔥 Pega a fazenda atual
+
+    # 🔥 BLINDADO
+    if fazenda_id:
+        fazenda = Propriedade.query.filter_by(id=fazenda_id, dono_id=jogador.id).first()
+    else:
+        fazenda = Propriedade.query.filter_by(dono_id=jogador.id).first()
+
+    if not fazenda:
+        return jsonify({'sucesso': False, 'erro': 'Fazenda de destino não encontrada.'})
 
     if not carrinho:
         return jsonify({'sucesso': False, 'erro': 'Seu carrinho está vazio!'})
 
     custo_total_carrinho = 0
     resumo_compra = []
-
-    itens_armazem = [
-        'sal', 'racao', 'adubo', 'veneno', 'combustivel', 
-        'vacina_aftosa', 'vacina_brucelose', 'medicamento_geral', 
-        'suplemento_engorda', 'racao_peixe'
-    ]
-    itens_silo_graos = ['soja', 'milho', 'arroz', 'feijao']
 
     qtd_total_armazem = 0
     qtd_total_silo = 0
@@ -123,19 +145,19 @@ def checkout_carrinho():
 
         custo_total_carrinho += (qtd * preco)
         
-        if chave in itens_armazem:
+        if chave in ITENS_ARMAZEM:
             qtd_total_armazem += qtd
-        elif chave in itens_silo_graos:
+        elif chave in ITENS_SILO_GRAOS:
             qtd_total_silo += qtd
 
     if jogador.saldo < custo_total_carrinho:
         return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente! Sua compra custa R$ {custo_total_carrinho:.2f}'})
 
-    total_atual_armazem = sum(getattr(fazenda, f'est_{i}', 0) for i in itens_armazem if hasattr(fazenda, f'est_{i}'))
+    total_atual_armazem = sum(getattr(fazenda, f'est_{i}', 0) for i in ITENS_ARMAZEM if hasattr(fazenda, f'est_{i}'))
     if (total_atual_armazem + qtd_total_armazem) > fazenda.cap_armazem:
         return jsonify({'sucesso': False, 'erro': 'Você não tem espaço no Armazém para todos esses insumos!'})
 
-    total_atual_silo = sum(getattr(fazenda, f'est_{i}', 0) for i in itens_silo_graos if hasattr(fazenda, f'est_{i}'))
+    total_atual_silo = sum(getattr(fazenda, f'est_{i}', 0) for i in ITENS_SILO_GRAOS if hasattr(fazenda, f'est_{i}'))
     if (total_atual_silo + qtd_total_silo) > fazenda.cap_silo:
         return jsonify({'sucesso': False, 'erro': 'Você não tem espaço no Silo para todas essas sementes!'})
 

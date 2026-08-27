@@ -1,16 +1,38 @@
-window.abrirMenuTerra = function(loteId, statusCorrente) {
+window.abrirMenuTerra = async function(loteId, statusCorrente) {
     let titulo = "Obras e Infraestrutura";
     let botoesHTML = "";
+    let tem_esteira = false;
+    
+    // 🔥 NOVIDADE: Verifica se tem a máquina (apenas se for mato para poupar processamento)
+    if (statusCorrente === 'mato' || !statusCorrente) {
+        Swal.fire({ title: 'Avaliando o terreno...', didOpen: () => Swal.showLoading() });
+        const fazendaId = window.location.pathname.split('/').pop();
+        try {
+            const res = await fetch(`/api/barracao/listar?fazenda_id=${fazendaId}`);
+            const data = await res.json();
+            if (data.sucesso) tem_esteira = data.maquinas.some(m => m.modelo === 'Trator de Esteira');
+        } catch(e) {}
+    }
 
     if (statusCorrente === 'mato' || !statusCorrente) {
         titulo = "Desmatamento e Limpeza";
-        botoesHTML = `
-        <button class="swal2-confirm swal2-styled" style="background-color: #795548; width: 100%; margin-bottom: 10px;" onclick="enviarObra(${loteId}, 'limpar')">
-        <img src="/static/img/arvore.png" style="width: 24px; height: 24px; object-fit: contain;"> Limpar e Vender Madeira (+ R$ 1.000)
-        <i class="fas fa-tree"></i> 
-        </button>
-        <p style="font-size: 11px; color: #aaa;">Custo do Trator: R$ 500 | Madeira: R$ 1.500</p>
-        `;
+        if (tem_esteira) {
+            botoesHTML = `
+            <button class="swal2-confirm swal2-styled" style="background-color: #fbc02d; color: #000; width: 100%; margin-bottom: 10px; font-weight: bold;" onclick="enviarObra(${loteId}, 'limpar')">
+                <img src="/static/img/trator_esteira.png" style="width: 24px; height: 24px; object-fit: contain; margin-right: 8px;" onerror="this.src='/static/img/trator.png'"> 
+                Limpeza c/ Esteira (+ R$ 2.500)
+            </button>
+            <p style="font-size: 11px; color: #4caf50; font-weight: bold;"><i class="fas fa-check"></i> Trator Próprio (Aluguel R$ 0) | Madeira: R$ 2.500</p>
+            `;
+        } else {
+            botoesHTML = `
+            <button class="swal2-confirm swal2-styled" style="background-color: #795548; width: 100%; margin-bottom: 10px;" onclick="enviarObra(${loteId}, 'limpar')">
+                <img src="/static/img/arvore.png" style="width: 24px; height: 24px; object-fit: contain; margin-right: 8px;"> 
+                Limpar e Vender Madeira (+ R$ 1.000)
+            </button>
+            <p style="font-size: 11px; color: #aaa;">Aluguel do Trator: R$ 500 | Madeira: R$ 1.500</p>
+            `;
+        }
     } 
     else if (statusCorrente === 'limpo') {
         titulo = "Destino do Hectare";

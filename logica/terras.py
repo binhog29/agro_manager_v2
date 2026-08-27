@@ -20,19 +20,36 @@ def obras_terra():
         return jsonify({'sucesso': False, 'erro': 'Lote não encontrado.'})
 
     if acao == 'limpar':
-        custo_trator = 500
-        venda_madeira = 1500
-        lucro_liquido = venda_madeira - custo_trator
-        
-        usuario.saldo += lucro_liquido
-        lote.status = 'limpo'
-        
-        registrar_transacao(usuario.id, 'entrada', venda_madeira, f'Venda de Madeira Bruta ({lote.nome})')
-        registrar_transacao(usuario.id, 'saida', custo_trator, f'Aluguel Trator/Desmatamento ({lote.nome})')
-        # 🔥 Trava de Segurança e Ganho de XP
-        usuario.xp = usuario.xp
-        usuario.xp += 15  # XP ganho pela tarefa
-        mensagem = f'Mato limpo! A madeira rendeu R$ 1.500 e o trator custou R$ 500. Lucro de R$ 1.000!'
+        # 🔥 NOVIDADE: Verifica se a fazenda tem o Trator de Esteira no Barracão
+        from database import Maquinario
+        tem_esteira = Maquinario.query.filter_by(propriedade_id=lote.fazenda_id, modelo='Trator de Esteira').first()
+
+        if tem_esteira:
+            # Lucro turbinado e sem custo de aluguel
+            venda_madeira = 2500
+            usuario.saldo += venda_madeira
+            lote.status = 'limpo'
+            
+            registrar_transacao(usuario.id, 'entrada', venda_madeira, f'Venda de Madeira Pesada ({lote.nome})')
+            
+            if getattr(usuario, 'xp', None) is None: usuario.xp = 0
+            usuario.xp += 15
+            mensagem = f'Limpeza pesada concluída! O Trator de Esteira zerou o custo operacional e extraiu R$ 2.500 em madeira!'
+        else:
+            # Padrão antigo
+            custo_trator = 500
+            venda_madeira = 1500
+            lucro_liquido = venda_madeira - custo_trator
+            
+            usuario.saldo += lucro_liquido
+            lote.status = 'limpo'
+            
+            registrar_transacao(usuario.id, 'entrada', venda_madeira, f'Venda de Madeira Bruta ({lote.nome})')
+            registrar_transacao(usuario.id, 'saida', custo_trator, f'Aluguel Trator/Desmatamento ({lote.nome})')
+            
+            if getattr(usuario, 'xp', None) is None: usuario.xp = 0
+            usuario.xp += 15
+            mensagem = f'Mato limpo! A madeira rendeu R$ 1.500 e o trator custou R$ 500. Lucro de R$ 1.000!'
 
     elif acao == 'cercar':
         custo = 800
@@ -41,9 +58,8 @@ def obras_terra():
         lote.status = 'cercado'
         lote.tem_cerca = True
         registrar_transacao(usuario.id, 'saida', custo, f'Construção de Cercas ({lote.nome})')
-        # 🔥 Trava de Segurança e Ganho de XP
-        usuario.xp = usuario.xp
-        usuario.xp += 15  # XP ganho pela tarefa
+        if getattr(usuario, 'xp', None) is None: usuario.xp = 0
+        usuario.xp += 15
         mensagem = 'Hectare cercado com sucesso! Pronto para receber capim.'
 
     elif acao == 'arar':
@@ -52,9 +68,8 @@ def obras_terra():
         usuario.saldo -= custo
         lote.status = 'arado'
         registrar_transacao(usuario.id, 'saida', custo, f'Preparo de Solo/Arado ({lote.nome})')
-        # 🔥 Trava de Segurança e Ganho de XP
-        usuario.xp = usuario.xp
-        usuario.xp += 15  # XP ganho pela tarefa
+        if getattr(usuario, 'xp', None) is None: usuario.xp = 0
+        usuario.xp += 15
         mensagem = 'Solo arado e nivelado! Pronto para plantio de Grãos e Cereais.'
 
     elif acao == 'covear':
@@ -63,9 +78,8 @@ def obras_terra():
         usuario.saldo -= custo
         lote.status = 'coveado'
         registrar_transacao(usuario.id, 'saida', custo, f'Abertura de Covas/Pomar ({lote.nome})')
-        # 🔥 Trava de Segurança e Ganho de XP
-        usuario.xp = usuario.xp
-        usuario.xp += 15  # XP ganho pela tarefa
+        if getattr(usuario, 'xp', None) is None: usuario.xp = 0
+        usuario.xp += 15
         mensagem = 'Covas abertas e adubadas! Pronto para receber mudas de Frutas/Café.'
 
     elif acao in ['plantar_braquiaria', 'plantar_mombaca']:
@@ -73,16 +87,10 @@ def obras_terra():
             custo = 300
             especie_capim = 'braquiaria'
             nome_exibicao = 'Braquiária'
-            # 🔥 Trava de Segurança e Ganho de XP
-            usuario.xp = usuario.xp
-            usuario.xp += 15  # XP ganho pela tarefa
         else:
             custo = 450
             especie_capim = 'mombaca'
             nome_exibicao = 'Mombaça'
-            # 🔥 Trava de Segurança e Ganho de XP
-            usuario.xp = usuario.xp
-            usuario.xp += 15  # XP ganho pela tarefa
 
         if usuario.saldo < custo: 
             return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente para sementes de {nome_exibicao}.'})
@@ -92,6 +100,8 @@ def obras_terra():
         lote.tipo_capim = especie_capim
         lote.qualidade_capim = 100
         registrar_transacao(usuario.id, 'saida', custo, f'Sementes de Capim {nome_exibicao} ({lote.nome})')
+        if getattr(usuario, 'xp', None) is None: usuario.xp = 0
+        usuario.xp += 15
         mensagem = f'Pasto de {nome_exibicao} formado! Esta terra foi transferida para a aba "Pastos".'
         
     else:

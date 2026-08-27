@@ -77,15 +77,15 @@ def comprar_leilao():
 
     animal = Animal.query.get(anuncio.animal_id)
     
-    # Validações de Espaço
+    # 🔥 Validações de Espaço Blindadas por Palavras-Chave 🔥
     raca_lower = animal.raca.lower()
-    if raca_lower in ['galinha', 'pato', 'peru']:
+    if any(t in raca_lower for t in ['galinha', 'pato', 'peru', 'ave']):
         habitat = 'galinheiro'
         if not getattr(propriedade, 'tem_galinheiro', False): return jsonify({'sucesso': False, 'erro': 'Construa um Galinheiro!'})
-    elif raca_lower == 'porco':
+    elif any(t in raca_lower for t in ['porco', 'leitao', 'javali', 'suino']):
         habitat = 'chiqueiro'
         if not getattr(propriedade, 'tem_chiqueiro', False): return jsonify({'sucesso': False, 'erro': 'Construa um Chiqueiro!'})
-    elif raca_lower in ['tambaqui', 'pirarucu', 'pacu', 'matrinxa']:
+    elif any(t in raca_lower for t in ['tambaqui', 'pirarucu', 'pacu', 'matrinxa', 'jaraqui', 'curimata', 'surubim', 'pintado', 'cachara', 'tucunare', 'piau', 'peixe']):
         habitat = 'represa'
         if not getattr(propriedade, 'tem_represa_geral', False): return jsonify({'sucesso': False, 'erro': 'Construa uma Represa!'})
     else:
@@ -94,20 +94,38 @@ def comprar_leilao():
         limite = propriedade.cap_curral if hasattr(propriedade, 'cap_curral') else 10
         if animais_atuais >= limite: return jsonify({'sucesso': False, 'erro': 'Tronco lotado!'})
 
-    valor_compra = anuncio.valor
+    # 👇 CORREÇÃO: Alinhado fora do "else" do habitat para pegar todos os animais!
+    usa_caminhao = dados.get('usa_caminhao', False)
+    custo_frete = 0.0
+
+    if usa_caminhao:
+        modelo_necessario = 'Caminhão Baú (Frios)' if habitat == 'represa' else 'Caminhão Boiadeiro'
+        from database import Maquinario
+        tem_caminhao = Maquinario.query.filter_by(propriedade_id=propriedade.id, modelo=modelo_necessario).first()
+        if not tem_caminhao:
+            return jsonify({'sucesso': False, 'erro': f'Fraude detectada: Sem {modelo_necessario} na fazenda!'})
+    else:
+        custo_frete = 50.0  # Frete fixo por cabeça no leilão sem caminhão
+
+    valor_compra = anuncio.valor + custo_frete
     if usuario.saldo < valor_compra: return jsonify({'sucesso': False, 'erro': 'Saldo insuficiente.'})
 
     vendedor = Jogador.query.get(anuncio.vendedor_id)
     if vendedor:
-        vendedor.saldo += valor_compra
-        registrar_transacao(vendedor.id, 'entrada', valor_compra, f'Venda Leilão: {animal.raca.capitalize()}')
+        vendedor.saldo += anuncio.valor # O vendedor ganha o valor do animal puro
+        registrar_transacao(vendedor.id, 'entrada', anuncio.valor, f'Venda Leilão: {animal.raca.capitalize()}')
 
+    # 👇 CORREÇÃO: Cobrança feita apenas UMA VEZ
     usuario.saldo -= valor_compra
-    registrar_transacao(usuario.id, 'saida', valor_compra, f'Compra Leilão: {animal.raca.capitalize()}')
+    
+    # Registra no caixa avisando se pagou frete ou não
+    texto_frete = " (Frete Grátis)" if usa_caminhao else " + Frete"
+    registrar_transacao(usuario.id, 'saida', valor_compra, f'Compra Leilão: {animal.raca.capitalize()}{texto_frete}')
 
     animal.propriedade_id = propriedade.id
     animal.onde_esta = habitat
     animal.origem = 'Comunidade'
     db.session.delete(anuncio)
     db.session.commit()
+    
     return jsonify({'sucesso': True, 'msg': f'Você arrematou um {animal.raca.capitalize()}!'})
