@@ -34,7 +34,7 @@ TABELA_PRECOS = {
     'porco': {'filhote': 400, 'adulto': 990}, 'ovelha': {'filhote': 450, 'adulto': 1100},
     'cabra': {'filhote': 420, 'adulto': 1050}, 'galinha': {'filhote': 20, 'adulto': 60},
     'pato': {'filhote': 30, 'adulto': 75}, 'peru': {'filhote': 45, 'adulto': 110},
-    'tambaqui': {'filhote': 25, 'adulto': 60}, 'pirarucu': {'filhote': 150, 'adulto': 400},
+   		'tambaqui': {'filhote': 25, 'adulto': 60}, 'pirarucu': {'filhote': 150, 'adulto': 400},
     'pacu': {'filhote': 20, 'adulto': 55}, 'matrinxa': {'filhote': 30, 'adulto': 80},
     'jaraqui': {'filhote': 15, 'adulto': 35}, 'curimata': {'filhote': 20, 'adulto': 45},
     'surubim': {'filhote': 60, 'adulto': 130}, 'pintado': {'filhote': 70, 'adulto': 150},

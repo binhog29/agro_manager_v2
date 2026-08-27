@@ -13,9 +13,11 @@ PRECOS_REAIS = {
     'equino': 150.0,
     'suino': 12.0,
     'ave': 8.0,
-    'peixe': 15.0,
+    'peixe_gigante': 15.0,  # <-- Pirarucu, Surubim, Pintado, Cachara (R$/Kg)
+    'peixe_medio': 8.0,     # <-- Tambaqui, Pacu, Tucunaré (R$/Kg)
     'ovino': 20.0
 }
+
 
 class CotacaoMercado:
     @staticmethod

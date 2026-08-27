@@ -6,12 +6,13 @@ import random
 mercado_bp = Blueprint('mercado', __name__)
 
 PRECOS_REAIS = {
-    'bovino_corte': 250.0,  # R$ 250,00 por Arroba (@)
+    'bovino_corte': 240.0,  # R$ 240,00 por Arroba (@)
     'bovino_leite': 210.0,  # R$ 210,00 por Arroba (@)
     'equino': 150.0,        # R$ 150,00 por Arroba (@)
-    'suino': 12.0,          # R$ 12,00 por Kg
-    'ave': 8.0,             # R$ 8,00 por Kg
-    'peixe': 15.0,          # R$ 15,00 por Kg
+    'suino': 7.5,           # R$ 7,50 por Kg vivo
+    'ave': 6.0,             # R$ 6,00 por Kg vivo
+    'peixe_gigante': 20.0,  # Pirarucu, Surubim, Pintado (R$ 20,00 / Kg)
+    'peixe_medio': 10.0,    # Tambaqui, Pacu (R$ 10,00 / Kg)
     'ovino': 20.0           # R$ 20,00 por Kg
 }
 
