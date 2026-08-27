@@ -232,6 +232,12 @@ window.comprarInfraPasto = function(loteId, tipoObra, custoObra, btnId) {
                 }
             });
 
+            // 🔥 A MÁGICA AQUI: Atualiza a tela suavemente após 1.5s para pintar os ícones no fundo!
+            setTimeout(() => {
+                localStorage.setItem('aba_ativa_fazenda', 'pastos');
+                location.reload();
+            }, 1500);
+
         } else {
             if(btn) {
                 btn.disabled = false;
@@ -249,6 +255,7 @@ window.comprarInfraPasto = function(loteId, tipoObra, custoObra, btnId) {
         Swal.fire('Erro', 'Falha na comunicação.', 'error');
     });
 };
+
 
 // 🔥 AQUI ESTÁ A CORREÇÃO DE OURO: AGORA ELE ENVIA A FAZENDA PARA O PYTHON!
 window.abrirSeletorAnimais = async function(pastoId, acao) {
