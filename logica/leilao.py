@@ -28,7 +28,7 @@ def anunciar_leilao():
         
         # 🛡️ ANTI-LAVAGEM: Teto de Preço (Máx 3x o valor base do animal adulto)
         preco_base = TABELA_PRECOS.get(raca, {}).get('adulto', 1000)
-        limite_valor = preco_base * 5.0
+        limite_valor = preco_base * 3.0
         
         if valor > limite_valor:
             return jsonify({'sucesso': False, 'erro': f'Preço abusivo detectado! A Receita Federal definiu o teto para {raca.capitalize()} em R$ {limite_valor:,.2f}.'})
@@ -52,7 +52,7 @@ def anunciar_leilao():
     # 🛡️ ANTI-LAVAGEM: Teto de Preço Individual
     raca = animal.raca.lower()
     preco_base = TABELA_PRECOS.get(raca, {}).get('adulto', 1000)
-    limite_valor = preco_base * 5.0
+    limite_valor = preco_base * 3.0
     
     if valor > limite_valor:
         return jsonify({'sucesso': False, 'erro': f'Preço abusivo detectado! O teto para {raca.capitalize()} é R$ {limite_valor:,.2f}.'})
