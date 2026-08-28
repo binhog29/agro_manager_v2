@@ -19,7 +19,7 @@ class GerenciadorTempo:
     
     # RITMO OFFLINE: Quão lento o tempo passa quando ele vai dormir?
     # Ex: 5.0 = A cada 5 minutos reais, passa 1 hora no jogo (Protege os animais).
-    MINUTOS_POR_HORA_OFFLINE = 5.0 
+    MINUTOS_POR_HORA_OFFLINE = 2.0 
     
     # LIMITE AFK: Quanto tempo inativo até o servidor frear o relógio?
     # Ex: 5.0 = Se ficar 5 min reais sem agir, entra no ritmo Offline.
