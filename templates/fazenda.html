@@ -8,6 +8,26 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/fazenda.css') }}">
+    
+    <!-- 🔒 BLINDAGEM VISUAL: Esconde botões gerados pelo JavaScript no Modo Turista -->
+    {% if visitante %}
+    <style>
+        button[onclick*="abrirSeletorAnimais"],
+        button[onclick*="reverterPasto"],
+        button[onclick*="abrirMenuTerra"],
+        button[onclick*="comprarInfraPasto"],
+        button[onclick*="abrirLoja"],
+        button[onclick*="abrirLojaInfra"],
+        button[onclick*="reabastecerCochoPasto"],
+        button[onclick*="plantarSemente"],
+        button[onclick*="manejoLavoura"],
+        button[onclick*="colherLavoura"],
+        button[onclick*="reverterParaMato"],
+        button[onclick*="instalarIrrigacao"] {
+            display: none !important;
+        }
+    </style>
+    {% endif %}
 </head>
 <body>
     <header class="top-panel">
@@ -260,7 +280,6 @@
     {% include 'partes/represa.html' %}
     {% include 'partes/chiqueiro.html' %}
     {% include 'partes/galinheiro.html' %}
-    
     
     <script src="{{ url_for('static', filename='js/habitats.js') }}?v=2"></script>
     <script src="{{ url_for('static', filename='js/fazenda.js') }}?v=2"></script>

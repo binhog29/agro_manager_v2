@@ -5,6 +5,10 @@ gado_bp = Blueprint('gado', __name__)
 
 @gado_bp.route('/api/animal/manejo_curral', methods=['POST'])
 def manejar_curral():
+    if 'usuario' not in session:
+        return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
+    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+
     dados = request.get_json()
     animal_id = dados.get('animal_id')
     destino = dados.get('destino') 
@@ -12,18 +16,23 @@ def manejar_curral():
     animal = Animal.query.get(animal_id)
     if not animal:
         return jsonify({'sucesso': False, 'erro': 'Animal não encontrado.'})
+        
+    # 🔒 TRAVA ANTI-INJEÇÃO: Garante que o animal pertence ao jogador logado
+    fazenda_alvo = Propriedade.query.get(animal.propriedade_id)
+    if not fazenda_alvo or fazenda_alvo.dono_id != usuario.id:
+        return jsonify({'sucesso': False, 'erro': '🚨 FRAUDE DETECTADA: Este animal não é seu!'})
     
     if destino.startswith('pasto_'):
         try:
             id_do_lote = int(destino.split('_')[1])
             lote = Lote.query.get(id_do_lote)
             
-            if not lote or lote.status != 'pasto':
-                return jsonify({'sucesso': False, 'erro': f'O Lote {id_do_lote} não existe ou não está formado como pasto!'})
+            # 🔒 TRAVA EXTRA: Garante que o pasto de destino é da mesma fazenda
+            if not lote or lote.fazenda_id != fazenda_alvo.id or lote.status != 'pasto':
+                return jsonify({'sucesso': False, 'erro': '🚨 FRAUDE DETECTADA: Pasto inválido ou não pertence a esta fazenda!'})
             
-            fazenda = Propriedade.query.get(lote.fazenda_id)
             limites = {'Chácara': 10, 'Sítio': 25, 'Fazenda': 50, 'Latifúndio': 100}
-            limite_pasto = limites.get(getattr(fazenda, 'tipo', 'Chácara'), 10)
+            limite_pasto = limites.get(getattr(fazenda_alvo, 'tipo', 'Chácara'), 10)
             
             animais_no_pasto = Animal.query.filter_by(lote_id=id_do_lote).count()
             if animais_no_pasto >= limite_pasto:
@@ -41,18 +50,19 @@ def manejar_curral():
     else:
         return jsonify({'sucesso': False, 'erro': 'Destino desconhecido.'})
     
-    if 'usuario' in session:
-        jogador = Jogador.query.filter_by(username=session.get('usuario')).first()
-        if jogador:
-            if getattr(jogador, 'xp', None) is None:
-                jogador.xp = 0
-            jogador.xp += 5
+    if getattr(usuario, 'xp', None) is None:
+        usuario.xp = 0
+    usuario.xp += 5
             
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': 'Movimentação concluída com sucesso!'})
 
 @gado_bp.route('/api/animal/manejo_lote', methods=['POST'])
 def manejar_lote():
+    if 'usuario' not in session:
+        return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
+    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+
     dados = request.get_json()
     animal_ids = dados.get('animal_ids', [])
     destino = dados.get('destino')
@@ -61,6 +71,14 @@ def manejar_lote():
         return jsonify({'sucesso': False, 'erro': 'Nenhum animal selecionado.'})
 
     animais = Animal.query.filter(Animal.id.in_(animal_ids)).all()
+    if not animais:
+        return jsonify({'sucesso': False, 'erro': 'Animais não encontrados.'})
+
+    # 🔒 TRAVA ANTI-INJEÇÃO: Garante que os animais pertencem ao jogador logado
+    fazenda_alvo = Propriedade.query.get(animais[0].propriedade_id)
+    if not fazenda_alvo or fazenda_alvo.dono_id != usuario.id:
+        return jsonify({'sucesso': False, 'erro': '🚨 FRAUDE DETECTADA: Estes animais não são seus!'})
+
     movidos = 0
     novo_lote_id = None
 
@@ -68,12 +86,13 @@ def manejar_lote():
         try:
             id_do_lote = int(destino.split('_')[1])
             lote = Lote.query.get(id_do_lote)
-            if not lote or lote.status != 'pasto':
-                return jsonify({'sucesso': False, 'erro': 'Pasto não formado!'})
             
-            fazenda = Propriedade.query.get(lote.fazenda_id)
+            # 🔒 TRAVA EXTRA: Garante destino válido
+            if not lote or lote.fazenda_id != fazenda_alvo.id or lote.status != 'pasto':
+                return jsonify({'sucesso': False, 'erro': '🚨 FRAUDE DETECTADA: Pasto inválido ou não pertence a esta fazenda!'})
+            
             limites = {'Chácara': 10, 'Sítio': 25, 'Fazenda': 50, 'Latifúndio': 100}
-            limite_pasto = limites.get(getattr(fazenda, 'tipo', 'Chácara'), 10)
+            limite_pasto = limites.get(getattr(fazenda_alvo, 'tipo', 'Chácara'), 10)
             
             animais_no_pasto = Animal.query.filter_by(lote_id=id_do_lote).count()
             vagas_livres = limite_pasto - animais_no_pasto
@@ -93,12 +112,10 @@ def manejar_lote():
             animal.lote_id = None
             movidos += 1
 
-    if 'usuario' in session:
-        jogador = Jogador.query.filter_by(username=session.get('usuario')).first()
-        if jogador and movidos > 0:
-            if getattr(jogador, 'xp', None) is None:
-                jogador.xp = 0
-            jogador.xp += (5 * movidos)
+    if movidos > 0:
+        if getattr(usuario, 'xp', None) is None:
+            usuario.xp = 0
+        usuario.xp += (5 * movidos)
 
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': f'{movidos} animais movidos.'})
@@ -113,8 +130,6 @@ def listar_curral():
         return jsonify({'animais': []})
         
     fazenda_id = request.args.get('fazenda_id')
-    
-    # 🔥 BLINDADO: Sem fazenda_id, sem gado! Fim das misturas.
     if not fazenda_id:
         return jsonify({'animais': []})
         
@@ -161,7 +176,7 @@ def aplicar_insumo():
     jogador = Jogador.query.filter_by(username=session.get('usuario')).first()
     fazenda = Propriedade.query.filter_by(id=animal.propriedade_id, dono_id=jogador.id).first()
     
-    if not fazenda: return jsonify({'sucesso': False, 'erro': 'Fazenda não encontrada.'})
+    if not fazenda: return jsonify({'sucesso': False, 'erro': 'Fazenda não encontrada ou acesso negado.'})
     acao = dados.get('acao')
 
     insumos = {
@@ -218,7 +233,6 @@ def tratamento_lote():
     if not animal_ids:
         return jsonify({'sucesso': False, 'erro': 'Nenhum animal selecionado.'})
         
-    # 🔥 BLINDADO
     if not fazenda_id:
         return jsonify({'sucesso': False, 'erro': 'Falha: Fazenda de destino não identificada.'})
         
@@ -226,7 +240,7 @@ def tratamento_lote():
     fazenda = Propriedade.query.filter_by(id=fazenda_id, dono_id=jogador.id).first()
         
     if not fazenda:
-        return jsonify({'sucesso': False, 'erro': 'Fazenda não encontrada.'})
+        return jsonify({'sucesso': False, 'erro': 'Fazenda não encontrada ou acesso negado.'})
     
     animais = Animal.query.filter(Animal.id.in_(animal_ids), Animal.propriedade_id == fazenda.id).all()
     animais_para_tratar = []
@@ -291,7 +305,7 @@ def reabastecer_pasto():
         return jsonify({'sucesso': False, 'erro': 'Pasto não encontrado.'})
         
     fazenda = Propriedade.query.filter_by(id=lote.fazenda_id, dono_id=jogador.id).first()
-    if not fazenda: return jsonify({'sucesso': False, 'erro': 'Fazenda não encontrada.'})
+    if not fazenda: return jsonify({'sucesso': False, 'erro': 'Fazenda não encontrada ou acesso negado.'})
         
     if tipo == 'sal':
         qtd_atual = getattr(lote, 'qtd_sal_cocho', 0.0) or 0.0
@@ -332,7 +346,6 @@ def listar_pastos_disponiveis():
     jogador = Jogador.query.filter_by(username=session.get('usuario')).first()
     
     fazenda_id = request.args.get('fazenda_id')
-    # 🔥 BLINDADO
     if not fazenda_id:
         return jsonify({'pastos': []})
         
