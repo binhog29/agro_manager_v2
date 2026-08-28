@@ -72,7 +72,7 @@ with app.app_context():
     popular_mapa_inicial()
 
 # ==========================================
-# FUNÇÃO SEGURA DE NÍVEL (Não quebra APIs)
+# FUNÇÃO SEGURA DE NÍVEL (Unificada com o database.py)
 # ==========================================
 def verificar_nivel(jogador):
     if not jogador:
@@ -83,15 +83,10 @@ def verificar_nivel(jogador):
     if getattr(jogador, 'nivel', None) is None:
         jogador.nivel = 1
         
-    xp_necessario = 1000
-    subiu_nivel = False
+    # Chama o método oficial da classe Jogador que dá o dinheiro de prêmio!
+    subiu = jogador.adicionar_xp(0) 
     
-    while jogador.xp >= xp_necessario:
-        jogador.xp -= xp_necessario
-        jogador.nivel += 1
-        subiu_nivel = True
-        
-    if subiu_nivel:
+    if subiu:
         db.session.commit()
 
 # ==========================================
@@ -173,6 +168,9 @@ def api_mapa_global():
     if 'usuario' in session:
         usuario_logado = Jogador.query.filter_by(username=session['usuario']).first()
 
+    # Lista oficial na mesma ordem da geração do banco de dados
+    cidades_lista = ['Mutum Paraná', 'Rio Madeira', 'Jirau', 'Jaci Paraná', 'Porto Velho', 'São Domingos', 'Itapuã do Oeste', 'Bom Futuro', 'Buritis', 'Alto Paraíso', 'Campo Novo', 'Monte Negro', 'Ariquemes', 'Rio Crespo', 'Cujubim', 'Machadinho', 'Jaru', 'São Miguel', 'Alvorada', 'Ouro Preto', 'Nova Brasilândia', 'Castanheiras', 'Santa Luzia', 'Cacoal', 'Alta Floresta', 'Rolim de Moura', 'Ji-Paraná']
+
     propriedades = Propriedade.query.all()
     lista_props = []
     
@@ -185,6 +183,10 @@ def api_mapa_global():
             dono_nome = dono.username if dono else "Desconhecido"
             if usuario_logado and p.dono_id == usuario_logado.id:
                 e_minha = True
+
+        # 🔥 A MÁGICA: Descobre a cidade dividindo o ID por 20 (Já que cada cidade tem 20 lotes)
+        idx_cidade = (p.id - 1) // 20
+        nome_cidade = cidades_lista[idx_cidade] if idx_cidade < len(cidades_lista) else "Desconhecida"
             
         lista_props.append({
             'id': p.id,
@@ -193,7 +195,8 @@ def api_mapa_global():
             'tipo': p.tipo,
             'dono_id': p.dono_id,
             'dono_nome': dono_nome,
-            'e_minha': e_minha
+            'e_minha': e_minha,
+            'cidade': nome_cidade  # Enviamos a cidade exata, imune a renomeações!
         })
         
     return jsonify(lista_props)
@@ -974,7 +977,7 @@ TABELA_PRECOS = {
     'porco': {'filhote': 400, 'adulto': 990}, 'ovelha': {'filhote': 450, 'adulto': 1100},
     'cabra': {'filhote': 420, 'adulto': 1050}, 'galinha': {'filhote': 20, 'adulto': 60},
     'pato': {'filhote': 30, 'adulto': 75}, 'peru': {'filhote': 45, 'adulto': 110},
-    'tambaqui': {'filhote': 25, 'adulto': 60}, 'pirarucu': {'filhote': 150, 'adulto': 400},
+   		'tambaqui': {'filhote': 25, 'adulto': 60}, 'pirarucu': {'filhote': 150, 'adulto': 400},
     'pacu': {'filhote': 20, 'adulto': 55}, 'matrinxa': {'filhote': 30, 'adulto': 80},
     'jaraqui': {'filhote': 15, 'adulto': 35}, 'curimata': {'filhote': 20, 'adulto': 45},
     'surubim': {'filhote': 60, 'adulto': 130}, 'pintado': {'filhote': 70, 'adulto': 150},
@@ -995,12 +998,13 @@ import random
 mercado_bp = Blueprint('mercado', __name__)
 
 PRECOS_REAIS = {
-    'bovino_corte': 250.0,  # R$ 250,00 por Arroba (@)
+    'bovino_corte': 240.0,  # R$ 240,00 por Arroba (@)
     'bovino_leite': 210.0,  # R$ 210,00 por Arroba (@)
     'equino': 150.0,        # R$ 150,00 por Arroba (@)
-    'suino': 12.0,          # R$ 12,00 por Kg
-    'ave': 8.0,             # R$ 8,00 por Kg
-    'peixe': 15.0,          # R$ 15,00 por Kg
+    'suino': 7.5,           # R$ 7,50 por Kg vivo
+    'ave': 6.0,             # R$ 6,00 por Kg vivo
+    'peixe_gigante': 20.0,  # Pirarucu, Surubim, Pintado (R$ 20,00 / Kg)
+    'peixe_medio': 10.0,    # Tambaqui, Pacu (R$ 10,00 / Kg)
     'ovino': 20.0           # R$ 20,00 por Kg
 }
 
@@ -1245,7 +1249,7 @@ class GerenciadorTempo:
     
     # RITMO OFFLINE: Quão lento o tempo passa quando ele vai dormir?
     # Ex: 5.0 = A cada 5 minutos reais, passa 1 hora no jogo (Protege os animais).
-    MINUTOS_POR_HORA_OFFLINE = 5.0 
+    MINUTOS_POR_HORA_OFFLINE = 2.0 
     
     # LIMITE AFK: Quanto tempo inativo até o servidor frear o relógio?
     # Ex: 5.0 = Se ficar 5 min reais sem agir, entra no ritmo Offline.
@@ -1319,6 +1323,13 @@ class GerenciadorTempo:
         # 🔒 ENVIANDO O JOGADOR PARA O MOTOR BIOLÓGICO PROCESSAR APENAS AS TERRAS DELE
         motor = MotorBiologico(clima_atual=getattr(jogador, 'clima_atual', 'sol'), jogador=jogador)
         avisos = motor.processar_turno(horas)
+        
+        # 🔥 CORREÇÃO: COBRAR O SALÁRIO DOS FUNCIONÁRIOS PELAS HORAS PASSADAS
+        from logica.funcionarios import cobrar_folha_pagamento
+        custo_rh = cobrar_folha_pagamento(jogador, horas)
+        if custo_rh > 0:
+            avisos.append(f"💼 Folha de Pagamento: R$ {custo_rh:,.2f} descontados (Ref: {horas}h).")
+
         return avisos
 
     @classmethod
@@ -1431,19 +1442,36 @@ def obras_terra():
         return jsonify({'sucesso': False, 'erro': 'Lote não encontrado.'})
 
     if acao == 'limpar':
-        custo_trator = 500
-        venda_madeira = 1500
-        lucro_liquido = venda_madeira - custo_trator
-        
-        usuario.saldo += lucro_liquido
-        lote.status = 'limpo'
-        
-        registrar_transacao(usuario.id, 'entrada', venda_madeira, f'Venda de Madeira Bruta ({lote.nome})')
-        registrar_transacao(usuario.id, 'saida', custo_trator, f'Aluguel Trator/Desmatamento ({lote.nome})')
-        # 🔥 Trava de Segurança e Ganho de XP
-        usuario.xp = usuario.xp
-        usuario.xp += 15  # XP ganho pela tarefa
-        mensagem = f'Mato limpo! A madeira rendeu R$ 1.500 e o trator custou R$ 500. Lucro de R$ 1.000!'
+        # 🔥 NOVIDADE: Verifica se a fazenda tem o Trator de Esteira no Barracão
+        from database import Maquinario
+        tem_esteira = Maquinario.query.filter_by(propriedade_id=lote.fazenda_id, modelo='Trator de Esteira').first()
+
+        if tem_esteira:
+            # Lucro turbinado e sem custo de aluguel
+            venda_madeira = 2500
+            usuario.saldo += venda_madeira
+            lote.status = 'limpo'
+            
+            registrar_transacao(usuario.id, 'entrada', venda_madeira, f'Venda de Madeira Pesada ({lote.nome})')
+            
+            if getattr(usuario, 'xp', None) is None: usuario.xp = 0
+            usuario.xp += 15
+            mensagem = f'Limpeza pesada concluída! O Trator de Esteira zerou o custo operacional e extraiu R$ 2.500 em madeira!'
+        else:
+            # Padrão antigo
+            custo_trator = 500
+            venda_madeira = 1500
+            lucro_liquido = venda_madeira - custo_trator
+            
+            usuario.saldo += lucro_liquido
+            lote.status = 'limpo'
+            
+            registrar_transacao(usuario.id, 'entrada', venda_madeira, f'Venda de Madeira Bruta ({lote.nome})')
+            registrar_transacao(usuario.id, 'saida', custo_trator, f'Aluguel Trator/Desmatamento ({lote.nome})')
+            
+            if getattr(usuario, 'xp', None) is None: usuario.xp = 0
+            usuario.xp += 15
+            mensagem = f'Mato limpo! A madeira rendeu R$ 1.500 e o trator custou R$ 500. Lucro de R$ 1.000!'
 
     elif acao == 'cercar':
         custo = 800
@@ -1452,9 +1480,8 @@ def obras_terra():
         lote.status = 'cercado'
         lote.tem_cerca = True
         registrar_transacao(usuario.id, 'saida', custo, f'Construção de Cercas ({lote.nome})')
-        # 🔥 Trava de Segurança e Ganho de XP
-        usuario.xp = usuario.xp
-        usuario.xp += 15  # XP ganho pela tarefa
+        if getattr(usuario, 'xp', None) is None: usuario.xp = 0
+        usuario.xp += 15
         mensagem = 'Hectare cercado com sucesso! Pronto para receber capim.'
 
     elif acao == 'arar':
@@ -1463,9 +1490,8 @@ def obras_terra():
         usuario.saldo -= custo
         lote.status = 'arado'
         registrar_transacao(usuario.id, 'saida', custo, f'Preparo de Solo/Arado ({lote.nome})')
-        # 🔥 Trava de Segurança e Ganho de XP
-        usuario.xp = usuario.xp
-        usuario.xp += 15  # XP ganho pela tarefa
+        if getattr(usuario, 'xp', None) is None: usuario.xp = 0
+        usuario.xp += 15
         mensagem = 'Solo arado e nivelado! Pronto para plantio de Grãos e Cereais.'
 
     elif acao == 'covear':
@@ -1474,9 +1500,8 @@ def obras_terra():
         usuario.saldo -= custo
         lote.status = 'coveado'
         registrar_transacao(usuario.id, 'saida', custo, f'Abertura de Covas/Pomar ({lote.nome})')
-        # 🔥 Trava de Segurança e Ganho de XP
-        usuario.xp = usuario.xp
-        usuario.xp += 15  # XP ganho pela tarefa
+        if getattr(usuario, 'xp', None) is None: usuario.xp = 0
+        usuario.xp += 15
         mensagem = 'Covas abertas e adubadas! Pronto para receber mudas de Frutas/Café.'
 
     elif acao in ['plantar_braquiaria', 'plantar_mombaca']:
@@ -1484,16 +1509,10 @@ def obras_terra():
             custo = 300
             especie_capim = 'braquiaria'
             nome_exibicao = 'Braquiária'
-            # 🔥 Trava de Segurança e Ganho de XP
-            usuario.xp = usuario.xp
-            usuario.xp += 15  # XP ganho pela tarefa
         else:
             custo = 450
             especie_capim = 'mombaca'
             nome_exibicao = 'Mombaça'
-            # 🔥 Trava de Segurança e Ganho de XP
-            usuario.xp = usuario.xp
-            usuario.xp += 15  # XP ganho pela tarefa
 
         if usuario.saldo < custo: 
             return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente para sementes de {nome_exibicao}.'})
@@ -1503,6 +1522,8 @@ def obras_terra():
         lote.tipo_capim = especie_capim
         lote.qualidade_capim = 100
         registrar_transacao(usuario.id, 'saida', custo, f'Sementes de Capim {nome_exibicao} ({lote.nome})')
+        if getattr(usuario, 'xp', None) is None: usuario.xp = 0
+        usuario.xp += 15
         mensagem = f'Pasto de {nome_exibicao} formado! Esta terra foi transferida para a aba "Pastos".'
         
     else:
@@ -2651,7 +2672,7 @@ class MotorPecuaria:
     # ==========================================
     # ⚙️ PAINEL DE CONFIGURAÇÃO - CURRAL
     # ==========================================
-    PERDA_PESO_CURRAL_DIA = 2.0    # Gado parado no curral perde 2 kg por dia (estresse/sem pasto)
+    PERDA_PESO_CURRAL_DIA = 0.5    # Gado parado no curral perde 2 kg por dia (estresse/sem pasto)
     QUEDA_SAUDE_CURRAL_DIA = 10.0  # Saúde despenca 10% ao dia se esquecido no curral
     PESO_MINIMO_SOBREVIVENCIA = 10.0 # O animal não "some" de magreza, mas morre se a saúde zerar
     
@@ -2679,8 +2700,8 @@ class MotorPecuaria:
             tem_racao = False
             infra_completa = False
             
-            consumo_sal_animal = 0.05 * dias 
-            consumo_racao_animal = 0.20 * dias
+            consumo_sal_animal = 0.03 * dias 
+            consumo_racao_animal = 0.10 * dias
             
             # 🛡️ INJEÇÃO DE RH: Carrega a equipe da fazenda onde o animal está
             if animal.propriedade_id and animal.propriedade_id not in cache_bonus_rh:
@@ -3385,9 +3406,11 @@ PRECOS_REAIS = {
     'equino': 150.0,
     'suino': 12.0,
     'ave': 8.0,
-    'peixe': 15.0,
+    'peixe_gigante': 15.0,  # <-- Pirarucu, Surubim, Pintado, Cachara (R$/Kg)
+    'peixe_medio': 8.0,     # <-- Tambaqui, Pacu, Tucunaré (R$/Kg)
     'ovino': 20.0
 }
+
 
 class CotacaoMercado:
     @staticmethod
@@ -3609,8 +3632,14 @@ def estimar_frigorifico_individual():
             valor_total = (animal.peso / 15.0) * preco_cotacao
         else:
             valor_total = animal.peso * preco_cotacao
+
+    # 🔥 APLICANDO O BÔNUS DO CAPATAZ (RH) NA ESTIMATIVA
+    from logica.funcionarios import obter_bonus_equipe
+    bonus_rh = obter_bonus_equipe(animal.propriedade_id)
+    valor_total *= bonus_rh.get('bonus_venda', 1.0)
         
     return jsonify({'sucesso': True, 'valor': valor_total, 'fator': fator, 'raca': animal.raca.capitalize(), 'peso': animal.peso})
+
 
 @frigorifico_bp.route('/api/animal/vender_individual_curral', methods=['POST'])
 def vender_individual_curral():
@@ -3652,10 +3681,14 @@ def vender_individual_curral():
         else:
             valor_animal = animal.peso * preco_cotacao
             resumo = f"{animal.peso:.1f}Kg"
+
+    # 🔥 APLICANDO O BÔNUS DO CAPATAZ (RH) NA VENDA REAL
+    from logica.funcionarios import obter_bonus_equipe
+    bonus_rh = obter_bonus_equipe(animal.propriedade_id)
+    valor_animal *= bonus_rh.get('bonus_venda', 1.0)
             
     usuario.saldo += valor_animal
     
-    # 🔥 MODO SEGURO: Adiciona XP pela Venda Individual
     if getattr(usuario, 'xp', None) is None:
         usuario.xp = 0
     usuario.xp += 50
@@ -3899,6 +3932,7 @@ from flask import Blueprint, session, request, jsonify
 from sqlalchemy import func
 from database import db, Jogador, Anuncio, Propriedade, Animal
 from logica.economia import registrar_transacao
+from logica.constantes import TABELA_PRECOS # 🔥 Importando os preços reais para a Malha Fina
 
 leilao_bp = Blueprint('leilao', __name__)
 
@@ -3906,6 +3940,11 @@ leilao_bp = Blueprint('leilao', __name__)
 def anunciar_leilao():
     if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Faça login primeiro.'})
     usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    
+    # 🛡️ ANTI-FAKE: Trava de Nível
+    if getattr(usuario, 'nivel', 1) < 3:
+        return jsonify({'sucesso': False, 'erro': 'Nível muito baixo! Alcance o Nível 3 para usar o Leilão.'})
+        
     dados = request.get_json()
     animal_id = int(dados.get('animal_id', 0))
     valor = float(dados.get('valor', 0))
@@ -3916,6 +3955,13 @@ def anunciar_leilao():
         raca = dados.get('raca', '').lower()
         quantidade = int(dados.get('quantidade', 1))
         fazenda_id = int(dados.get('fazenda_id', 0))
+        
+        # 🛡️ ANTI-LAVAGEM: Teto de Preço (Máx 3x o valor base do animal adulto)
+        preco_base = TABELA_PRECOS.get(raca, {}).get('adulto', 1000)
+        limite_valor = preco_base * 3.0
+        
+        if valor > limite_valor:
+            return jsonify({'sucesso': False, 'erro': f'Preço abusivo detectado! A Receita Federal definiu o teto para {raca.capitalize()} em R$ {limite_valor:,.2f}.'})
             
         prop = Propriedade.query.get(fazenda_id)
         if not prop or prop.dono_id != usuario.id: return jsonify({'sucesso': False, 'erro': 'Acesso negado.'})
@@ -3932,6 +3978,15 @@ def anunciar_leilao():
 
     animal = Animal.query.get(animal_id)
     if not animal: return jsonify({'sucesso': False, 'erro': 'Animal não encontrado.'})
+    
+    # 🛡️ ANTI-LAVAGEM: Teto de Preço Individual
+    raca = animal.raca.lower()
+    preco_base = TABELA_PRECOS.get(raca, {}).get('adulto', 1000)
+    limite_valor = preco_base * 3.0
+    
+    if valor > limite_valor:
+        return jsonify({'sucesso': False, 'erro': f'Preço abusivo detectado! O teto para {raca.capitalize()} é R$ {limite_valor:,.2f}.'})
+        
     prop = Propriedade.query.get(animal.propriedade_id)
     if not prop or prop.dono_id != usuario.id: return jsonify({'sucesso': False, 'erro': 'Este animal não é seu.'})
 
@@ -3961,6 +4016,11 @@ def cancelar_anuncio():
 def comprar_leilao():
     if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Faça login primeiro.'})
     usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    
+    # 🛡️ ANTI-FAKE: Trava de Nível para Comprar
+    if getattr(usuario, 'nivel', 1) < 3:
+        return jsonify({'sucesso': False, 'erro': 'Apenas fazendeiros Nível 3+ podem comprar na comunidade.'})
+        
     dados = request.get_json()
     anuncio_id = dados.get('anuncio_id')
     fazenda_id = dados.get('fazenda_id')
@@ -3991,7 +4051,6 @@ def comprar_leilao():
         limite = propriedade.cap_curral if hasattr(propriedade, 'cap_curral') else 10
         if animais_atuais >= limite: return jsonify({'sucesso': False, 'erro': 'Tronco lotado!'})
 
-    # 👇 CORREÇÃO: Alinhado fora do "else" do habitat para pegar todos os animais!
     usa_caminhao = dados.get('usa_caminhao', False)
     custo_frete = 0.0
 
@@ -4002,20 +4061,17 @@ def comprar_leilao():
         if not tem_caminhao:
             return jsonify({'sucesso': False, 'erro': f'Fraude detectada: Sem {modelo_necessario} na fazenda!'})
     else:
-        custo_frete = 50.0  # Frete fixo por cabeça no leilão sem caminhão
+        custo_frete = 50.0  
 
     valor_compra = anuncio.valor + custo_frete
     if usuario.saldo < valor_compra: return jsonify({'sucesso': False, 'erro': 'Saldo insuficiente.'})
 
     vendedor = Jogador.query.get(anuncio.vendedor_id)
     if vendedor:
-        vendedor.saldo += anuncio.valor # O vendedor ganha o valor do animal puro
+        vendedor.saldo += anuncio.valor 
         registrar_transacao(vendedor.id, 'entrada', anuncio.valor, f'Venda Leilão: {animal.raca.capitalize()}')
 
-    # 👇 CORREÇÃO: Cobrança feita apenas UMA VEZ
     usuario.saldo -= valor_compra
-    
-    # Registra no caixa avisando se pagou frete ou não
     texto_frete = " (Frete Grátis)" if usa_caminhao else " + Frete"
     registrar_transacao(usuario.id, 'saida', valor_compra, f'Compra Leilão: {animal.raca.capitalize()}{texto_frete}')
 
@@ -4024,7 +4080,6 @@ def comprar_leilao():
     animal.origem = 'Comunidade'
     db.session.delete(anuncio)
     db.session.commit()
-    
     return jsonify({'sucesso': True, 'msg': f'Você arrematou um {animal.raca.capitalize()}!'})
 
 
@@ -5009,7 +5064,8 @@ document.addEventListener('DOMContentLoaded', function() {
             if (cidadeSalvaNome) {
                 let cidadeSalva = CIDADES.find(c => c.nome === cidadeSalvaNome);
                 if (cidadeSalva) {
-                    let terrasDaCidade = todasAsTerras.filter(f => cidadeSalva.keywords.some(k => f.nome.includes(k)));
+                    // 🔥 CORREÇÃO 1: Usa f.cidade para agrupar as terras corretamente
+                    let terrasDaCidade = todasAsTerras.filter(f => f.cidade === cidadeSalva.nome);
                     darZoomNaRegiao(cidadeSalva, terrasDaCidade, true); 
                 } else {
                     renderizarAncoras();
@@ -5025,7 +5081,8 @@ document.addEventListener('DOMContentLoaded', function() {
         layerAncoras.clearLayers();      
 
         CIDADES.forEach(cidade => {
-            let terrasDaCidade = todasAsTerras.filter(f => cidade.keywords.some(k => f.nome.includes(k)));
+            // 🔥 CORREÇÃO 2: Usa f.cidade para contar e renderizar os pinos da cidade
+            let terrasDaCidade = todasAsTerras.filter(f => f.cidade === cidade.nome);
             
             if(terrasDaCidade.length > 0) {
                 let iconHtml = `
@@ -5157,41 +5214,46 @@ function salvarPerfil() {
 ARQUIVO: ./static/js/fazenda.js
 ============================================================
 
-// --- INICIALIZAÇÃO DE SEGURANÇA E PREÇOS ---
+// Desativa o pulo nativo do navegador
+if ('scrollRestoration' in history) {
+    history.scrollRestoration = 'manual';
+}
+
 window.PRECOS_BASE = {};
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Busca a tabela de preços no servidor
+    // 1. Restaura o scroll instantaneamente (sem pular na frente do jogador)
+    const scrollPos = localStorage.getItem('scroll_pos_fazenda');
+    if (scrollPos) {
+        window.scrollTo(0, parseInt(scrollPos));
+    }
+
     fetch('/api/mercado/precos')
         .then(r => r.json())
         .then(data => { window.PRECOS_BASE = data; })
         .catch(e => console.log("Aviso: Falha ao carregar preços do mercado."));
         
-    // 1. RECUPERA A ABA SALVA E FORÇA A ABERTURA DELA
     const abaSalva = localStorage.getItem('aba_ativa_fazenda') || 'sede';
     window.trocarAba(abaSalva);
 
-    // 2. RECUPERA MODAL SALVO E REABRE (O Pulo do Gato pro Curral!)
     const modalSalvo = localStorage.getItem('modal_aberto_fazenda');
     if (modalSalvo) {
-        setTimeout(() => {
-            const modalEl = document.getElementById(modalSalvo);
-            if (modalEl) modalEl.style.display = 'flex';
-            
-            // Apaga a memória logo em seguida para não prender o jogador no modal
-            localStorage.removeItem('modal_aberto_fazenda');
-        }, 100);
-    }
-
-    // 3. RECUPERA A POSIÇÃO DA TELA (SCROLL)
-    const scrollPos = localStorage.getItem('scroll_pos_fazenda');
-    if (scrollPos) {
-        setTimeout(() => window.scrollTo(0, parseInt(scrollPos)), 150);
+        const modalEl = document.getElementById(modalSalvo);
+        // Remove a animação só nessa abertura automática para não bugar
+        if (modalEl) {
+            modalEl.style.transition = 'none'; 
+            modalEl.style.display = 'flex';
+            setTimeout(() => modalEl.style.transition = '', 50);
+        }
+        localStorage.removeItem('modal_aberto_fazenda');
     }
 });
 
-// 4. SALVA TUDO ANTES DE QUALQUER RELOAD
 window.addEventListener('beforeunload', () => {
+    // Esconde a página suavemente antes de recarregar
+    document.body.style.opacity = '0';
+    document.body.style.transition = 'opacity 0.2s ease';
+    
     localStorage.setItem('scroll_pos_fazenda', window.scrollY);
     
     let modalAtivo = '';
@@ -5201,11 +5263,8 @@ window.addEventListener('beforeunload', () => {
         }
     });
     
-    if (modalAtivo) {
-        localStorage.setItem('modal_aberto_fazenda', modalAtivo);
-    } else {
-        localStorage.removeItem('modal_aberto_fazenda');
-    }
+    if (modalAtivo) localStorage.setItem('modal_aberto_fazenda', modalAtivo);
+    else localStorage.removeItem('modal_aberto_fazenda');
 });
 
 // --- FUNÇÕES DE NAVEGAÇÃO DE ABAS ---
@@ -5252,6 +5311,7 @@ window.fecharSeClicarFora = function(event, id) {
         window.fecharModal(id);
     }
 };
+
 // ==========================================
 // MÓDULO SOCIAL E CHAT GLOBAL
 // ==========================================
@@ -5686,19 +5746,41 @@ window.confirmarAvanco = function(horas, custo) {
 ARQUIVO: ./static/js/terras.js
 ============================================================
 
-window.abrirMenuTerra = function(loteId, statusCorrente) {
+window.abrirMenuTerra = async function(loteId, statusCorrente) {
     let titulo = "Obras e Infraestrutura";
     let botoesHTML = "";
+    let tem_esteira = false;
+    
+    // 🔥 NOVIDADE: Verifica se tem a máquina (apenas se for mato para poupar processamento)
+    if (statusCorrente === 'mato' || !statusCorrente) {
+        Swal.fire({ title: 'Avaliando o terreno...', didOpen: () => Swal.showLoading() });
+        const fazendaId = window.location.pathname.split('/').pop();
+        try {
+            const res = await fetch(`/api/barracao/listar?fazenda_id=${fazendaId}`);
+            const data = await res.json();
+            if (data.sucesso) tem_esteira = data.maquinas.some(m => m.modelo === 'Trator de Esteira');
+        } catch(e) {}
+    }
 
     if (statusCorrente === 'mato' || !statusCorrente) {
         titulo = "Desmatamento e Limpeza";
-        botoesHTML = `
-        <button class="swal2-confirm swal2-styled" style="background-color: #795548; width: 100%; margin-bottom: 10px;" onclick="enviarObra(${loteId}, 'limpar')">
-        <img src="/static/img/arvore.png" style="width: 24px; height: 24px; object-fit: contain;"> Limpar e Vender Madeira (+ R$ 1.000)
-        <i class="fas fa-tree"></i> 
-        </button>
-        <p style="font-size: 11px; color: #aaa;">Custo do Trator: R$ 500 | Madeira: R$ 1.500</p>
-        `;
+        if (tem_esteira) {
+            botoesHTML = `
+            <button class="swal2-confirm swal2-styled" style="background-color: #fbc02d; color: #000; width: 100%; margin-bottom: 10px; font-weight: bold;" onclick="enviarObra(${loteId}, 'limpar')">
+                <img src="/static/img/trator_esteira.png" style="width: 24px; height: 24px; object-fit: contain; margin-right: 8px;" onerror="this.src='/static/img/trator.png'"> 
+                Limpeza c/ Esteira (+ R$ 2.500)
+            </button>
+            <p style="font-size: 11px; color: #4caf50; font-weight: bold;"><i class="fas fa-check"></i> Trator Próprio (Aluguel R$ 0) | Madeira: R$ 2.500</p>
+            `;
+        } else {
+            botoesHTML = `
+            <button class="swal2-confirm swal2-styled" style="background-color: #795548; width: 100%; margin-bottom: 10px;" onclick="enviarObra(${loteId}, 'limpar')">
+                <img src="/static/img/arvore.png" style="width: 24px; height: 24px; object-fit: contain; margin-right: 8px;"> 
+                Limpar e Vender Madeira (+ R$ 1.000)
+            </button>
+            <p style="font-size: 11px; color: #aaa;">Aluguel do Trator: R$ 500 | Madeira: R$ 1.500</p>
+            `;
+        }
     } 
     else if (statusCorrente === 'limpo') {
         titulo = "Destino do Hectare";
@@ -5997,6 +6079,12 @@ window.comprarInfraPasto = function(loteId, tipoObra, custoObra, btnId) {
                 }
             });
 
+            // 🔥 A MÁGICA AQUI: Atualiza a tela suavemente após 1.5s para pintar os ícones no fundo!
+            setTimeout(() => {
+                localStorage.setItem('aba_ativa_fazenda', 'pastos');
+                location.reload();
+            }, 1500);
+
         } else {
             if(btn) {
                 btn.disabled = false;
@@ -6014,6 +6102,7 @@ window.comprarInfraPasto = function(loteId, tipoObra, custoObra, btnId) {
         Swal.fire('Erro', 'Falha na comunicação.', 'error');
     });
 };
+
 
 // 🔥 AQUI ESTÁ A CORREÇÃO DE OURO: AGORA ELE ENVIA A FAZENDA PARA O PYTHON!
 window.abrirSeletorAnimais = async function(pastoId, acao) {
@@ -8817,9 +8906,19 @@ ARQUIVO: ./templates/ajuda.html
             </div>
         </details>
 
-        <!-- 4. ESTOQUES -->
+        <!-- 4. MAQUINÁRIO E BARRACÃO -->
         <details>
-            <summary><i class="fas fa-warehouse"></i> 4. Limites de Estoque (Armazém e Silo)</summary>
+            <summary><i class="fas fa-tractor"></i> 4. Barracão e Maquinário Agrícola</summary>
+            <div class="conteudo">
+                Investir em máquinas pesadas através da Concessionária gera grandes retornos a longo prazo. Toda máquina consome <strong>Diesel</strong> e sofre desgaste (condição), exigindo manutenção na oficina.<br><br>
+                <strong>🚛 Caminhões (Logística):</strong> Comprar um Caminhão Boiadeiro ou Caminhão Baú (Frios) para a fazenda <strong>zera o custo de frete</strong> ao arrematar animais ou lotes no mercado e leilão!<br><br>
+                <strong>🚜 Trator de Esteira (Obras):</strong> Possuir um Trator de Esteira zera a taxa de aluguel ao desmatar lotes novos e extrai a madeira com eficiência máxima, aumentando seu lucro de R$ 1.000 para <span class="destaque">R$ 2.500 por hectare limpo</span>.
+            </div>
+        </details>
+
+        <!-- 5. ESTOQUES -->
+        <details>
+            <summary><i class="fas fa-warehouse"></i> 5. Limites de Estoque (Armazém e Silo)</summary>
             <div class="conteudo">
                 Monitore de perto a capacidade de armazenamento da fazenda:<br><br>
                 <strong>📦 Armazém:</strong> Guarda insumos gerais como Sal, Ração de Peixe, Adubos, Diesel, Vacinas e Medicamentos. Se lotar, novas compras na loja são bloqueadas.<br><br>
@@ -8827,9 +8926,9 @@ ARQUIVO: ./templates/ajuda.html
             </div>
         </details>
 
-        <!-- 5. MULTIPLAYER E SOCIAL -->
+        <!-- 6. MULTIPLAYER E SOCIAL -->
         <details>
-            <summary><i class="fas fa-comments"></i> 5. Multiplayer: Chat Global e Visitas</summary>
+            <summary><i class="fas fa-comments"></i> 6. Multiplayer: Chat Global e Visitas</summary>
             <div class="conteudo">
                 O campo agora está conectado em tempo real!<br><br>
                 <strong>💬 Chat Global (Comunidade):</strong> Troque ideias, negocie safras e bata papo com todos os fazendeiros do servidor através do botão de comunidade na Sede.<br><br>
@@ -8837,9 +8936,9 @@ ARQUIVO: ./templates/ajuda.html
             </div>
         </details>
 
-        <!-- 6. RECEITA FEDERAL -->
+        <!-- 7. RECEITA FEDERAL -->
         <details>
-            <summary><i class="fas fa-gavel"></i> 6. Leis Fiscais e Receita Federal</summary>
+            <summary><i class="fas fa-gavel"></i> 7. Leis Fiscais e Receita Federal</summary>
             <div class="conteudo">
                 Para manter uma economia limpa e competitiva, a <strong>Receita Federal do Jogo</strong> monitora o extrato financeiro e as transações globais do servidor.<br><br>
                 <strong>⚖️ Punições:</strong> Tentativas de fraudes, manipulações indevidas ou exploits de bugs resultam em autuações administrativas imediatas e descontos de multas severas no caixa da fazenda infratora. Jogue limpo e prospere!
@@ -9926,18 +10025,18 @@ ARQUIVO: ./templates/partes/modal_atualizacao.html
             <i class="fas fa-bullhorn" style="color: #4caf50;"></i>
         </div>
         
-        <h3 style="margin: 0 0 15px 0; color: #fff; font-size: 20px; text-align: center;">🚀 Atualização 1.7 - Fiscalização & Pecuária Avançada!</h3>
+        <h3 style="margin: 0 0 15px 0; color: #fff; font-size: 20px; text-align: center;">🚀 Atualização 1.8 - Maquinários & Logística!</h3>
         
         <div style="font-size: 14px; color: #ccc; line-height: 1.6; text-align: left; background: #252525; padding: 15px; border-radius: 6px; margin-bottom: 20px; max-height: 50vh; overflow-y: auto;">
             <p style="margin: 0 0 10px 0; color: #ffcc00; font-weight: bold;">O que há de novo?</p>
             
-            <p style="margin: 0 0 8px 0;">⚖️ <b>Receita Federal do Jogo:</b> Sistema de auditoria fiscal ativo! Movimentações financeiras e exploits são monitorados de perto pela administração para manter a economia justa.</p>
+            <p style="margin: 0 0 8px 0;">🚜 <b>Barracão Agrícola:</b> Nova estrutura na sede para você estacionar e manter seus maquinários! Gerencie combustível (Diesel) e o desgaste mecânico.</p>
 
-            <p style="margin: 0 0 8px 0;">🌽 <b>Sinergia Agrícola e Pecuária:</b> Galinhas e suínos agora se alimentam diretamente do seu Silo (Milho e Soja), fechando o ciclo produtivo da fazenda[span_0](start_span)[span_0](end_span)!</p>
+            <p style="margin: 0 0 8px 0;">🚛 <b>Logística Realista:</b> Compre caminhões na Concessionária! Ter um Caminhão Boiadeiro ou Caminhão Baú na sua fazenda zera totalmente o custo de frete do Mercado e Leilão.</p>
             
-            <p style="margin: 0 0 8px 0;">🐟 <b>Ração de Peixe:</b> Nova linha de insumos na Loja exclusiva para abastecer as Represas de piscicultura.</p>
+            <p style="margin: 0 0 8px 0;">🚧 <b>Trator de Esteira:</b> Possuir essa máquina pesada corta o custo do aluguel nas obras de desmatamento e aumenta os lucros da extração de madeira para R$ 2.500 por hectare.</p>
             
-            <p style="margin: 0;">🛡️ <b>Segurança e Ajustes:</b> Calibragem de XP em todas as etapas de construção, manejo e vendas, além de correções gerais de estabilidade.</p>
+            <p style="margin: 0;">✨ <b>UX Premium:</b> Melhorias profundas na fluidez das telas. O jogo não tem mais o "pulo de tela" ao recarregar a interface da fazenda.</p>
         </div>
         
         <button onclick="fecharEGravarNovidade()" style="background: #4caf50; color: white; border: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; font-size: 16px;"><i class="fas fa-play"></i> Bora Jogar!</button>
@@ -9947,9 +10046,9 @@ ARQUIVO: ./templates/partes/modal_atualizacao.html
 
 <script>
     // ---------------------------------------------------------
-    // CONTROLE DE VERSÃO: Atualizado para 1.7
+    // CONTROLE DE VERSÃO: Atualizado para 1.8
     // ---------------------------------------------------------
-    const VERSAO_ATUAL = "1.7";
+    const VERSAO_ATUAL = "1.8";
 
     document.addEventListener("DOMContentLoaded", function() {
         const modal = document.getElementById('modal-novidades');

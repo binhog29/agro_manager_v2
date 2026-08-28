@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, session
-from database import db, Jogador, Lote, Animal
+from database import db, Jogador, Lote, Animal, Propriedade
 from logica.economia import registrar_transacao 
 
 terras_bp = Blueprint('terras', __name__)
@@ -19,13 +19,17 @@ def obras_terra():
     if not lote:
         return jsonify({'sucesso': False, 'erro': 'Lote não encontrado.'})
 
+    # 🔒 TRAVA ANTI-INJEÇÃO: Garante que o lote pertence ao logado
+    fazenda_alvo = Propriedade.query.get(lote.fazenda_id)
+    if not fazenda_alvo or fazenda_alvo.dono_id != usuario.id:
+        return jsonify({'sucesso': False, 'erro': '🚨 FRAUDE DETECTADA: Você não é dono desta terra!'})
+
     if acao == 'limpar':
-        # 🔥 NOVIDADE: Verifica se a fazenda tem o Trator de Esteira no Barracão
+        # Verifica se a fazenda tem o Trator de Esteira no Barracão
         from database import Maquinario
         tem_esteira = Maquinario.query.filter_by(propriedade_id=lote.fazenda_id, modelo='Trator de Esteira').first()
 
         if tem_esteira:
-            # Lucro turbinado e sem custo de aluguel
             venda_madeira = 2500
             usuario.saldo += venda_madeira
             lote.status = 'limpo'
@@ -36,7 +40,6 @@ def obras_terra():
             usuario.xp += 15
             mensagem = f'Limpeza pesada concluída! O Trator de Esteira zerou o custo operacional e extraiu R$ 2.500 em madeira!'
         else:
-            # Padrão antigo
             custo_trator = 500
             venda_madeira = 1500
             lucro_liquido = venda_madeira - custo_trator
@@ -116,6 +119,12 @@ def infra_pasto():
     usuario = Jogador.query.filter_by(username=session['usuario']).first()
     dados = request.get_json()
     lote = Lote.query.get(dados.get('lote_id'))
+
+    # 🔒 TRAVA ANTI-INJEÇÃO
+    fazenda_alvo = Propriedade.query.get(lote.fazenda_id)
+    if not fazenda_alvo or fazenda_alvo.dono_id != usuario.id:
+        return jsonify({'sucesso': False, 'erro': '🚨 FRAUDE DETECTADA: Você não é dono desta terra!'})
+
     obra = dados.get('obra')
 
     if obra == 'cocho':
@@ -124,9 +133,8 @@ def infra_pasto():
         usuario.saldo -= custo
         lote.tem_cocho = True
         registrar_transacao(usuario.id, 'saida', custo, f'Construção de Cocho ({lote.nome})')
-        # 🔥 Trava de Segurança e Ganho de XP
-        usuario.xp = usuario.xp
-        usuario.xp += 15  # XP ganho pela tarefa
+        if getattr(usuario, 'xp', None) is None: usuario.xp = 0
+        usuario.xp += 15  
         msg = "Cocho construído! Agora você pode servir sal e suplemento."
 
     elif obra == 'cocho_racao':
@@ -135,9 +143,8 @@ def infra_pasto():
         usuario.saldo -= custo
         lote.tem_cocho_racao = True
         registrar_transacao(usuario.id, 'saida', custo, f'Linha de Ração ({lote.nome})')
-        # 🔥 Trava de Segurança e Ganho de XP
-        usuario.xp = usuario.xp
-        usuario.xp += 15  # XP ganho pela tarefa
+        if getattr(usuario, 'xp', None) is None: usuario.xp = 0
+        usuario.xp += 15  
         msg = "Linha de Ração construída! Agora você pode realizar trato intensivo."
 
     elif obra == 'bebedouro':
@@ -146,9 +153,8 @@ def infra_pasto():
         usuario.saldo -= custo
         lote.tem_bebedouro = True
         registrar_transacao(usuario.id, 'saida', custo, f'Escavação de Bebedouro ({lote.nome})')
-        # 🔥 Trava de Segurança e Ganho de XP
-        usuario.xp = usuario.xp
-        usuario.xp += 15  # XP ganho pela tarefa
+        if getattr(usuario, 'xp', None) is None: usuario.xp = 0
+        usuario.xp += 15  
         msg = "Tanque de água escavado com sucesso!"
     else:
         return jsonify({'sucesso': False, 'erro': 'Obra inválida.'})
@@ -158,7 +164,6 @@ def infra_pasto():
 
 @terras_bp.route('/api/fazenda/reverter_pasto', methods=['POST'])
 def reverter_pasto():
-    # 🔥 CORREÇÃO 1: Precisamos puxar quem é o jogador logado primeiro!
     if 'usuario' not in session: 
         return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
     usuario = Jogador.query.filter_by(username=session['usuario']).first()
@@ -167,6 +172,11 @@ def reverter_pasto():
     pasto_id = dados.get('pasto_id')
     pasto = Lote.query.get(pasto_id)
     if not pasto: return jsonify({'sucesso': False, 'erro': 'Pasto não encontrado.'})
+
+    # 🔒 TRAVA ANTI-INJEÇÃO
+    fazenda_alvo = Propriedade.query.get(pasto.fazenda_id)
+    if not fazenda_alvo or fazenda_alvo.dono_id != usuario.id:
+        return jsonify({'sucesso': False, 'erro': '🚨 FRAUDE DETECTADA: Você não é dono desta terra!'})
     
     animais_no_pasto = Animal.query.filter_by(onde_esta=f'pasto_{pasto_id}').count()
     if animais_no_pasto > 0:
@@ -179,22 +189,16 @@ def reverter_pasto():
     pasto.tem_cocho_racao = False
     pasto.tem_bebedouro = False
     
-    # 🔥 Trava de Segurança e Ganho ou perda de XP
     if getattr(usuario, 'xp', None) is None:
         usuario.xp = 0
-        
-    # 🔥 CORREÇÃO 2: Puxamos a perda de XP para fora do 'if' (recuo para trás)
-    usuario.xp -= 15  
+    # Impede que o XP fique negativo
+    usuario.xp = max(0, usuario.xp - 15)  
     
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': 'Pasto destruído e revertido para terra nua!'})
 
-# ==========================================
-# NOVA ROTA: DESTRUIR LAVOURA COM TRATOR
-# ==========================================
 @terras_bp.route('/api/fazenda/reverter_cultivo', methods=['POST'])
 def reverter_cultivo():
-    # 🔥 CORREÇÃO 1: Precisamos puxar quem é o jogador logado primeiro!
     if 'usuario' not in session: 
         return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
     usuario = Jogador.query.filter_by(username=session['usuario']).first()
@@ -205,15 +209,18 @@ def reverter_cultivo():
     lote = Lote.query.get(lote_id)
     if not lote: return jsonify({'sucesso': False, 'erro': 'Lote não encontrado.'})
 
+    # 🔒 TRAVA ANTI-INJEÇÃO
+    fazenda_alvo = Propriedade.query.get(lote.fazenda_id)
+    if not fazenda_alvo or fazenda_alvo.dono_id != usuario.id:
+        return jsonify({'sucesso': False, 'erro': '🚨 FRAUDE DETECTADA: Você não é dono desta terra!'})
+
     custo_trator = 300
     if usuario.saldo < custo_trator:
         return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente para o aluguel do trator (R$ {custo_trator}).'})
 
-    # Cobra o valor do trator
     usuario.saldo -= custo_trator
     registrar_transacao(usuario.id, 'saida', custo_trator, f'Limpeza de Lavoura com Trator ({lote.nome})')
 
-    # Reverte o lote para terra limpa
     lote.status = 'limpo'
     lote.tipo_cultivo = None
     lote.fase_planta = 'Nenhuma'
@@ -222,14 +229,10 @@ def reverter_cultivo():
     lote.nivel_pragas = 0
     lote.fertilidade_solo = 100
     
-    # 🔥 Trava de Segurança e Ganho ou perda de XP
     if getattr(usuario, 'xp', None) is None:
         usuario.xp = 0
-        
-    # 🔥 CORREÇÃO 2: Puxamos a perda de XP para fora do 'if' (recuo para trás)
-    usuario.xp -= 15  
+    # Impede que o XP fique negativo
+    usuario.xp = max(0, usuario.xp - 15)
     
     db.session.commit()
-    return jsonify({'sucesso': True, 'msg': 'Pasto destruído e revertido para terra nua!'})
-        
-        
+    return jsonify({'sucesso': True, 'msg': 'Lavoura destruída e revertida para terra nua!'})
