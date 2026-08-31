@@ -1,37 +1,39 @@
 # logica/motor_agricultura.py
 import random
-from database import db, Propriedade, Jogador, Lote
+from database import db, Propriedade, Jogador, Lote, Equipe, Maquinario
 
 class MotorAgricultura:
     # ==========================================
     # ⚙️ PAINEL DE CONFIGURAÇÃO - CULTURAS (TEMPO E ÁGUA)
     # ==========================================
     CONFIG_CULTIVOS = {
-        'feijao':   {'dias_semente': 8,  'dias_broto': 25,  'dias_colheita': 80,   'agua_necessaria': 30},
-        'melancia': {'dias_semente': 12, 'dias_broto': 35,  'dias_colheita': 85,   'agua_necessaria': 30},
-        'milho':    {'dias_semente': 10, 'dias_broto': 30,  'dias_colheita': 90,   'agua_necessaria': 40},
-        'soja':     {'dias_semente': 12, 'dias_broto': 35,  'dias_colheita': 110,  'agua_necessaria': 50},
-        'arroz':    {'dias_semente': 10, 'dias_broto': 40,  'dias_colheita': 120,  'agua_necessaria': 80},
-        'algodao':  {'dias_semente': 15, 'dias_broto': 50,  'dias_colheita': 150,  'agua_necessaria': 60},
-        'pimenta':  {'dias_semente': 20, 'dias_broto': 60,  'dias_colheita': 150,  'agua_necessaria': 40},
-        'mandioca': {'dias_semente': 20, 'dias_broto': 60,  'dias_colheita': 240,  'agua_necessaria': 20},
-        'banana':   {'dias_semente': 30, 'dias_broto': 120, 'dias_colheita': 330,  'agua_necessaria': 50},
-        'cana':     {'dias_semente': 30, 'dias_broto': 90,  'dias_colheita': 365,  'agua_necessaria': 50},
-        'cafe':     {'dias_semente': 60, 'dias_broto': 180, 'dias_colheita': 730,  'agua_necessaria': 40},
-        'cupuacu':  {'dias_semente': 90, 'dias_broto': 300, 'dias_colheita': 1095, 'agua_necessaria': 60},
-        'cacau':    {'dias_semente': 60, 'dias_broto': 200, 'dias_colheita': 1095, 'agua_necessaria': 60},
-        'acai':     {'dias_semente': 90, 'dias_broto': 365, 'dias_colheita': 1460, 'agua_necessaria': 70}
+        'feijao':   {'dias_semente': 3,  'dias_broto': 8,   'dias_colheita': 20,   'agua_necessaria': 30},
+        'melancia': {'dias_semente': 3,  'dias_broto': 10,  'dias_colheita': 25,   'agua_necessaria': 30},
+        'milho':    {'dias_semente': 4,  'dias_broto': 10,  'dias_colheita': 25,   'agua_necessaria': 40},
+        'soja':     {'dias_semente': 5,  'dias_broto': 12,  'dias_colheita': 30,   'agua_necessaria': 50},
+        'arroz':    {'dias_semente': 5,  'dias_broto': 15,  'dias_colheita': 35,   'agua_necessaria': 80},
+        'pimenta':  {'dias_semente': 5,  'dias_broto': 15,  'dias_colheita': 40,   'agua_necessaria': 40},
+        'algodao':  {'dias_semente': 6,  'dias_broto': 20,  'dias_colheita': 45,   'agua_necessaria': 60},
+        'mandioca': {'dias_semente': 8,  'dias_broto': 25,  'dias_colheita': 60,   'agua_necessaria': 20},
+        'banana':   {'dias_semente': 10, 'dias_broto': 30,  'dias_colheita': 80,   'agua_necessaria': 50},
+        'cana':     {'dias_semente': 10, 'dias_broto': 30,  'dias_colheita': 90,   'agua_necessaria': 50},
+        'cafe':     {'dias_semente': 15, 'dias_broto': 45,  'dias_colheita': 120,  'agua_necessaria': 40},
+        'cupuacu':  {'dias_semente': 20, 'dias_broto': 60,  'dias_colheita': 150,  'agua_necessaria': 60},
+        'cacau':    {'dias_semente': 20, 'dias_broto': 60,  'dias_colheita': 150,  'agua_necessaria': 60},
+        'acai':     {'dias_semente': 25, 'dias_broto': 70,  'dias_colheita': 180,  'agua_necessaria': 70},
+        'tomate':   {'dias_semente': 3,  'dias_broto': 10,  'dias_colheita': 25,   'agua_necessaria': 40}
     }
+
 
     # ==========================================
     # ⚙️ PAINEL DE CONFIGURAÇÃO - CLIMA E BÔNUS
     # ==========================================
-    CHANCE_PRAGA_DIA = 0.05          # 5% de chance ao dia
+    CHANCE_PRAGA_DIA = 0.05          
     PUNICAO_SOLO_FRACO = 5.0         
     PUNICAO_PRAGA = 10.0             
     PUNICAO_SECA_INVERNO = 3.0       
     BONUS_CHUVA_VERAO = 2.0          
-    BONUS_AGRONOMO_PORCENTAGEM = 0.25 # Cada agrônomo acelera 25% o crescimento
+    BONUS_AGRONOMO_PORCENTAGEM = 0.25 
     # ==========================================
 
     @staticmethod
@@ -41,6 +43,9 @@ class MotorAgricultura:
             return
 
         lotes_ativos = Lote.query.filter(Lote.id.in_(lotes_ids_validos), Lote.status.in_(['pasto', 'plantado', 'colhendo'])).all()
+        
+        # 🔥 CACHE DE OTIMIZAÇÃO: Evita travamentos ao pesquisar tratores para muitos hectares
+        cache_fazendas = {}
         
         for lote in lotes_ativos:
             
@@ -79,11 +84,26 @@ class MotorAgricultura:
 
                 if lote.status == 'plantado':
                     
+                    # Carrega dados da fazenda na cache para o Tratorista
+                    if lote.fazenda_id not in cache_fazendas:
+                        f = Propriedade.query.get(lote.fazenda_id)
+                        eq = Equipe.query.filter_by(propriedade_id=lote.fazenda_id).first()
+                        mqs = Maquinario.query.filter_by(propriedade_id=lote.fazenda_id).all()
+                        cache_fazendas[lote.fazenda_id] = {
+                            'obj': f,
+                            'equipe': eq,
+                            'tipos_maq': [m.tipo for m in mqs],
+                            'modelos_maq': [m.modelo for m in mqs]
+                        }
+                        
+                    dados_faz = cache_fazendas[lote.fazenda_id]
+                    fazenda = dados_faz['obj']
+                    equipe = dados_faz['equipe']
+                    
                     # 👨‍🌾 BÔNUS DO AGRÔNOMO
                     bonus_agronomo = 1.0
-                    fazenda = Propriedade.query.get(lote.fazenda_id)
-                    if fazenda and getattr(fazenda, 'equipe', None):
-                        bonus_agronomo += (fazenda.equipe.agronomos * MotorAgricultura.BONUS_AGRONOMO_PORCENTAGEM)
+                    if equipe:
+                        bonus_agronomo += (getattr(equipe, 'agronomos', 0) * MotorAgricultura.BONUS_AGRONOMO_PORCENTAGEM)
 
                     # 💧 SISTEMA DE IRRIGAÇÃO (Salva as plantas na seca)
                     if lote.umidade_solo < dna_planta['agua_necessaria'] and lote.sistema_irrigacao != 'nenhum':
@@ -92,7 +112,6 @@ class MotorAgricultura:
                     # 🌱 CRESCIMENTO REAL
                     fator_crescimento = 1.0
                     
-                    # Se faltar água (e não tiver irrigação), a planta sofre e cresce bem devagar (não congela mais!)
                     if lote.umidade_solo < dna_planta['agua_necessaria']:
                         fator_crescimento = 0.3 
                         
@@ -113,13 +132,41 @@ class MotorAgricultura:
                     else:
                         lote.fase_planta = 'Ponto de Colheita'
 
-                    # 🐛 ATAQUE IMPREVISÍVEL DE PRAGAS E FERTILIDADE
+                    # 🐛 ATAQUE IMPREVISÍVEL DE PRAGAS
                     chance_real = MotorAgricultura.CHANCE_PRAGA_DIA * dias
+                    teve_ataque = False
                     if random.random() < chance_real: 
                         severidade = random.choice([10, 15, 20, 25])
                         lote.nivel_pragas = int(min(100, getattr(lote, 'nivel_pragas', 0) + severidade))
-                        avisos_turno.append(f"⚠️ Alerta: Pragas atacaram a lavoura {lote.nome}!")
-                    
+                        teve_ataque = True
+                        
+                    # ----------------------------------------------------
+                    # 🔥 MÁGICA 3 e 4: AUTOMAÇÃO AGRÍCOLA (TRATORISTAS)
+                    # ----------------------------------------------------
+                    tem_tratorista = equipe and getattr(equipe, 'tratoristas', 0) > 0
+                    area_lote = {'Chácara': 1, 'Sítio': 5, 'Fazenda': 15, 'Latifúndio': 30}.get(getattr(fazenda, 'tipo', 'Chácara'), 1)
+
+                    # 🚜 Defesa contra Pragas (Veneno)
+                    if getattr(lote, 'nivel_pragas', 0) > 0:
+                        if tem_tratorista and 'Pulverizador' in dados_faz['modelos_maq'] and getattr(fazenda, 'est_veneno', 0) >= area_lote:
+                            fazenda.est_veneno -= area_lote
+                            lote.nivel_pragas = 0
+                            teve_ataque = False # Tratorista resolveu silenciosamente!
+                            msg_veneno = f"🚜 Um Tratorista usou o Pulverizador e defendeu o {lote.nome} contra pragas."
+                            if msg_veneno not in avisos_turno: avisos_turno.append(msg_veneno)
+                            
+                    if teve_ataque and getattr(lote, 'nivel_pragas', 0) > 0:
+                        avisos_turno.append(f"⚠️ Pragas atacaram {lote.nome}! Sem tratorista ou defensivos.")
+
+                    # 🚜 Recuperação de Solo (Adubo)
+                    if getattr(lote, 'fertilidade_solo', 100) <= 60:
+                        if tem_tratorista and 'Trator' in dados_faz['tipos_maq'] and getattr(fazenda, 'est_adubo', 0) >= area_lote:
+                            fazenda.est_adubo -= area_lote
+                            lote.fertilidade_solo = min(100, getattr(lote, 'fertilidade_solo', 100) + 40)
+                            msg_adubo = f"🚜 O Tratorista aplicou Adubo no {lote.nome} e revitalizou a terra."
+                            if msg_adubo not in avisos_turno: avisos_turno.append(msg_adubo)
+
+                    # 📉 Punições se a automação não tiver agido
                     prod_atual = float(getattr(lote, 'produtividade_atual', 100))
                     
                     if getattr(lote, 'fertilidade_solo', 100) < 40:

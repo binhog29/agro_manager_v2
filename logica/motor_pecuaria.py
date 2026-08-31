@@ -1,43 +1,43 @@
 # logica/motor_pecuaria.py
 import random
-from database import db, Lote, Animal, HistoricoMorte
+from database import db, Lote, Animal, HistoricoMorte, Propriedade # 🔥 Propriedade adicionada para o Peão consultar o Armazém
 from logica.funcionarios import obter_bonus_equipe
 
 class MotorPecuaria:
     # ==========================================
     # ⚙️ PAINEL DE CONFIGURAÇÃO - PASTO
     # ==========================================
-    GANHO_BASE_KG_DIA = 1.0        # Engorda normal diária se tiver sal/ração
-    PENALIDADE_AFTOSA = 0.30       # Perde 30% do crescimento se sem vacina de aftosa
-    PENALIDADE_BRUCELOSE = 0.30    # Perde 30% do crescimento se sem vacina de brucelose
-    PENALIDADE_VERMIFUGO = 0.20    # Perde 20% do crescimento se sem medicamento geral
-    EFICIENCIA_MINIMA = 0.20       # Gado abandonado cresce no mínimo 20%
-    QUEDA_SAUDE_SEM_VACINA = 5.0   # Quanta saúde perde por dia se estiver vulnerável no pasto
+    GANHO_BASE_KG_DIA = 2.0        
+    PENALIDADE_AFTOSA = 0.30       
+    PENALIDADE_BRUCELOSE = 0.30    
+    PENALIDADE_VERMIFUGO = 0.20    
+    EFICIENCIA_MINIMA = 0.20       
+    QUEDA_SAUDE_SEM_VACINA = 5.0   
     
     # ==========================================
     # ⚙️ PAINEL DE CONFIGURAÇÃO - CURRAL
     # ==========================================
-    PERDA_PESO_CURRAL_DIA = 0.5    # Gado parado no curral perde 2 kg por dia (estresse/sem pasto)
-    QUEDA_SAUDE_CURRAL_DIA = 10.0  # Saúde despenca 10% ao dia se esquecido no curral
-    PESO_MINIMO_SOBREVIVENCIA = 10.0 # O animal não "some" de magreza, mas morre se a saúde zerar
+    PERDA_PESO_CURRAL_DIA = 0.5    
+    QUEDA_SAUDE_CURRAL_DIA = 10.0  
+    PESO_MINIMO_SOBREVIVENCIA = 10.0 
     
     # ==========================================
-    # ⚙️ PAINEL DE CONFIGURAÇÃO - FASES DA VIDA (MUDANÇA POR PESO)
+    # ⚙️ PAINEL DE CONFIGURAÇÃO - FASES DA VIDA
     # ==========================================
-    PESO_MUDANCA_JOVEM = 150.0   # Atingiu 150kg (10@), vira Jovem
-    PESO_MUDANCA_ADULTO = 300.0  # Atingiu 300kg (20@), vira Adulto e pode reproduzir
+    PESO_MUDANCA_JOVEM = 150.0   
+    PESO_MUDANCA_ADULTO = 300.0  
 
     # ==========================================
     # ⚙️ PAINEL DE CONFIGURAÇÃO - REPRODUÇÃO
     # ==========================================
-    CHANCE_PRENHEZ_DIA = 0.05    # 5% de chance ao dia de emprenhar se tiver macho no pasto
-    DIAS_GESTACAO_PADRAO = 285.0   # ~9 meses e meio de gestação (padrão bovino)
-    PESO_NASCIMENTO_BASE = 30.0    # Bezerro nasce com 30kg (2 arrobas)
+    CHANCE_PRENHEZ_DIA = 0.10    
+    DIAS_GESTACAO_PADRAO = 180.0   
+    PESO_NASCIMENTO_BASE = 30.0    
     # ==========================================
     
     @staticmethod
     def processar_animais(animais, dias, avisos_turno):
-        cache_bonus_rh = {} # Salva a equipe para não consultar o banco a cada vaca!
+        cache_bonus_rh = {} 
 
         for animal in animais:
             qualidade_pasto = 0
@@ -61,13 +61,46 @@ class MotorPecuaria:
                     if pasto.tem_cerca and pasto.tem_cocho and pasto.tem_bebedouro: 
                         infra_completa = True
                     
-                    if pasto.tem_cocho and getattr(pasto, 'qtd_sal_cocho', 0) >= consumo_sal_animal:
-                        tem_sal = True
-                        pasto.qtd_sal_cocho -= consumo_sal_animal
+                    # ----------------------------------------------------
+                    # 🔥 MÁGICA 1: PEÃO ABASTECENDO SAL AUTOMATICAMENTE
+                    # ----------------------------------------------------
+                    if pasto.tem_cocho:
+                        if getattr(pasto, 'qtd_sal_cocho', 0) >= consumo_sal_animal:
+                            tem_sal = True
+                            pasto.qtd_sal_cocho -= consumo_sal_animal
+                        elif bonus_rh.get('protecao_animal', False): 
+                            # Cocho secou, mas o Peão entrou em ação!
+                            fazenda = Propriedade.query.get(animal.propriedade_id)
+                            if getattr(fazenda, 'est_sal', 0) >= 1:
+                                fazenda.est_sal -= 1
+                                pasto.qtd_sal_cocho = getattr(pasto, 'qtd_sal_cocho', 0) + 10.0 
+                                
+                                msg_sal = f"👨‍🌾 Um Peão buscou Sal no Armazém e abasteceu o {pasto.nome}."
+                                if msg_sal not in avisos_turno: avisos_turno.append(msg_sal)
+                                
+                                if pasto.qtd_sal_cocho >= consumo_sal_animal:
+                                    tem_sal = True
+                                    pasto.qtd_sal_cocho -= consumo_sal_animal
 
-                    if getattr(pasto, 'tem_cocho_racao', False) and getattr(pasto, 'qtd_racao_cocho', 0) >= consumo_racao_animal:
-                        tem_racao = True
-                        pasto.qtd_racao_cocho -= consumo_racao_animal
+                    # ----------------------------------------------------
+                    # 🔥 MÁGICA 2: PEÃO ABASTECENDO RAÇÃO AUTOMATICAMENTE
+                    # ----------------------------------------------------
+                    if getattr(pasto, 'tem_cocho_racao', False):
+                        if getattr(pasto, 'qtd_racao_cocho', 0) >= consumo_racao_animal:
+                            tem_racao = True
+                            pasto.qtd_racao_cocho -= consumo_racao_animal
+                        elif bonus_rh.get('protecao_animal', False): 
+                            fazenda = Propriedade.query.get(animal.propriedade_id)
+                            if getattr(fazenda, 'est_racao', 0) >= 1:
+                                fazenda.est_racao -= 1
+                                pasto.qtd_racao_cocho = getattr(pasto, 'qtd_racao_cocho', 0) + 20.0 
+                                
+                                msg_racao = f"👨‍🌾 Um Peão buscou Ração no Armazém para a linha do {pasto.nome}."
+                                if msg_racao not in avisos_turno: avisos_turno.append(msg_racao)
+                                
+                                if pasto.qtd_racao_cocho >= consumo_racao_animal:
+                                    tem_racao = True
+                                    pasto.qtd_racao_cocho -= consumo_racao_animal
             
             ambiente = {
                 'qualidade_pasto': qualidade_pasto, 
@@ -102,12 +135,22 @@ class MotorPecuaria:
                 else:
                     ganho_diario = MotorPecuaria.GANHO_BASE_KG_DIA * 0.2
                     
+                # 🔥 NOVO EFEITO DO SUPLEMENTO: +1 KG POR DIA!
+                if getattr(animal, 'suplementado', False):
+                    ganho_diario += 1.0
+                    
                 ganho_final = (ganho_diario * dias) * eficiencia
-                animal.peso = peso_anterior + ganho_final
+                
+                # 🛑 CORREÇÃO: Teto biológico de peso (Impede animais infinitos)
+                dna = animal.obter_dna() if hasattr(animal, 'obter_dna') else {}
+                peso_base_adulto = dna.get('peso_adulto', 400.0)
+                peso_maximo = peso_base_adulto * 1.5 # Limite de 50% acima da média da raça
+                
+                # A função min() corrige automaticamente o gado já corrompido
+                animal.peso = min(peso_anterior + ganho_final, peso_maximo)
                 
                 if eficiencia < 1.0:
                     queda_saude = MotorPecuaria.QUEDA_SAUDE_SEM_VACINA * dias
-                    # 🩺 BÔNUS VETERINÁRIO: Segura 90% da perda de saúde!
                     if bonus_rh.get('reduz_doencas', False):
                         queda_saude *= 0.1 
                     animal.saude = max(0.0, float(animal.saude or 100.0) - queda_saude)
@@ -117,7 +160,6 @@ class MotorPecuaria:
                 perda_peso = MotorPecuaria.PERDA_PESO_CURRAL_DIA * dias
                 queda_saude = MotorPecuaria.QUEDA_SAUDE_CURRAL_DIA * dias
                 
-                # 🤠 BÔNUS DO PEÃO: Trata os bichos no curral, perdendo 80% menos peso e saúde
                 if bonus_rh.get('protecao_animal', False):
                     perda_peso *= 0.2
                     queda_saude *= 0.2
@@ -147,33 +189,29 @@ class MotorPecuaria:
     @staticmethod
     def _processar_reproducao(animal, dias, avisos_turno):
         
-        # 🥛 LÓGICA REALISTA: Produção de Leite (Requer Lactação pós-parto)
+        # 🥛 Produção de Leite
         if animal.raca.lower() == 'girolando' and animal.sexo == 'F' and animal.fase == 'Adulto':
             dias_lactacao_atual = float(getattr(animal, 'dias_lactacao', 0.0))
             
             if dias_lactacao_atual > 0:
-                # Ela só produz leite pelos dias em que ainda tiver lactação ativa
                 dias_producao = min(dias, dias_lactacao_atual)
-                litros_gerados = 12.0 * dias_producao # Reduzido para 12L/dia para balancear a economia
+                litros_gerados = 12.0 * dias_producao 
                 
-                # Se a saúde estiver baixa, a produção cai pela metade
                 if float(animal.saude or 100.0) < 50.0:
                     litros_gerados *= 0.5
                     
                 if litros_gerados > 0:
-                    from database import Propriedade # Importação segura e isolada
+                    from database import Propriedade 
                     fazenda = Propriedade.query.get(animal.propriedade_id)
                     if fazenda:
                         fazenda.est_leite = float(getattr(fazenda, 'est_leite', 0.0)) + litros_gerados
                 
-                # Desconta os dias que passaram do tempo de lactação dela
                 animal.dias_lactacao = max(0, dias_lactacao_atual - dias)
 
-        # 1. SE A FÊMEA JÁ ESTÁ PRENHA: Avançamos o tempo de gestação!
+        # 1. SE A FÊMEA JÁ ESTÁ PRENHA
         if getattr(animal, 'prenha', False):
             animal.dias_gestacao = float(getattr(animal, 'dias_gestacao', 0.0)) + dias
             
-            # Puxa a genética real da raça no banco de dados
             dna = animal.obter_dna() if hasattr(animal, 'obter_dna') else {}
             tempo_gestacao = dna.get('gestacao', MotorPecuaria.DIAS_GESTACAO_PADRAO)
             peso_nascimento = dna.get('peso_jovem', MotorPecuaria.PESO_NASCIMENTO_BASE)
@@ -197,7 +235,6 @@ class MotorPecuaria:
                 animal.prenha = False
                 animal.dias_gestacao = 0.0
                 
-                # 🔥 INICIA A LACTAÇÃO: A vaca agora dá leite por 300 dias!
                 if animal.raca.lower() == 'girolando':
                     animal.dias_lactacao = 300
 

@@ -17,7 +17,6 @@ def manejar_curral():
     if not animal:
         return jsonify({'sucesso': False, 'erro': 'Animal não encontrado.'})
         
-    # 🔒 TRAVA ANTI-INJEÇÃO: Garante que o animal pertence ao jogador logado
     fazenda_alvo = Propriedade.query.get(animal.propriedade_id)
     if not fazenda_alvo or fazenda_alvo.dono_id != usuario.id:
         return jsonify({'sucesso': False, 'erro': '🚨 FRAUDE DETECTADA: Este animal não é seu!'})
@@ -27,7 +26,6 @@ def manejar_curral():
             id_do_lote = int(destino.split('_')[1])
             lote = Lote.query.get(id_do_lote)
             
-            # 🔒 TRAVA EXTRA: Garante que o pasto de destino é da mesma fazenda
             if not lote or lote.fazenda_id != fazenda_alvo.id or lote.status != 'pasto':
                 return jsonify({'sucesso': False, 'erro': '🚨 FRAUDE DETECTADA: Pasto inválido ou não pertence a esta fazenda!'})
             
@@ -45,6 +43,13 @@ def manejar_curral():
             return jsonify({'sucesso': False, 'erro': 'Número de pasto inválido.'})
             
     elif destino == 'curral':
+        # 🔥 CORREÇÃO: Verificando o limite do curral!
+        limite_curral = getattr(fazenda_alvo, 'cap_curral', 10)
+        animais_no_curral = Animal.query.filter_by(propriedade_id=fazenda_alvo.id, onde_esta='curral').count()
+        
+        if animais_no_curral >= limite_curral:
+            return jsonify({'sucesso': False, 'erro': f'Tronco lotado! O limite do curral é de {limite_curral} cabeças.'})
+
         animal.lote_id = None
         animal.onde_esta = 'curral'
     else:
@@ -74,7 +79,6 @@ def manejar_lote():
     if not animais:
         return jsonify({'sucesso': False, 'erro': 'Animais não encontrados.'})
 
-    # 🔒 TRAVA ANTI-INJEÇÃO: Garante que os animais pertencem ao jogador logado
     fazenda_alvo = Propriedade.query.get(animais[0].propriedade_id)
     if not fazenda_alvo or fazenda_alvo.dono_id != usuario.id:
         return jsonify({'sucesso': False, 'erro': '🚨 FRAUDE DETECTADA: Estes animais não são seus!'})
@@ -87,7 +91,6 @@ def manejar_lote():
             id_do_lote = int(destino.split('_')[1])
             lote = Lote.query.get(id_do_lote)
             
-            # 🔒 TRAVA EXTRA: Garante destino válido
             if not lote or lote.fazenda_id != fazenda_alvo.id or lote.status != 'pasto':
                 return jsonify({'sucesso': False, 'erro': '🚨 FRAUDE DETECTADA: Pasto inválido ou não pertence a esta fazenda!'})
             
@@ -107,7 +110,17 @@ def manejar_lote():
         except ValueError:
             return jsonify({'sucesso': False, 'erro': 'Erro no ID do pasto.'})
     else:
-        for animal in animais:
+        # 🔥 CORREÇÃO: Verificando as vagas do curral no retorno em lote!
+        limite_curral = getattr(fazenda_alvo, 'cap_curral', 10)
+        animais_no_curral = Animal.query.filter_by(propriedade_id=fazenda_alvo.id, onde_esta='curral').count()
+        vagas_livres = limite_curral - animais_no_curral
+        
+        if vagas_livres <= 0:
+            return jsonify({'sucesso': False, 'erro': f'Tronco lotado! O curral suporta apenas {limite_curral} cabeças.'})
+            
+        animais_para_mover = animais[:vagas_livres]
+        
+        for animal in animais_para_mover:
             animal.onde_esta = 'curral'
             animal.lote_id = None
             movidos += 1
@@ -118,6 +131,10 @@ def manejar_lote():
         usuario.xp += (5 * movidos)
 
     db.session.commit()
+    
+    if movidos < len(animais):
+        return jsonify({'sucesso': True, 'msg': f'Apenas {movidos} animais foram movidos. Faltou espaço no destino!'})
+        
     return jsonify({'sucesso': True, 'msg': f'{movidos} animais movidos.'})
 
 @gado_bp.route('/api/pecuaria/listar_curral', methods=['GET'])
@@ -148,24 +165,51 @@ def listar_curral():
         'vacinado_aftosa': getattr(a, 'vacinado_aftosa', False),
         'vacinado_brucelose': getattr(a, 'vacinado_brucelose', False),
         'medicado': getattr(a, 'medicado', False),
-        'suplementado': getattr(a, 'suplementado', False)
+        'suplementado': getattr(a, 'suplementado', False),
+        'prenha': getattr(a, 'prenha', False),
+        'dias_gestacao': float(getattr(a, 'dias_gestacao', 0.0))
     } for a in animais]})
 
 @gado_bp.route('/api/pecuaria/listar_pasto', methods=['GET'])
 def listar_pasto():
     pasto_id = request.args.get('pasto_id')
+    pasto = Lote.query.get(pasto_id)
     animais = Animal.query.filter_by(lote_id=pasto_id).all() 
-    return jsonify({'animais': [{
-        'id': a.id, 
-        'raca': a.raca, 
-        'fase': getattr(a, 'fase', 'Adulto'), 
-        'sexo': getattr(a, 'sexo', 'M'),
-        'peso': round(float(getattr(a, 'peso', 0.0)), 1),
-        'vacinado_aftosa': getattr(a, 'vacinado_aftosa', False),
-        'vacinado_brucelose': getattr(a, 'vacinado_brucelose', False),
-        'medicado': getattr(a, 'medicado', False),
-        'suplementado': getattr(a, 'suplementado', False)
-    } for a in animais]})
+    
+    tem_sal = getattr(pasto, 'qtd_sal_cocho', 0) > 0 if pasto and getattr(pasto, 'tem_cocho', False) else False
+    tem_racao = getattr(pasto, 'qtd_racao_cocho', 0) > 0 if pasto and getattr(pasto, 'tem_cocho_racao', False) else False
+    
+    lista = []
+    for a in animais:
+        ganho = 0.0
+        if tem_sal and tem_racao: ganho = 3.0
+        elif tem_sal or tem_racao: ganho = 2.0
+        else: ganho = 0.4
+        
+        if getattr(a, 'suplementado', False): ganho += 1.0
+        if not getattr(a, 'vacinado_aftosa', False): ganho *= 0.7
+        if not getattr(a, 'vacinado_brucelose', False): ganho *= 0.7
+        if not getattr(a, 'medicado', False): ganho *= 0.8
+        
+        status_peso = f"<span style='color:#4caf50;'>📈 +{ganho:.1f} kg/dia</span>"
+        if float(getattr(a, 'saude', 100)) <= 30: 
+            status_peso = "<span style='color:#f44336;'>📉 Doente (Perdendo Peso)</span>"
+            
+        lista.append({
+            'id': a.id, 
+            'raca': a.raca, 
+            'fase': getattr(a, 'fase', 'Adulto'), 
+            'sexo': getattr(a, 'sexo', 'M'),
+            'peso': round(float(getattr(a, 'peso', 0.0)), 1),
+            'vacinado_aftosa': getattr(a, 'vacinado_aftosa', False),
+            'vacinado_brucelose': getattr(a, 'vacinado_brucelose', False),
+            'medicado': getattr(a, 'medicado', False),
+            'suplementado': getattr(a, 'suplementado', False),
+            'status_peso': status_peso,
+            'prenha': getattr(a, 'prenha', False),
+            'dias_gestacao': float(getattr(a, 'dias_gestacao', 0.0))
+        })
+    return jsonify({'animais': lista})
 
 @gado_bp.route('/api/animal/aplicar_insumo', methods=['POST'])
 def aplicar_insumo():
@@ -211,7 +255,6 @@ def aplicar_insumo():
         animal.medicado = True
     elif acao == 'suplemento':
         animal.suplementado = True 
-        animal.peso += 15.0
     
     if getattr(jogador, 'xp', None) is None:
         jogador.xp = 0
@@ -252,6 +295,8 @@ def tratamento_lote():
             animais_para_tratar.append(animal)
         elif tipo == 'medicamento' and not animal.medicado:
             animais_para_tratar.append(animal)
+        elif tipo == 'suplemento' and not getattr(animal, 'suplementado', False):
+            animais_para_tratar.append(animal)
             
     qtd_necessaria = len(animais_para_tratar)
     if qtd_necessaria == 0:
@@ -269,6 +314,10 @@ def tratamento_lote():
         if getattr(fazenda, 'est_medicamento_geral', 0) < qtd_necessaria:
             return jsonify({'sucesso': False, 'erro': 'Sem Medicamento Geral no armazém!'})
         fazenda.est_medicamento_geral -= qtd_necessaria
+    elif tipo == 'suplemento':
+        if getattr(fazenda, 'est_suplemento_engorda', 0) < qtd_necessaria:
+            return jsonify({'sucesso': False, 'erro': 'Sem Suplemento de Engorda no armazém!'})
+        fazenda.est_suplemento_engorda -= qtd_necessaria
     else:
         return jsonify({'sucesso': False, 'erro': 'Tipo de tratamento inválido.'})
         
@@ -279,7 +328,9 @@ def tratamento_lote():
             animal.vacinado_brucelose = True
         elif tipo == 'medicamento':
             animal.medicado = True
-            animal.saude = min(100, animal.saude + 30) 
+            animal.saude = min(100, float(animal.saude or 100) + 30) 
+        elif tipo == 'suplemento':
+            animal.suplementado = True
             
     if getattr(jogador, 'xp', None) is None:
         jogador.xp = 0

@@ -25,6 +25,9 @@ from logica.gado import gado_bp
 from logica.habitats import habitats_bp
 from logica.infraestrutura import infra_bp
 from logica.barracao import barracao_bp
+from logica.imobiliaria import imobiliaria_bp
+from logica.admin import admin_bp
+
 
 app = Flask(__name__)
 
@@ -59,6 +62,9 @@ app.register_blueprint(gado_bp)
 app.register_blueprint(habitats_bp)
 app.register_blueprint(infra_bp)
 app.register_blueprint(barracao_bp)
+app.register_blueprint(imobiliaria_bp)
+app.register_blueprint(admin_bp)
+
 
 with app.app_context():
     db.create_all()
@@ -222,7 +228,7 @@ def receita_federal():
         return "Acesso negado. Área restrita à Receita Federal do Jogo!", 403
 
     # Busca as últimas 100 transações
-    transacoes = Transacao.query.order_by(Transacao.data.desc()).limit(100).all()
+    transacoes = Transacao.query.order_by(Transacao.data.desc()).limit(200).all()
     
     # Monta uma lista associando cada transação ao seu respectivo Jogador para evitar erros
     auditoria = []
@@ -237,7 +243,7 @@ def receita_federal():
             'descricao': t.descricao
         })
 
-    milionarios = Jogador.query.order_by(Jogador.saldo.desc()).limit(5).all()
+    milionarios = Jogador.query.order_by(Jogador.saldo.desc()).limit(50).all()
 
     return render_template(
         'admin_receita.html', 

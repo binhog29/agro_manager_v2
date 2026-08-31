@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Corretora de Imóveis</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        body { margin: 0; padding: 0; background: #1a1a1a; color: #fff; font-family: 'Poppins', sans-serif; }
+        .top-bar { background: #222; padding: 15px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #333; position: sticky; top: 0; z-index: 100; }
+        .btn-voltar { background: #444; color: #fff; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 16px; }
+        .wallet { border: 1px solid #4caf50; padding: 5px 10px; border-radius: 8px; color: #4caf50; font-weight: bold; font-size: 14px; }
+        .container { padding: 15px; padding-bottom: 80px; }
+        .section-title { color: #ff9800; font-size: 18px; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; font-weight: 800; }
+        .empty-box { border: 1px dashed #555; border-radius: 12px; padding: 20px; text-align: center; color: #888; font-style: italic; font-size: 14px; }
+        .card-imovel { background: #222; border: 1px solid #444; border-radius: 12px; padding: 15px; margin-bottom: 15px; }
+        .card-imovel h4 { margin: 0 0 5px 0; font-size: 16px; color: #fff; }
+        .card-imovel p { margin: 0 0 10px 0; font-size: 12px; color: #aaa; }
+        .btn-comprar { background: #2e7d32; color: #fff; border: none; padding: 10px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px; }
+        .btn-vender-banco { background: #d32f2f; color: #fff; border: none; padding: 10px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <button class="btn-voltar" onclick="window.location.href='/mapa'"><i class="fas fa-arrow-left"></i></button>
+        <div style="font-size: 18px; font-weight: 800;"><i class="fas fa-building"></i> Corretora</div>
+        <div class="wallet">R$ {{ "{:,.2f}".format(user.saldo).replace(',','v').replace('.',',').replace('v','.') }}</div>
+    </div>
+
+    <div class="container">
+        <!-- ÁREA DA COMUNIDADE -->
+        <div class="section-title"><i class="fas fa-map-marked-alt"></i> Fazendas à Venda (Porteira Fechada)</div>
+        
+        {% if anuncios|length == 0 %}
+            <div class="empty-box">Nenhuma propriedade à venda no momento.</div>
+        {% else %}
+            {% for anuncio in anuncios %}
+            <div class="card-imovel">
+                <h4>{{ anuncio.propriedade.nome }}</h4>
+                <p>Vendedor: <b>{{ anuncio.vendedor.username }}</b></p>
+                <div style="font-size: 20px; font-weight: bold; color: #4caf50; margin-bottom: 10px;">R$ {{ "{:,.2f}".format(anuncio.valor).replace(',','v').replace('.',',').replace('v','.') }}</div>
+                
+                {% if anuncio.vendedor_id == user.id %}
+                    <button class="btn-vender-banco" style="background: #f57c00;" onclick="cancelarAnuncio({{ anuncio.id }})">Cancelar Meu Anúncio</button>
+                {% else %}
+                    <button class="btn-comprar" onclick="comprarImovel({{ anuncio.id }}, '{{ anuncio.propriedade.nome }}', {{ anuncio.valor }})">Arrematar Propriedade</button>
+                {% endif %}
+            </div>
+            {% endfor %}
+        {% endif %}
+
+        <hr style="border: 0; border-top: 1px solid #333; margin: 25px 0;">
+
+        <!-- 🔥 NOVA ÁREA: VENDA PRO BANCO -->
+        <div class="section-title" style="color: #03a9f4;"><i class="fas fa-hand-holding-usd"></i> Liquidação de Bens (Banco)</div>
+        <p style="font-size: 12px; color: #aaa; margin-bottom: 15px;">Precisa de dinheiro imediato? O Banco compra suas terras na hora por <b>70% do valor original</b> da terra nua.</p>
+
+        {% if minhas_propriedades|length == 0 %}
+            <div class="empty-box">Você não possui fazendas para vender.</div>
+        {% else %}
+            {% for prop in minhas_propriedades %}
+            <div class="card-imovel" style="border-left: 4px solid #03a9f4;">
+                <h4>{{ prop.nome }}</h4>
+                <p>Tipo da Terra: <b>{{ prop.tipo }}</b> | Valor Original: R$ {{ "{:,.2f}".format(prop.preco).replace(',','v').replace('.',',').replace('v','.') }}</p>
+                
+                {% set valor_banco = prop.preco * 0.70 %}
+                <button class="btn-vender-banco" onclick="venderAoBanco({{ prop.id }}, '{{ prop.nome }}', {{ valor_banco }})">
+                    <i class="fas fa-gavel"></i> Liquidar ao Banco (R$ {{ "{:,.2f}".format(valor_banco).replace(',','v').replace('.',',').replace('v','.') }})
+                </button>
+            </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+
+    <script>
+        function comprarImovel(id, nome, valor) {
+            Swal.fire({
+                title: 'Comprar Propriedade',
+                text: `Deseja comprar a fazenda "${nome}" por R$ ${valor.toLocaleString('pt-BR')}?`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Sim, Comprar',
+                cancelButtonText: 'Cancelar',
+                background: '#2a2a2a', color: '#fff', confirmButtonColor: '#2e7d32'
+            }).then((r) => {
+                if (r.isConfirmed) {
+                    Swal.fire({title: 'Processando...', didOpen: () => Swal.showLoading()});
+                    fetch('/api/imobiliaria/comprar', {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ anuncio_id: id })
+                    }).then(r => r.json()).then(d => {
+                        if (d.sucesso) Swal.fire('Parabéns!', d.msg, 'success').then(() => location.reload());
+                        else Swal.fire('Erro', d.erro, 'error');
+                    });
+                }
+            });
+        }
+
+        function cancelarAnuncio(id) {
+            Swal.fire({
+                title: 'Cancelar Anúncio?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Sim, Cancelar',
+                cancelButtonText: 'Voltar',
+                background: '#2a2a2a', color: '#fff', confirmButtonColor: '#d32f2f'
+            }).then((r) => {
+                if (r.isConfirmed) {
+                    fetch('/api/imobiliaria/cancelar', {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ anuncio_id: id })
+                    }).then(r => r.json()).then(d => {
+                        if (d.sucesso) location.reload();
+                        else Swal.fire('Erro', d.erro, 'error');
+                    });
+                }
+            });
+        }
+
+        function venderAoBanco(id, nome, valor) {
+            Swal.fire({
+                title: 'Desapropriar Fazenda?',
+                html: `O Banco pagará <b>R$ ${valor.toLocaleString('pt-BR')}</b> agora mesmo por <b>${nome}</b>.<br><br><span style="color:#f44336; font-size:13px; font-weight:bold;">⚠️ CUIDADO: Todo o seu gado, maquinário, estoques e obras desta fazenda serão PERDIDOS e RESETADOS!</span>`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: '<i class="fas fa-check"></i> Vender e Perder Tudo',
+                cancelButtonText: 'Cancelar',
+                background: '#2a2a2a', color: '#fff', confirmButtonColor: '#d32f2f'
+            }).then((r) => {
+                if (r.isConfirmed) {
+                    Swal.fire({title: 'Limpando as Terras...', didOpen: () => Swal.showLoading()});
+                    fetch('/api/imobiliaria/vender_banco', {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ fazenda_id: id })
+                    }).then(r => r.json()).then(d => {
+                        if (d.sucesso) Swal.fire('Liquidada!', d.msg, 'success').then(() => location.href='/mapa');
+                        else Swal.fire('Erro', d.erro, 'error');
+                    });
+                }
+            });
+        }
+    </script>
+</body>
+</html>

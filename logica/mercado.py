@@ -6,14 +6,14 @@ import random
 mercado_bp = Blueprint('mercado', __name__)
 
 PRECOS_REAIS = {
-    'bovino_corte': 240.0,  # R$ 240,00 por Arroba (@)
-    'bovino_leite': 210.0,  # R$ 210,00 por Arroba (@)
-    'equino': 150.0,        # R$ 150,00 por Arroba (@)
-    'suino': 7.5,           # R$ 7,50 por Kg vivo
-    'ave': 6.0,             # R$ 6,00 por Kg vivo
-    'peixe_gigante': 20.0,  # Pirarucu, Surubim, Pintado (R$ 20,00 / Kg)
-    'peixe_medio': 10.0,    # Tambaqui, Pacu (R$ 10,00 / Kg)
-    'ovino': 20.0           # R$ 20,00 por Kg
+    'bovino_corte': 280.0,
+    'bovino_leite': 250.0,
+    'equino': 15.0,
+    'suino': 8.0,
+    'ave': 15.0,
+    'peixe_gigante': 20.0,  
+    'peixe_medio': 10.0,    
+    'ovino': 20.0
 }
 
 def calcular_fator_dia(dia, mes, ano):
@@ -42,9 +42,10 @@ def get_precos():
                 
         preco_base = PRECOS_REAIS.get(familia, 200.0) * fator
         
-        if familia in ['bovino_corte', 'bovino_leite', 'equino']:
-            peso_formatado_adulto = round(peso_adulto_kg / 15.0, 1)
-            peso_formatado_filhote = round(peso_filhote_kg / 15.0, 1)
+        # 🔥 Cavalos e Ovelhas saíram da lista de Arrobas!
+        if familia in ['bovino_corte', 'bovino_leite']:
+            peso_formatado_adulto = round(peso_adulto_kg / 30.0, 1)
+            peso_formatado_filhote = round(peso_filhote_kg / 30.0, 1)
             valor_adulto = (peso_formatado_adulto * preco_base) * 1.10
             unidade = '@'
         else:
@@ -90,10 +91,10 @@ def ver_mercado():
         
         preco_base = PRECOS_REAIS.get(familia_animal, 200.0) * fator_mercado
         
-        if familia_animal in ['bovino_corte', 'bovino_leite', 'equino']:
-            peso_arrobas = peso_adulto_kg / 15.0
+        if familia_animal in ['bovino_corte', 'bovino_leite']:
+            peso_arrobas = round(peso_adulto_kg / 30.0, 1) 
             valor_adulto_justo = (peso_arrobas * preco_base) * 1.10
-            info_peso_texto = f"{peso_arrobas:.1f} @"
+            info_peso_texto = f"{peso_arrobas} @"
         else:
             valor_adulto_justo = (peso_adulto_kg * preco_base) * 1.10
             info_peso_texto = f"{peso_adulto_kg:.0f} Kg"
@@ -120,7 +121,7 @@ def comprar_ia():
     
     raca = dados.get('raca')
     fase = dados.get('fase', 'adulto').lower()
-    sexo = dados.get('sexo')
+    sexo = dados.get('sexo', 'M').upper()
     raca_lower = raca.lower() if raca else ''
     
     try:
@@ -133,7 +134,6 @@ def comprar_ia():
 
     LIMITE_ADULTO = 20
     LIMITE_FILHOTE = 40
-    FRETE_POR_CABECA = 50.0
 
     espaco_necessario = (quantidade * 0.5) if fase == 'filhote' else (quantidade * 1.0)
     capacidade_caminhao = LIMITE_FILHOTE if fase == 'filhote' else LIMITE_ADULTO
@@ -158,7 +158,6 @@ def comprar_ia():
             familia_animal = familia
             break
 
-    # 🔥 CORREÇÃO: O Roteador subiu! Agora sabemos o "habitat" antes de calcular o frete!
     if familia_animal == 'ave' or any(t in raca_lower for t in ['galinha', 'pato', 'peru', 'ave']):
         habitat = 'galinheiro'
         if not getattr(propriedade, 'tem_galinheiro', False): return jsonify({'sucesso': False, 'erro': 'Construa um Galinheiro!'})
@@ -177,33 +176,53 @@ def comprar_ia():
         if animais_atuais + quantidade > limite: return jsonify({'sucesso': False, 'erro': 'Tronco lotado!'})
 
     fator_mercado = calcular_fator_dia(usuario.dia, usuario.mes, usuario.ano)
+    desconto_sexo = 0.90 if sexo == 'F' else 1.0
     
     if fase == 'filhote':
         preco_base_filhote = TABELA_PRECOS.get(raca_lower, {}).get('filhote', 1100)
-        preco_unitario = (preco_base_filhote * fator_mercado) * 1.10 
+        preco_unitario = ((preco_base_filhote * fator_mercado) * 1.10) * desconto_sexo
         peso_animal = peso_jovem_kg
     else:
         preco_base = PRECOS_REAIS.get(familia_animal, 200.0) * fator_mercado
-        if familia_animal in ['bovino_corte', 'bovino_leite', 'equino']:
-            preco_unitario = ((peso_adulto_kg / 15.0) * preco_base) * 1.10
+        if familia_animal in ['bovino_corte', 'bovino_leite']:
+            peso_arrobas = round(peso_adulto_kg / 30.0, 1)
+            preco_unitario = ((peso_arrobas * preco_base) * 1.10) * desconto_sexo
         else:
-            preco_unitario = (peso_adulto_kg * preco_base) * 1.10
+            preco_unitario = ((peso_adulto_kg * preco_base) * 1.10) * desconto_sexo
         peso_animal = peso_adulto_kg
 
-    # 🔥 CORREÇÃO: Alinhamento correto e cálculo inteligente do Caminhão
+    # Valor dinâmico do frete por cabeça
+    if familia_animal in ['ave', 'peixe_medio', 'peixe_gigante']:
+        frete_cabeca = 5.0
+    elif familia_animal in ['suino', 'ovino']:
+        frete_cabeca = 15.0
+    else:
+        frete_cabeca = 50.0
+
     usa_caminhao = dados.get('usa_caminhao', False)
     
     if usa_caminhao:
-        modelo_necessario = 'Caminhão Baú (Frios)' if habitat == 'represa' else 'Caminhão Boiadeiro'
-        # Importação segura e local para não gerar ciclo
+        if habitat == 'represa':
+            modelos_aceitos = ['Caminhão Baú (Frios)']
+            msg_erro = 'Sem Caminhão Baú (Frios) na fazenda!'
+        elif familia_animal in ['ave', 'suino', 'ovino']:
+            modelos_aceitos = ['Caminhonete Nova', 'Caminhonete Usada', 'Caminhão Boiadeiro']
+            msg_erro = 'Sem Caminhonete ou Caminhão Boiadeiro!'
+        else:
+            modelos_aceitos = ['Caminhão Boiadeiro']
+            msg_erro = 'Sem Caminhão Boiadeiro na fazenda!'
+            
         from database import Maquinario
-        tem_caminhao = Maquinario.query.filter_by(propriedade_id=propriedade.id, modelo=modelo_necessario).first()
+        tem_veiculo = Maquinario.query.filter(
+            Maquinario.propriedade_id == propriedade.id, 
+            Maquinario.modelo.in_(modelos_aceitos)
+        ).first()
         
-        if not tem_caminhao:
-            return jsonify({'sucesso': False, 'erro': f'Fraude detectada: Sem {modelo_necessario} na fazenda!'})
+        if not tem_veiculo:
+            return jsonify({'sucesso': False, 'erro': f'Fraude detectada: {msg_erro}'})
         custo_frete = 0.0
     else:
-        custo_frete = quantidade * FRETE_POR_CABECA
+        custo_frete = quantidade * frete_cabeca
 
     custo_gado = preco_unitario * quantidade
     custo_total = custo_gado + custo_frete

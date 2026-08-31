@@ -17,11 +17,9 @@
                 ('acai', 'Açaí'), ('cupuacu', 'Cupuaçu'), ('cafe', 'Café Clonal')
             ] %}
             
-            <!-- Controle blindado do Jinja2 para a mensagem de Vazio -->
             {% set ns = namespace(vazio=true) %}
             
             {% for tipo, nome in lista_galpao %}
-                <!-- Lê a propriedade do banco de forma segura usando attr() -->
                 {% set nome_coluna = 'est_' ~ tipo %}
                 {% set qtd = fazenda | attr(nome_coluna) %}
                 

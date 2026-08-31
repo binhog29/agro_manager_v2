@@ -1,4 +1,4 @@
-<link rel="stylesheet" href="{{ url_for('static', filename='css/silo.css') }}?v=1">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/silo.css') }}?v=2">
 <div id="modal-silo" class="modal-fundo" onclick="fecharSeClicarFora(event, 'modal-silo')">
     <div class="modal-janela" style="border-top: 5px solid #fbc02d;">
         <span class="fechar-btn" onclick="fecharModal('modal-silo')">&times;</span>
@@ -13,14 +13,13 @@
             {% set total_silo = (fazenda.est_milho + fazenda.est_soja + fazenda.est_arroz + fazenda.est_feijao) %}
             {% set porcentagem = (total_silo / fazenda.cap_silo) * 100 if fazenda.cap_silo > 0 else 0 %}
             <div style="width: {{ porcentagem }}%; background: #fbc02d; height: 100%; transition: width 0.5s;"></div>
-            <small style="position: absolute; width: 100%; left: 0; top: 0; line-height: 24px; font-weight: bold; color: #fff; text-shadow: 1px 1px 2px #000;">
+            <small style="position: absolute; width: 100%; left: 0; top: 0; line-height: 24px; font-weight: bold; color: #fff; text-shadow: 1px 1px 2px #000; text-align: center;">
                 {{ total_silo }} / {{ fazenda.cap_silo }} kg
             </small>
         </div>
 
         <div style="background: #333; padding: 12px; border-radius: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #444;">
             <div style="text-align: left;">
-                <!-- 🔥 AQUI ESTÁ A CORREÇÃO VISUAL: -->
                 <span style="font-size: 11px; color: #aaa; display: block;">Expansão do Silo:</span>
                 <b style="color: #fbc02d;">Ver Projetos de Obra</b>
             </div>
@@ -32,8 +31,12 @@
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
             {% set lista_graos = [('milho', 'Milho'), ('soja', 'Soja'), ('arroz', 'Arroz'), ('feijao', 'Feijão')] %}
             {% for tipo, nome in lista_graos %}
-                {% set qtd = fazenda['est_' ~ tipo] %}
-                {% if qtd > 0 %}
+                
+                <!-- 🔥 CORREÇÃO AQUI: Trocado colchetes [] pela função segura attr() -->
+                {% set nome_coluna = 'est_' ~ tipo %}
+                {% set qtd = fazenda | attr(nome_coluna) %}
+                
+                {% if qtd and qtd > 0 %}
                 <div style="background: #222; padding: 12px; border-radius: 12px; border: 1px solid #444; display: flex; flex-direction: column; align-items: center;">
                     <img src="/static/img/{{ tipo }}.png" style="height:40px; margin-bottom:5px;" onerror="this.src='/static/img/milho.png'">
                     <span style="font-size: 13px; color: #aaa; font-weight: 600;">{{ nome }}</span>
@@ -47,5 +50,5 @@
             <span style="color: #888; font-style: italic; margin-top: 20px; display: block;">O Silo de Grãos está vazio! 🌾</span>
         {% endif %}
     </div>
-    <script src="{{ url_for('static', filename='js/silo.js') }}?v=1"></script>
+    <script src="{{ url_for('static', filename='js/silo.js') }}?v=2"></script>
 </div>

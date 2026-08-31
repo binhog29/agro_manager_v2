@@ -4,9 +4,6 @@ from logica.economia import registrar_transacao
 
 funcionarios_bp = Blueprint('funcionarios', __name__)
 
-# ==========================================
-# MOTOR ORIENTADO A OBJETOS (OOP) PARA O RH
-# ==========================================
 class Cargo:
     def __init__(self, id_cargo, nome, custo, salario_hora, beneficio):
         self.id_cargo = id_cargo
@@ -18,11 +15,11 @@ class Cargo:
 class GerenciadorRH:
     """Catálogo central de profissões da fazenda."""
     CATALOGO = {
-        'peoes': Cargo('peoes', 'Peão', 1000.0, 25.0, 'Proteção animal básica'),
-        'tratoristas': Cargo('tratoristas', 'Tratorista', 2500.0, 45.0, '+15% Colheita (Máx 5)'),
-        'capatazes': Cargo('capatazes', 'Capataz', 10000.0, 150.0, '+10% Venda (Máx 5)'),
-        'veterinarios': Cargo('veterinarios', 'Veterinário', 8000.0, 120.0, 'Reduz doenças'),
-        'agronomos': Cargo('agronomos', 'Agrônomo', 9000.0, 130.0, '-20% Safra (Máx 2)')
+        'peoes': Cargo('peoes', 'Peão', 500.0, 4.0, 'Proteção animal básica'),
+        'tratoristas': Cargo('tratoristas', 'Tratorista', 1200.0, 7.0, '+15% Colheita (Máx 5)'),
+        'capatazes': Cargo('capatazes', 'Capataz', 2500.0, 12.0, '+10% Venda (Máx 5)'),
+        'veterinarios': Cargo('veterinarios', 'Veterinário', 3000.0, 18.0, 'Reduz doenças'),
+        'agronomos': Cargo('agronomos', 'Agrônomo', 3500.0, 22.0, '-20% Safra (Máx 2)')
     }
 
     @classmethod
@@ -37,9 +34,6 @@ class GerenciadorRH:
             total += quantidade * cargo_obj.salario_hora * horas
         return total
 
-# ==========================================
-# ROTAS E AÇÕES
-# ==========================================
 @funcionarios_bp.route('/api/rh/contratar', methods=['POST'])
 def contratar_funcionario():
     if 'usuario' not in session:
@@ -71,7 +65,6 @@ def contratar_funcionario():
     if qtd_atual is None:
         qtd_atual = 0
         
-    # 🔥 TRAVA DE BALANCEAMENTO: Máximo de funcionários por cargo!
     limite_maximo = 2 if id_cargo == 'agronomos' else 5
     if qtd_atual >= limite_maximo:
         return jsonify({'sucesso': False, 'erro': f'Alojamento lotado! O limite é de {limite_maximo} {cargo_obj.nome}(s) por fazenda.'})
@@ -101,28 +94,30 @@ def cobrar_folha_pagamento(jogador, horas_passadas):
             custo_total += GerenciadorRH.calcular_folha(equipe, horas_passadas)
 
     if custo_total > 0:
-        jogador.saldo -= custo_total
-        registrar_transacao(jogador.id, 'saida', custo_total, f'Folha de Pagamento ({horas_passadas}h)')
-        db.session.commit()
+        # 🔥 BLINDAGEM: Impede a conta de cair em dívida impagável (Softlock)
+        valor_cobrado = custo_total if jogador.saldo >= custo_total else jogador.saldo
+        jogador.saldo -= valor_cobrado
+        
+        if valor_cobrado > 0:
+            registrar_transacao(jogador.id, 'saida', valor_cobrado, f'Folha de Pagamento ({horas_passadas}h)')
+            db.session.commit()
         
     return custo_total
 
 def obter_bonus_equipe(propriedade_id):
-    """Retorna os multiplicadores blindados contra quebras na economia"""
     equipe = Equipe.query.filter_by(propriedade_id=propriedade_id).first()
     if not equipe:
         return {'bonus_colheita': 1.0, 'protecao_animal': False, 'bonus_venda': 1.0, 'reduz_doencas': False, 'acelera_safra': 1.0}
 
-    # 🔥 BLINDAGEM DA ECONOMIA: Teto máximo para os multiplicadores
-    bonus_trator = min(0.75, getattr(equipe, 'tratoristas', 0) * 0.15) # Teto de +75%
-    bonus_venda = min(0.50, getattr(equipe, 'capatazes', 0) * 0.10)    # Teto de +50%
+    bonus_trator = min(0.75, getattr(equipe, 'tratoristas', 0) * 0.15) 
+    bonus_venda = min(0.50, getattr(equipe, 'capatazes', 0) * 0.10)    
 
     return {
         'bonus_colheita': 1.0 + bonus_trator,
         'protecao_animal': getattr(equipe, 'peoes', 0) > 0,
         'bonus_venda': 1.0 + bonus_venda,
         'reduz_doencas': getattr(equipe, 'veterinarios', 0) > 0,
-        'acelera_safra': max(0.5, 1.0 - (getattr(equipe, 'agronomos', 0) * 0.20)) # Teto de -50% no tempo
+        'acelera_safra': max(0.5, 1.0 - (getattr(equipe, 'agronomos', 0) * 0.20))
     }
 
 @funcionarios_bp.route('/api/rh/listar/<int:propriedade_id>', methods=['GET'])
@@ -178,7 +173,6 @@ def demitir_funcionario():
     if qtd_atual <= 0:
         return jsonify({'sucesso': False, 'erro': f'Você não tem nenhum {cargo_obj.nome} para demitir.'})
         
-    # Remove 1 funcionário do cargo
     setattr(equipe, id_cargo, qtd_atual - 1)
 
     db.session.commit()

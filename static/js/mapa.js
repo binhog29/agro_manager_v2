@@ -73,13 +73,38 @@ document.addEventListener('DOMContentLoaded', function() {
         );
     }
 
-    function abrirModalDono(f) {
+        function abrirModalDono(f) {
         showSweet(
             f.nome, 
             "Esta propriedade é sua.", 
-            `<button class="sweet-btn" onclick="window.location.href='/fazenda/${f.id}'">ENTRAR</button>
-             <button class="sweet-btn sweet-btn-sec" onclick="renomear(${f.id})">RENOMEAR</button>`
+            `<button class="sweet-btn" onclick="window.location.href='/fazenda/${f.id}'">ENTRAR NA FAZENDA</button>
+             <button class="sweet-btn sweet-btn-sec" style="margin-top: 8px;" onclick="renomear(${f.id})">RENOMEAR</button>
+             <button class="sweet-btn" style="background: #e65100; color: white; margin-top: 8px; width: 100%; border: 1px solid #bf360c;" onclick="anunciarImovel(${f.id}, '${f.nome}')"><i class="fas fa-sign"></i> VENDER NA CORRETORA</button>`
         );
+    }
+
+    window.anunciarImovel = function(fazendaId, nome) {
+        window.closeModal();
+        Swal.fire({
+            title: 'Vender de Porteira Fechada',
+            text: `Por qual valor você deseja anunciar a fazenda "${nome}"? (Lembre-se: O comprador levará o gado, tratores e dinheiro do cofre junto!)`,
+            input: 'number',
+            inputAttributes: { min: 1 },
+            showCancelButton: true,
+            confirmButtonText: 'Anunciar',
+            cancelButtonText: 'Cancelar',
+            background: '#2a2a2a', color: '#fff', confirmButtonColor: '#e65100'
+        }).then((res) => {
+            if(res.isConfirmed && res.value > 0) {
+                fetch('/api/imobiliaria/anunciar', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ fazenda_id: fazendaId, valor: parseFloat(res.value) })
+                }).then(r => r.json()).then(d => {
+                    if(d.sucesso) Swal.fire('No Ar!', d.msg, 'success').then(() => location.reload());
+                    else Swal.fire('Erro', d.erro, 'error');
+                });
+            }
+        });
     }
 
     window.comprar = function(id) {

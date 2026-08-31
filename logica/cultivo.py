@@ -48,7 +48,6 @@ class Cultura:
 
 class CulturaPerene(Cultura):
     def __init__(self, nome, custo_semente, producao_kg, tempo_colheita, preparo_exigido, custo_maquina_plantio, custo_maquina_colheita, tempo_descanso, max_ciclos):
-        # 🔥 CORREÇÃO: O super() agora repassa apenas os 7 argumentos básicos da classe pai
         super().__init__(nome, custo_semente, producao_kg, tempo_colheita, preparo_exigido, custo_maquina_plantio, custo_maquina_colheita)
         self.tipo_biologia = 'perene'
         self.tempo_descanso = tempo_descanso
@@ -95,7 +94,6 @@ CATALOGO_CULTIVOS = {
     'tomate': Cultura('Tomate', 15, 6000, 90, 'arado', 100, 150),
     'abacaxi': Cultura('Abacaxi', 250, 25000, 400, 'coveado', 100, 150),
     'melancia': Cultura('Melancia', 50, 15000, 85, 'coveado', 100, 150),
-    
     'cana': CulturaPerene('Cana-de-Açúcar', 300, 80000, 360, 'arado', 300, 600, tempo_descanso=30, max_ciclos=5), 
     'banana': CulturaPerene('Banana', 200, 15000, 300, 'coveado', 100, 150, tempo_descanso=15, max_ciclos=8),
     'cacau': CulturaPerene('Cacau', 600, 1500, 500, 'coveado', 150, 200, tempo_descanso=45, max_ciclos=15),
@@ -105,7 +103,6 @@ CATALOGO_CULTIVOS = {
     'cafe': CulturaSazonal('Café Clonal', 500, 4000, 365, 'coveado', 150, 300, tempo_descanso=90, max_ciclos=10, estacoes_fruto=['outono', 'inverno'])
 }
 
-# ROTA DE LEITURA (Aberta para visitantes não poderem clicar, mas verem)
 @cultivo_bp.route('/api/cultivo/detalhes', methods=['GET'])
 def detalhes_cultivo():
     lote_id = request.args.get('lote_id')
@@ -151,7 +148,6 @@ def plantar():
     dados = request.get_json()
     lote = Lote.query.get(dados.get('lote_id'))
     
-    # 🔒 TRAVA ANTI-INJEÇÃO
     fazenda_alvo = Propriedade.query.get(lote.fazenda_id)
     if not fazenda_alvo or fazenda_alvo.dono_id != usuario.id:
         return jsonify({'sucesso': False, 'erro': '🚨 FRAUDE DETECTADA: Você não é dono desta terra!'})
@@ -209,7 +205,6 @@ def manejo_lavoura():
     if not lote or lote.status not in ['plantado', 'colhendo']:
         return jsonify({'sucesso': False, 'erro': 'Lote inválido para manejo.'})
 
-    # 🔒 TRAVA ANTI-INJEÇÃO
     fazenda_alvo = Propriedade.query.get(lote.fazenda_id)
     if not fazenda_alvo or fazenda_alvo.dono_id != usuario.id:
         return jsonify({'sucesso': False, 'erro': '🚨 FRAUDE DETECTADA: Você não é dono desta terra!'})
@@ -242,7 +237,6 @@ def manejo_lavoura():
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': msg})
 
-
 @cultivo_bp.route('/api/cultivo/colher', methods=['POST'])
 def colher():
     if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
@@ -253,7 +247,6 @@ def colher():
     if not lote or lote.status not in ['plantado', 'colhendo', 'colheita_incompleta']: 
         return jsonify({'sucesso': False, 'erro': 'A lavoura não pode ser colhida no momento.'})
 
-    # 🔒 TRAVA ANTI-INJEÇÃO
     fazenda_alvo = Propriedade.query.get(lote.fazenda_id)
     if not fazenda_alvo or fazenda_alvo.dono_id != usuario.id:
         return jsonify({'sucesso': False, 'erro': '🚨 FRAUDE DETECTADA: Você não é dono desta terra!'})
@@ -333,18 +326,18 @@ def abandonar_terra():
     
     if not lote: return jsonify({'sucesso': False, 'erro': 'Lote não encontrado.'})
 
-    # 🔒 TRAVA ANTI-INJEÇÃO
     fazenda_alvo = Propriedade.query.get(lote.fazenda_id)
     if not fazenda_alvo or fazenda_alvo.dono_id != usuario.id:
         return jsonify({'sucesso': False, 'erro': '🚨 FRAUDE DETECTADA: Você não é dono desta terra!'})
 
-    lote.status = 'mato'
+    # 🔥 BLINDAGEM: Devolve o terreno limpo para barrar o farm infinito de madeira
+    lote.status = 'limpo'
     lote.tipo_cultivo = None 
     lote.dias_plantado = 0
     lote.ciclos_colhidos = 0
     lote.dias_descanso = 0
     db.session.commit()
-    return jsonify({'sucesso': True, 'msg': 'Terra consumida pelo mato.'})
+    return jsonify({'sucesso': True, 'msg': 'Terra limpa e cultura desfeita.'})
 
 @cultivo_bp.route('/api/cultivo/comprar_irrigacao', methods=['POST'])
 def comprar_irrigacao():
@@ -355,7 +348,6 @@ def comprar_irrigacao():
     
     if not lote: return jsonify({'sucesso': False, 'erro': 'Lote não encontrado.'})
 
-    # 🔒 TRAVA ANTI-INJEÇÃO
     fazenda_alvo = Propriedade.query.get(lote.fazenda_id)
     if not fazenda_alvo or fazenda_alvo.dono_id != usuario.id:
         return jsonify({'sucesso': False, 'erro': '🚨 FRAUDE DETECTADA: Você não é dono desta terra!'})

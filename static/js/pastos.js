@@ -1,9 +1,9 @@
 // Função auxiliar para alternar entre Kg e Arrobas (@)
 function formatarPeso(peso) {
     let p = parseFloat(peso) || 0;
-    if (p >= 15.0) {
-        // 1 Arroba (@) = 15 kg
-        return (p / 15.0).toFixed(1) + ' @';
+    if (p >= 30.0) {
+        // Agora reflete o rendimento comercial correto (30 kg vivos = 1 @)
+        return (p / 30.0).toFixed(1) + ' @';
     } else {
         return p.toFixed(1) + ' kg';
     }
@@ -13,24 +13,28 @@ window.abrirGerenciamentoPasto = async function(loteId, tipoCapim, temCocho, tem
     const response = await fetch(`/api/pecuaria/listar_pasto?pasto_id=${loteId}`);
     const data = await response.json();
     
-    // Mostra o status realista da infraestrutura usando as variáveis novas separadas
     let infoCocho = '';
     if(temCocho) { infoCocho += `✅ Sal (${Math.round(qtdSal)}/10 un) | `; } else { infoCocho += `❌ Sal | `; }
     if(temCochoRacao) { infoCocho += `✅ Ração (${Math.round(qtdRacao)}/20 un) | `; } else { infoCocho += `❌ Ração | `; }
     infoCocho += temBebedouro ? `✅ Água` : `❌ Água`;
     
-    // Lista de animais usando a formatação dinâmica de peso (Kg ou @)
     let animaisHtml = data.animais.map(a => {
         const cAft = a.vacinado_aftosa ? '#2196f3' : '#444';
         const cBruc = a.vacinado_brucelose ? '#f44336' : '#444';
         const cMed = a.medicado ? '#9c27b0' : '#444';
         const cSup = a.suplementado ? '#4caf50' : '#444';
 
+        // 🔥 NOVIDADE: Cria a etiqueta visual da gravidez!
+        let tagPrenha = '';
+        if (a.sexo === 'F' && a.prenha) {
+            tagPrenha = `<span style="background: #e91e63; color: white; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: bold; margin-left: 6px; box-shadow: 0 0 5px rgba(233,30,99,0.5);"><i class="fas fa-heart"></i> PRENHA (${Math.round(a.dias_gestacao)}d)</span>`;
+        }
+
         return `
         <div style="background: #222; padding: 8px; margin-bottom: 6px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between; border-left: 3px solid #555;">
             <div style="text-align: left;">
-                <div style="font-weight: bold; font-size: 13px; color: #fff;">${a.raca}</div>
-        <div style="font-size: 10px; color: #888;">ID: #${a.id} | Sexo: <b>${a.sexo}</b> | ${formatarPeso(a.peso)}</div>
+                <div style="font-weight: bold; font-size: 13px; color: #fff; text-transform: capitalize;">${a.raca} ${tagPrenha}</div>
+                <div style="font-size: 10px; color: #888;">ID: #${a.id} | Sexo: <b>${a.sexo}</b> | ${formatarPeso(a.peso)} | ${a.status_peso || ''}</div>
             </div>
             
             <div style="display: flex; gap: 4px;">
@@ -261,70 +265,86 @@ window.comprarInfraPasto = function(loteId, tipoObra, custoObra, btnId) {
 window.abrirSeletorAnimais = async function(pastoId, acao) {
     let endpointListagem = '';
     let tituloModal = '';
-    let destinoFinal = 'pasto_' + pastoId; 
-    
-    // Captura o ID da fazenda atual pela URL (Ex: 235)
+    let destinoFinal = 'pasto_' + pastoId;
+    let btnConfirmarText = '';
+
     const fazendaId = window.location.pathname.split('/').pop();
 
     if (acao === 'curral_para_pasto') {
-        // Envia o ID para o Python buscar apenas os bois certos!
         endpointListagem = `/api/pecuaria/listar_curral?fazenda_id=${fazendaId}`;
-        tituloModal = 'Trazer do Curral';
+        tituloModal = 'Trazer Gado do Curral';
+        btnConfirmarText = 'Mover para o Pasto';
     } else {
         endpointListagem = `/api/pecuaria/listar_pasto?pasto_id=${pastoId}`;
         tituloModal = 'Devolver ao Curral';
         destinoFinal = 'curral';
+        btnConfirmarText = 'Devolver ao Curral';
     }
-    
+
     const resposta = await fetch(endpointListagem);
     const dados = await resposta.json();
-    
+
     if (!dados.animais || dados.animais.length === 0) {
         Swal.fire('Aviso', 'Nenhum animal disponível para esta ação.', 'info');
         return;
     }
 
-    let todosIds = dados.animais.map(a => a.id);
-    let htmlCartoes = '<div style="display: flex; flex-direction: column; gap: 10px; max-height: 60vh; overflow-y: auto; padding-right: 5px;">';
-    
-    if (dados.animais.length > 1) {
-        htmlCartoes += `
-            <button class="swal2-confirm swal2-styled" style="background-color: #f57c00; width: 100%; margin-bottom: 5px; display: flex; align-items: center; justify-content: center; gap: 10px;" onclick="confirmarMovimentacaoLote([${todosIds.join(',')}], '${destinoFinal}')">
-                <i class="fas fa-truck-loading"></i> Mover Todos (${dados.animais.length})
-            </button>
-            <hr style="border: 0; border-top: 1px solid #444; margin: 5px 0 10px 0;">
-        `;
-    }
+    let htmlCheckboxes = `
+        <div style="text-align: left; max-height: 50vh; overflow-y: auto; padding: 5px;">
+            <div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                <label style="cursor: pointer; font-size: 13px; color: #ff9800; font-weight: bold;">
+                    <input type="checkbox" onclick="toggleSelecionarTodosManejo(this)" style="cursor: pointer; width: 16px; height: 16px; margin-right: 5px; vertical-align: middle;"> Selecionar Todos
+                </label>
+                <span style="font-size: 11px; color: #aaa;">Total: ${dados.animais.length} animais</span>
+            </div>
+    `;
 
     dados.animais.forEach(a => {
         let imgSrc = `/static/img/${a.raca.toLowerCase()}.png`;
-        
-        htmlCartoes += `
-            <div onclick="confirmarMovimentacao(${a.id}, '${destinoFinal}')" 
-                 style="background: #222; border: 1px solid #444; border-radius: 8px; padding: 12px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: 0.2s;">
-                
-                <div style="display: flex; align-items: center; gap: 12px;">
-                    <img src="${imgSrc}" width="45" style="border-radius: 8px; background: #333; padding: 3px;" onerror="this.src='/static/img/nelore.png'">
-                    <div style="text-align: left;">
-                        <h4 style="margin: 0; color: #fff; font-size: 15px; text-transform: capitalize;">${a.raca} (${a.fase})</h4>
-                        <span style="color: #aaa; font-size: 12px;">ID: #${a.id} | Sexo: ${a.sexo}</span>
+
+        htmlCheckboxes += `
+            <label style="display: flex; align-items: center; justify-content: space-between; background: #222; padding: 10px; margin-bottom: 6px; border-radius: 6px; cursor: pointer; border: 1px solid #444;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <input type="checkbox" class="chk-animal-manejo" value="${a.id}" style="width: 18px; height: 18px; cursor: pointer; flex-shrink: 0; margin-right: 5px;">
+                    <img src="${imgSrc}" width="40" style="border-radius: 6px; background: #333; padding: 2px;" onerror="this.src='/static/img/nelore.png'">
+                    <div>
+                        <div style="font-weight: bold; font-size: 14px; color: #fff; text-transform: capitalize;">${a.raca} (${a.fase})</div>
+                        <span style="font-size: 11px; color: #888;">ID: #${a.id} | Sexo: <b>${a.sexo}</b></span>
                     </div>
                 </div>
-                <div style="color: #8bc34a; font-weight: bold; font-size: 16px;">${formatarPeso(a.peso)}</div>
-            </div>
+                <div style="color: #8bc34a; font-weight: bold; font-size: 14px;">${formatarPeso(a.peso)}</div>
+            </label>
         `;
     });
-    htmlCartoes += '</div>';
+    htmlCheckboxes += '</div>';
 
     Swal.fire({
         title: tituloModal,
-        html: htmlCartoes,
+        html: htmlCheckboxes,
         background: '#2a2a2a',
         color: '#fff',
-        showConfirmButton: false,
         showCancelButton: true,
-        cancelButtonText: 'Cancelar'
+        confirmButtonColor: '#ff9800',
+        cancelButtonColor: '#555',
+        confirmButtonText: btnConfirmarText,
+        cancelButtonText: 'Cancelar',
+        preConfirm: () => {
+            const checkboxes = document.querySelectorAll('.chk-animal-manejo:checked');
+            const ids = Array.from(checkboxes).map(chk => parseInt(chk.value));
+            if (ids.length === 0) {
+                Swal.showValidationMessage('Selecione pelo menos um animal!');
+            }
+            return ids;
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            confirmarMovimentacaoLote(result.value, destinoFinal);
+        }
     });
+};
+
+window.toggleSelecionarTodosManejo = function(masterCheckbox) {
+    document.querySelectorAll('.chk-animal-manejo').forEach(chk => chk.checked = masterCheckbox.checked);
 };
 
 window.confirmarMovimentacaoLote = function(animalIds, destinoFinal) {

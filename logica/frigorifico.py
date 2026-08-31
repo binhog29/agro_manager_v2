@@ -8,16 +8,15 @@ import random
 frigorifico_bp = Blueprint('frigorifico', __name__)
 
 PRECOS_REAIS = {
-    'bovino_corte': 250.0,
-    'bovino_leite': 210.0,
-    'equino': 150.0,
-    'suino': 12.0,
-    'ave': 8.0,
-    'peixe_gigante': 15.0,  # <-- Pirarucu, Surubim, Pintado, Cachara (R$/Kg)
-    'peixe_medio': 8.0,     # <-- Tambaqui, Pacu, Tucunaré (R$/Kg)
+    'bovino_corte': 280.0,
+    'bovino_leite': 250.0,
+    'equino': 15.0,
+    'suino': 8.0,
+    'ave': 15.0,
+    'peixe_gigante': 20.0,  
+    'peixe_medio': 10.0,    
     'ovino': 20.0
 }
-
 
 class CotacaoMercado:
     @staticmethod
@@ -59,18 +58,13 @@ def dados_grafico_cotacao():
             familia_animal = f
             break
 
-    preco_base = PRECOS_REAIS.get(familia_animal, 200.0)
-    unidade = '@' if familia_animal in ['bovino_corte', 'bovino_leite', 'equino'] else 'Kg'
+    preco_base = PRECOS_REAIS.get(familia_animal, 240.0)
+    unidade = '@' if familia_animal in ['bovino_corte', 'bovino_leite'] else 'Kg'
 
     labels = [h['label'] for h in historico]
     valores = [round(preco_base * h['fator'], 2) for h in historico]
 
     return jsonify({'sucesso': True, 'labels': labels, 'valores': valores, 'unidade': unidade, 'raca': raca_alvo.capitalize(), 'fator_atual': historico[-1]['fator']})
-
-
-# ==========================================
-# NOVAS ROTAS COM SELEÇÃO POR CHECKBOX (IDs)
-# ==========================================
 
 @frigorifico_bp.route('/api/animal/estimar_frigorifico', methods=['POST'])
 def estimar_frigorifico():
@@ -92,8 +86,6 @@ def estimar_frigorifico():
         return jsonify({'sucesso': True, 'valor': 0, 'encontrados': 0, 'fator': 1.0})
         
     fator = CotacaoMercado.calcular_fator_dia(usuario.dia, usuario.mes, usuario.ano)
-    
-    # 💰 INJEÇÃO DE RH: Bônus do Capataz na Estimativa
     bonus_rh = obter_bonus_equipe(prop.id)
     multiplicador_venda = bonus_rh.get('bonus_venda', 1.0)
     
@@ -107,22 +99,25 @@ def estimar_frigorifico():
                 familia_animal = f
                 break
 
-        preco_base = PRECOS_REAIS.get(familia_animal, 200.0)
+        preco_base = PRECOS_REAIS.get(familia_animal, 240.0)
         preco_cotacao = preco_base * fator 
+        
+        desconto_sexo = 0.90 if a.sexo == 'F' else 1.0
+        preco_cotacao *= desconto_sexo
+
         info_preco_db = TABELA_PRECOS.get(raca_alvo, {})
         fase_animal = str(a.fase).strip().lower()
         
         valor_animal_estimado = 0
         if fase_animal in ['filhote', 'jovem']:
             preco_cabeca = info_preco_db.get('filhote', 1100)
-            valor_animal_estimado = preco_cabeca * fator
+            valor_animal_estimado = (preco_cabeca * fator) * desconto_sexo
         else:
-            if familia_animal in ['bovino_corte', 'bovino_leite', 'equino']:
-                valor_animal_estimado = (a.peso / 15.0) * preco_cotacao
+            if familia_animal in ['bovino_corte', 'bovino_leite']:
+                valor_animal_estimado = (a.peso / 30.0) * preco_cotacao
             else:
                 valor_animal_estimado = a.peso * preco_cotacao
                 
-        # Aplica o multiplicador do Capataz no animal
         valor_animal_estimado *= multiplicador_venda
         valor_total += valor_animal_estimado
             
@@ -131,25 +126,24 @@ def estimar_frigorifico():
 @frigorifico_bp.route('/api/animal/vender_lote_curral', methods=['POST'])
 def vender_lote_curral():
     if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
-    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    
+    usuario = Jogador.query.filter_by(username=session['usuario']).with_for_update().first()
     dados = request.get_json()
     
     animal_ids = dados.get('animal_ids', [])
     propriedade_id = dados.get('fazenda_id')
          
-    prop = Propriedade.query.get(propriedade_id)
+    prop = Propriedade.query.filter_by(id=propriedade_id).with_for_update().first()
     if not prop or prop.dono_id != usuario.id: return jsonify({'sucesso': False, 'erro': 'Esta fazenda não é sua.'})
     
     if not animal_ids:
         return jsonify({'sucesso': False, 'erro': 'Nenhum animal selecionado para venda.'})
     
-    animais = Animal.query.filter(Animal.id.in_(animal_ids), Animal.propriedade_id == propriedade_id).all()
+    animais = Animal.query.filter(Animal.id.in_(animal_ids), Animal.propriedade_id == propriedade_id).with_for_update().all()
     if not animais: 
         return jsonify({'sucesso': False, 'erro': 'Animais inválidos ou já vendidos.'})
 
     fator = CotacaoMercado.calcular_fator_dia(usuario.dia, usuario.mes, usuario.ano)
-    
-    # 💰 INJEÇÃO DE RH: Bônus do Capataz na Venda Real
     bonus_rh = obter_bonus_equipe(prop.id)
     multiplicador_venda = bonus_rh.get('bonus_venda', 1.0)
     
@@ -165,24 +159,27 @@ def vender_lote_curral():
                 familia_animal = f
                 break
 
-        preco_base = PRECOS_REAIS.get(familia_animal, 200.0)
+        preco_base = PRECOS_REAIS.get(familia_animal, 240.0)
         preco_cotacao = preco_base * fator
+        
+        desconto_sexo = 0.90 if a.sexo == 'F' else 1.0
+        preco_cotacao *= desconto_sexo
+
         info_preco_db = TABELA_PRECOS.get(raca_alvo, {})
 
         fase_animal = str(a.fase).strip().lower()
         if fase_animal in ['filhote', 'jovem']:
             preco_cabeca = info_preco_db.get('filhote', 1100)
-            valor_animal = preco_cabeca * fator
+            valor_animal = (preco_cabeca * fator) * desconto_sexo
             msg_resumo.append("1 Cab (Reposição)")
         else:
-            if familia_animal in ['bovino_corte', 'bovino_leite', 'equino']:
-                valor_animal = (a.peso / 15.0) * preco_cotacao
-                msg_resumo.append(f"{(a.peso/15.0):.1f}@")
+            if familia_animal in ['bovino_corte', 'bovino_leite']:
+                valor_animal = (a.peso / 30.0) * preco_cotacao
+                msg_resumo.append(f"{(a.peso/30.0):.1f}@")
             else:
                 valor_animal = a.peso * preco_cotacao
                 msg_resumo.append(f"{a.peso:.1f}Kg")
                 
-        # Aplica o lucro extra do Capataz
         valor_animal *= multiplicador_venda
         valor_total += valor_animal
         db.session.delete(a)
@@ -197,10 +194,6 @@ def vender_lote_curral():
     
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': f'Venda concluída! O mercado te pagou R$ {valor_total:,.2f}!'})
-
-# ==========================================
-# AS ROTAS INDIVIDUAIS CONTINUAM INTACTAS
-# ==========================================
 
 @frigorifico_bp.route('/api/animal/estimar_frigorifico_individual', methods=['POST'])
 def estimar_frigorifico_individual():
@@ -225,23 +218,24 @@ def estimar_frigorifico_individual():
             break
             
     fator = CotacaoMercado.calcular_fator_dia(usuario.dia, usuario.mes, usuario.ano)
-    preco_base = PRECOS_REAIS.get(familia_animal, 200.0)
+    preco_base = PRECOS_REAIS.get(familia_animal, 240.0)
     preco_cotacao = preco_base * fator
+    
+    desconto_sexo = 0.90 if animal.sexo == 'F' else 1.0
+    preco_cotacao *= desconto_sexo
     
     info_preco_db = TABELA_PRECOS.get(raca_alvo, {})
     fase_animal = str(animal.fase).strip().lower()
     
     if fase_animal in ['filhote', 'jovem']:
         preco_cabeca = info_preco_db.get('filhote', 1100)
-        valor_total = preco_cabeca * fator
+        valor_total = (preco_cabeca * fator) * desconto_sexo
     else:
-        if familia_animal in ['bovino_corte', 'bovino_leite', 'equino']:
-            valor_total = (animal.peso / 15.0) * preco_cotacao
+        if familia_animal in ['bovino_corte', 'bovino_leite']:
+            valor_total = (animal.peso / 30.0) * preco_cotacao
         else:
             valor_total = animal.peso * preco_cotacao
 
-    # 🔥 APLICANDO O BÔNUS DO CAPATAZ (RH) NA ESTIMATIVA
-    from logica.funcionarios import obter_bonus_equipe
     bonus_rh = obter_bonus_equipe(animal.propriedade_id)
     valor_total *= bonus_rh.get('bonus_venda', 1.0)
         
@@ -251,15 +245,16 @@ def estimar_frigorifico_individual():
 @frigorifico_bp.route('/api/animal/vender_individual_curral', methods=['POST'])
 def vender_individual_curral():
     if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
-    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    
+    usuario = Jogador.query.filter_by(username=session['usuario']).with_for_update().first()
     dados = request.get_json()
     animal_id = dados.get('animal_id')
     
-    animal = Animal.query.get(animal_id)
+    animal = Animal.query.filter_by(id=animal_id).with_for_update().first()
     if not animal:
         return jsonify({'sucesso': False, 'erro': 'Animal não encontrado.'})
         
-    prop = Propriedade.query.get(animal.propriedade_id)
+    prop = Propriedade.query.filter_by(id=animal.propriedade_id).with_for_update().first()
     if not prop or prop.dono_id != usuario.id:
         return jsonify({'sucesso': False, 'erro': 'Este animal não pertence a você.'})
         
@@ -271,26 +266,27 @@ def vender_individual_curral():
             break
             
     fator = CotacaoMercado.calcular_fator_dia(usuario.dia, mes=usuario.mes, ano=usuario.ano)
-    preco_base = PRECOS_REAIS.get(familia_animal, 200.0)
+    preco_base = PRECOS_REAIS.get(familia_animal, 240.0)
     preco_cotacao = preco_base * fator
+    
+    desconto_sexo = 0.90 if animal.sexo == 'F' else 1.0
+    preco_cotacao *= desconto_sexo
     
     info_preco_db = TABELA_PRECOS.get(raca_alvo, {})
     fase_animal = str(animal.fase).strip().lower()
     
     if fase_animal in ['filhote', 'jovem']:
         preco_cabeca = info_preco_db.get('filhote', 1100)
-        valor_animal = preco_cabeca * fator
+        valor_animal = (preco_cabeca * fator) * desconto_sexo
         resumo = f"1 Cab (Reposição, {animal.peso} Kg)"
     else:
-        if familia_animal in ['bovino_corte', 'bovino_leite', 'equino']:
-            valor_animal = (animal.peso / 15.0) * preco_cotacao
-            resumo = f"{(animal.peso/15.0):.1f}@"
+        if familia_animal in ['bovino_corte', 'bovino_leite']:
+            valor_animal = (animal.peso / 30.0) * preco_cotacao
+            resumo = f"{(animal.peso/30.0):.1f}@"
         else:
             valor_animal = animal.peso * preco_cotacao
             resumo = f"{animal.peso:.1f}Kg"
 
-    # 🔥 APLICANDO O BÔNUS DO CAPATAZ (RH) NA VENDA REAL
-    from logica.funcionarios import obter_bonus_equipe
     bonus_rh = obter_bonus_equipe(animal.propriedade_id)
     valor_animal *= bonus_rh.get('bonus_venda', 1.0)
             

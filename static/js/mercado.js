@@ -1,11 +1,25 @@
 // ==========================================
-// INICIALIZAÇÃO SEGURA
+// INICIALIZAÇÃO SEGURA E SINCRONIZADA
 // ==========================================
 window.PRECOS_BASE = {};
 
 fetch('/api/mercado/precos')
     .then(r => r.json())
-    .then(data => { window.PRECOS_BASE = data; })
+    .then(data => { 
+        window.PRECOS_BASE = data; 
+        
+        document.querySelectorAll('[id^="val-"]').forEach(el => {
+            let id_ia = el.id.replace('val-', '');
+            
+            let selectFase = document.getElementById('fase-' + id_ia);
+            let selectSexo = document.getElementById('sexo-' + id_ia);
+            
+            if(selectFase) selectFase.addEventListener('change', () => window.atualizarPrecoDinamico(id_ia));
+            if(selectSexo) selectSexo.addEventListener('change', () => window.atualizarPrecoDinamico(id_ia));
+            
+            window.atualizarPrecoDinamico(id_ia);
+        });
+    })
     .catch(err => console.error("Erro ao carregar preços:", err));
 
 // ==========================================
@@ -13,11 +27,22 @@ fetch('/api/mercado/precos')
 // ==========================================
 window.atualizarPrecoDinamico = function(id_ia) {
     const key = id_ia ? id_ia.toLowerCase() : '';
-    const fase = document.getElementById('fase-' + id_ia).value;
+    
+    const selectFase = document.getElementById('fase-' + id_ia);
+    const selectSexo = document.getElementById('sexo-' + id_ia);
+    
+    const fase = selectFase ? selectFase.value : 'adulto';
+    const sexo = selectSexo ? selectSexo.value : 'M';
+    
     const dadosAnimal = window.PRECOS_BASE[key];
     
     if (dadosAnimal) {
-        const precoFinal = dadosAnimal[fase] || 0;
+        let precoFinal = dadosAnimal[fase] || 0;
+        
+        if (sexo === 'F') {
+            precoFinal = precoFinal * 0.90;
+        }
+        
         const spanVal = document.getElementById('val-' + id_ia);
         if (spanVal) spanVal.innerText = Math.round(precoFinal).toLocaleString('pt-BR');
         
@@ -29,50 +54,79 @@ window.atualizarPrecoDinamico = function(id_ia) {
     }
 }
 
-// O "Cérebro" que lembra o que estamos comprando
 let compraAtual = { tipo: '', id_ia: '', id_anuncio: '', precoUnidade: 0, fase: '', sexo: '', raca: '' };
 
-// Listener para quando o jogador trocar de fazenda no modal
 document.addEventListener('DOMContentLoaded', () => {
     const modalDestino = document.getElementById('modal-destino');
-    if(modalDestino) modalDestino.addEventListener('change', verificarCaminhaoDestino);
+    if(modalDestino) modalDestino.addEventListener('change', window.verificarCaminhaoDestino);
 });
 
 // ==========================================
-// VERIFICADOR DE CAMINHÃO (FRETE GRÁTIS)
+// VERIFICADOR DE CAMINHÃO (FRETE GRÁTIS) E FOTO INTELIGENTE
 // ==========================================
 window.verificarCaminhaoDestino = async function() {
     const destino = document.getElementById('modal-destino').value;
     const raca = compraAtual.id_ia || compraAtual.raca;
     if (!destino || !raca) return;
 
-    // Define qual caminhão precisamos procurar
+    const racaLower = raca.toLowerCase();
     const peixes = ['tambaqui', 'pirarucu', 'pacu', 'matrinxa', 'jaraqui', 'curimata', 'surubim', 'pintado', 'cachara', 'tucunare', 'piau'];
-    const modeloNecessario = peixes.includes(raca.toLowerCase()) ? 'Caminhão Baú (Frios)' : 'Caminhão Boiadeiro';
+    const aves_e_medios = ['galinha', 'pato', 'peru', 'porco', 'ovelha', 'cabra'];
+
+    let modelosAceitos = [];
+    let nomeVeiculoMsg = '';
+
+    if (peixes.includes(racaLower)) {
+        modelosAceitos = ['Caminhão Baú (Frios)'];
+        nomeVeiculoMsg = 'Caminhão Baú (Frios)';
+    } else if (aves_e_medios.includes(racaLower)) {
+        modelosAceitos = ['Caminhonete Nova', 'Caminhonete Usada', 'Caminhão Boiadeiro'];
+        nomeVeiculoMsg = 'Caminhonete ou Caminhão';
+    } else {
+        modelosAceitos = ['Caminhão Boiadeiro'];
+        nomeVeiculoMsg = 'Caminhão Boiadeiro';
+    }
 
     const checkbox = document.getElementById('check-caminhao-proprio');
-    const aviso = checkbox.parentElement.nextElementSibling; // Pega o <small> abaixo do checkbox
+    const aviso = checkbox.parentElement.nextElementSibling;
+    const imgCaminhao = document.getElementById('img-veiculo');
 
     try {
-        // Consulta o barracão da fazenda selecionada
         const res = await fetch(`/api/barracao/listar?fazenda_id=${destino}`);
         const data = await res.json();
 
-        if (data.sucesso && data.maquinas.some(m => m.modelo === modeloNecessario)) {
-            checkbox.disabled = false;
-            checkbox.checked = true; // Auto-seleciona pro jogador não esquecer!
-            aviso.innerText = `✅ Você possui um ${modeloNecessario} no Barracão! Frete Grátis.`;
-            aviso.style.color = '#4caf50';
-        } else {
-            checkbox.disabled = true;
-            checkbox.checked = false;
-            aviso.innerText = `❌ Sem ${modeloNecessario} nesta fazenda. Frete será cobrado.`;
-            aviso.style.color = '#f44336';
+        if (data.sucesso) {
+            // Filtra se a fazenda tem algum dos veículos válidos para aquela carga
+            const veiculosPossuidos = data.maquinas.filter(m => modelosAceitos.includes(m.modelo));
+
+            if (veiculosPossuidos.length > 0) {
+                // Ordena para que a caminhonete tenha prioridade visual se o animal for pequeno
+                veiculosPossuidos.sort((a, b) => modelosAceitos.indexOf(a.modelo) - modelosAceitos.indexOf(b.modelo));
+                const veiculoEscolhido = veiculosPossuidos[0];
+
+                checkbox.disabled = false;
+                checkbox.checked = true;
+                aviso.innerText = `✅ Você usará o ${veiculoEscolhido.modelo}! Frete Grátis.`;
+                aviso.style.color = '#4caf50';
+
+                // 🔥 TROCA A FOTO EXATAMENTE PARA O VEÍCULO QUE O JOGADOR TEM!
+                if(veiculoEscolhido.imagem) {
+                    imgCaminhao.src = '/static/img/' + veiculoEscolhido.imagem;
+                }
+
+            } else {
+                // Jogador não tem veículo para o frete
+                checkbox.disabled = true;
+                checkbox.checked = false;
+                aviso.innerText = `❌ Sem ${nomeVeiculoMsg} nesta fazenda. Frete será cobrado.`;
+                aviso.style.color = '#f44336';
+                definirCaminhaoPadrao(racaLower); 
+            }
         }
     } catch (e) {
         console.error(e);
     }
-    atualizarTotalModal();
+    window.atualizarTotalModal();
 }
 
 // ==========================================
@@ -80,9 +134,18 @@ window.verificarCaminhaoDestino = async function() {
 // ==========================================
 window.prepararCompraIA = function(id_ia) {
     const key = id_ia ? id_ia.toLowerCase() : '';
-    const fase = document.getElementById('fase-' + id_ia).value;
-    const sexo = document.getElementById('sexo-' + id_ia).value;
-    const precoFinal = window.PRECOS_BASE[key] ? window.PRECOS_BASE[key][fase] : 0;
+    
+    const selectFase = document.getElementById('fase-' + id_ia);
+    const selectSexo = document.getElementById('sexo-' + id_ia);
+    
+    const fase = selectFase ? selectFase.value : 'adulto';
+    const sexo = selectSexo ? selectSexo.value : 'M';
+    
+    let precoFinal = window.PRECOS_BASE[key] ? window.PRECOS_BASE[key][fase] : 0;
+    
+    if (sexo === 'F') {
+        precoFinal = precoFinal * 0.90;
+    }
     
     compraAtual = { tipo: 'ia', id_ia: key, raca: key, precoUnidade: precoFinal, fase: fase, sexo: sexo };
     document.getElementById('modal-animal-nome').innerText = `${fase.charAt(0).toUpperCase() + fase.slice(1)} - ${id_ia.charAt(0).toUpperCase() + id_ia.slice(1)} (${sexo})`;
@@ -91,9 +154,9 @@ window.prepararCompraIA = function(id_ia) {
     qtdInput.value = 1;
     qtdInput.disabled = false;
 
-    definirCaminhao(id_ia);
+    definirCaminhaoPadrao(id_ia);
     document.getElementById('modal-logistica').style.display = 'flex';
-    verificarCaminhaoDestino(); // Checa o caminhão logo ao abrir
+    window.verificarCaminhaoDestino(); 
 }
 
 // ==========================================
@@ -107,15 +170,25 @@ window.prepararCompraComunidade = function(id_anuncio, raca, valor) {
     qtdInput.value = 1;
     qtdInput.disabled = true;
 
-    definirCaminhao(raca);
+    definirCaminhaoPadrao(raca);
     document.getElementById('modal-logistica').style.display = 'flex';
-    verificarCaminhaoDestino(); // Checa o caminhão logo ao abrir
+    window.verificarCaminhaoDestino(); 
 }
 
-function definirCaminhao(raca) {
+function definirCaminhaoPadrao(raca) {
+    const racaLower = raca.toLowerCase();
     const peixes = ['tambaqui', 'pirarucu', 'pacu', 'matrinxa', 'jaraqui', 'curimata', 'surubim', 'pintado', 'cachara', 'tucunare', 'piau'];
+    const aves_e_medios = ['galinha', 'pato', 'peru', 'porco', 'ovelha', 'cabra'];
+    
     const imgCaminhao = document.getElementById('img-veiculo');
-    imgCaminhao.src = peixes.includes(raca.toLowerCase()) ? '/static/img/caminhao_bau.png' : '/static/img/caminhao_boiadeiro.png';
+    
+    if (peixes.includes(racaLower)) {
+        imgCaminhao.src = '/static/img/caminhao_bau.png';
+    } else if (aves_e_medios.includes(racaLower)) {
+        imgCaminhao.src = '/static/img/caminhonete_usada.png';
+    } else {
+        imgCaminhao.src = '/static/img/caminhao_boiadeiro.png';
+    }
 }
 
 window.fecharModal = function() {
@@ -126,14 +199,31 @@ window.fecharModal = function() {
 window.atualizarTotalModal = function() {
     const qtd = parseInt(document.getElementById('modal-quantidade').value) || 0;
     const usaCaminhaoProprio = document.getElementById('check-caminhao-proprio').checked;
-    const fretePorCabeca = usaCaminhaoProprio ? 0 : 50.0; // 🔥 A Mágica do frete aqui!
     
-    const custoGado = qtd * compraAtual.precoUnidade;
+    let fretePorCabeca = 50.0;
+    if (compraAtual.raca) {
+        const racaLower = compraAtual.raca.toLowerCase();
+        const aves = ['galinha', 'pato', 'peru'];
+        const peixes = ['tambaqui', 'pirarucu', 'pacu', 'matrinxa', 'jaraqui', 'curimata', 'surubim', 'pintado', 'cachara', 'tucunare', 'piau'];
+        const medios = ['porco', 'ovelha', 'cabra'];
+
+        if (aves.includes(racaLower) || peixes.includes(racaLower)) {
+            fretePorCabeca = 5.0;
+        } else if (medios.includes(racaLower)) {
+            fretePorCabeca = 15.0;
+        }
+    }
+    
+    if (usaCaminhaoProprio) {
+        fretePorCabeca = 0.0;
+    }
+    
+    const custoAnimais = qtd * compraAtual.precoUnidade;
     const custoFrete = qtd * fretePorCabeca;
-    const total = custoGado + custoFrete;
+    const total = custoAnimais + custoFrete;
     
     document.getElementById('modal-total-calc').innerHTML = `
-        <div style="font-size: 13px; color: #aaa;">Gado: R$ ${custoGado.toLocaleString('pt-BR')} + Frete: R$ ${custoFrete.toLocaleString('pt-BR')}</div>
+        <div style="font-size: 13px; color: #aaa;">Animais: R$ ${custoAnimais.toLocaleString('pt-BR')} + Frete: R$ ${custoFrete.toLocaleString('pt-BR')}</div>
         <b style="color:#4caf50; font-size: 18px;">Total: R$ ${total.toLocaleString('pt-BR')}</b>
     `;
 }
@@ -141,7 +231,7 @@ window.atualizarTotalModal = function() {
 window.confirmarCompra = function() {
     const qtd = document.getElementById('modal-quantidade').value;
     const destino = document.getElementById('modal-destino').value;
-    const usaCaminhao = document.getElementById('check-caminhao-proprio').checked; // Captura se usou
+    const usaCaminhao = document.getElementById('check-caminhao-proprio').checked; 
     
     if(!destino) return Swal.fire('Atenção', 'Você precisa de uma propriedade!', 'warning');
     document.getElementById('modal-logistica').style.opacity = '0.5';

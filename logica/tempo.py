@@ -8,21 +8,8 @@ import random
 tempo_bp = Blueprint('tempo', __name__)
 
 class GerenciadorTempo:
-    # ==========================================
-    # ⚙️ PAINEL DE CONFIGURAÇÃO DE TEMPO
-    # Mude os valores aqui para balancear o jogo facilmente
-    # ==========================================
-    
-    # RITMO ONLINE: Quão rápido o tempo passa com o jogo aberto?
-    # Ex: 0.5 = A cada 30 segundos reais, passa 1 hora no jogo.
     MINUTOS_POR_HORA_ONLINE = 0.5
-    
-    # RITMO OFFLINE: Quão lento o tempo passa quando ele vai dormir?
-    # Ex: 5.0 = A cada 5 minutos reais, passa 1 hora no jogo (Protege os animais).
     MINUTOS_POR_HORA_OFFLINE = 1.0 
-    
-    # LIMITE AFK: Quanto tempo inativo até o servidor frear o relógio?
-    # Ex: 5.0 = Se ficar 5 min reais sem agir, entra no ritmo Offline.
     LIMITE_AFK_MINUTOS = 10.0 
 
     ESTACOES = {
@@ -43,22 +30,17 @@ class GerenciadorTempo:
         delta = agora - jogador.ultima_acao
         minutos_passados = delta.total_seconds() / 60.0
 
-        # LÓGICA INTELIGENTE DE RITMO DUPLO
         horas_jogo_passadas = 0
         
         if minutos_passados <= cls.LIMITE_AFK_MINUTOS:
-            # 1. JOGADOR ATIVO (Menos de 5 min fora) -> Ritmo Rápido
             horas_jogo_passadas = int(minutos_passados // cls.MINUTOS_POR_HORA_ONLINE)
         else:
-            # 2. JOGADOR OFFLINE (Foi dormir/fechou o jogo) -> Ritmo Lento
-            # Os primeiros 5 min contam como online, o restante conta como offline
             horas_online = int(cls.LIMITE_AFK_MINUTOS // cls.MINUTOS_POR_HORA_ONLINE)
             minutos_restantes = minutos_passados - cls.LIMITE_AFK_MINUTOS
             horas_offline = int(minutos_restantes // cls.MINUTOS_POR_HORA_OFFLINE)
             
             horas_jogo_passadas = horas_online + horas_offline
 
-        # Só avança e salva se pelo menos 1 hora do jogo tiver passado
         if horas_jogo_passadas > 0:
             cls.avancar_tempo(jogador, horas_jogo_passadas)
             jogador.ultima_acao = agora
@@ -90,15 +72,32 @@ class GerenciadorTempo:
 
         cls._atualizar_clima_e_estacao(jogador)
 
-        # 🔒 ENVIANDO O JOGADOR PARA O MOTOR BIOLÓGICO PROCESSAR APENAS AS TERRAS DELE
         motor = MotorBiologico(clima_atual=getattr(jogador, 'clima_atual', 'sol'), jogador=jogador)
         avisos = motor.processar_turno(horas)
         
-        # 🔥 CORREÇÃO: COBRAR O SALÁRIO DOS FUNCIONÁRIOS PELAS HORAS PASSADAS
-        from logica.funcionarios import cobrar_folha_pagamento
-        custo_rh = cobrar_folha_pagamento(jogador, horas)
-        if custo_rh > 0:
-            avisos.append(f"💼 Folha de Pagamento: R$ {custo_rh:,.2f} descontados (Ref: {horas}h).")
+        if dias_passados > 0:
+            from logica.funcionarios import cobrar_folha_pagamento
+            horas_cobradas = dias_passados * 24
+            custo_rh = cobrar_folha_pagamento(jogador, horas_cobradas)
+            if custo_rh > 0:
+                texto_dia = "dia" if dias_passados == 1 else "dias"
+                avisos.append(f"💼 Folha de Pagamento: R$ {custo_rh:,.2f} descontados (Ref: Diária de {dias_passados} {texto_dia}).")
+
+        # 🔥 SOLUÇÃO INTELIGENTE: Adapta-se ao Banco de Dados automaticamente!
+        if avisos:
+            from database import Notificacao
+            data_jogo_str = f"{jogador.dia:02d}/{jogador.mes:02d}/{jogador.ano} {jogador.hora:02d}:00"
+            
+            for aviso in avisos:
+                try:
+                    # Tenta gravar usando a coluna nova (se ela já existir)
+                    nova_not = Notificacao(jogador_id=jogador.id, texto=aviso, data_jogo=data_jogo_str)
+                except TypeError:
+                    # Se o banco não tiver a coluna, embute a data do jogo direto no texto para não travar!
+                    texto_adaptado = f"[{data_jogo_str}] {aviso}"
+                    nova_not = Notificacao(jogador_id=jogador.id, texto=texto_adaptado)
+                
+                db.session.add(nova_not)
 
         return avisos
 
@@ -107,10 +106,7 @@ class GerenciadorTempo:
         jogador.estacao_atual = cls.ESTACOES.get(jogador.mes, 'primavera')
 
         chances_chuva = {
-            'verao': 0.70,      
-            'outono': 0.40,     
-            'inverno': 0.05,    
-            'primavera': 0.30   
+            'verao': 0.70, 'outono': 0.40, 'inverno': 0.05, 'primavera': 0.30   
         }
 
         if random.random() < chances_chuva.get(jogador.estacao_atual, 0.30):
@@ -128,12 +124,8 @@ def avancar_tempo_manual():
     
     horas_avancar = int(dados.get('horas', 0))
     
-    # 🔥 TABELA DE PREÇOS BLINDADA NO SERVIDOR
     TABELA_CUSTOS = {
-        1: 1000.0,
-        6: 5000.0,
-        24: 20000.0,
-        168: 120000.0
+        1: 1000.0, 6: 5000.0, 24: 20000.0, 168: 120000.0
     }
     
     if horas_avancar not in TABELA_CUSTOS:
@@ -172,7 +164,6 @@ def tempo_atual():
         return jsonify({'sucesso': False, 'erro': 'Não logado'})
 
     usuario = Jogador.query.filter_by(username=session['usuario']).first()
-    
     GerenciadorTempo.calcular_progresso_offline(usuario)
     
     return jsonify({
@@ -184,3 +175,48 @@ def tempo_atual():
         'clima': getattr(usuario, 'clima_atual', 'sol'),
         'estacao': getattr(usuario, 'estacao_atual', 'primavera')
     })
+
+# ==========================================
+# ROTAS DA CAIXA DE CORREIO
+# ==========================================
+@tempo_bp.route('/api/notificacoes', methods=['GET'])
+def get_notificacoes():
+    if 'usuario' not in session: return jsonify({'sucesso': False})
+    from database import Jogador, Notificacao
+    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    
+    nots = Notificacao.query.filter_by(jogador_id=usuario.id).order_by(Notificacao.id.desc()).limit(50).all()
+    dados = []
+    
+    for n in nots:
+        data_exibicao = getattr(n, 'data_jogo', None)
+        if not data_exibicao:
+            data_exibicao = n.data.strftime("%d/%m/%Y %H:%M") if n.data else ""
+            
+        dados.append({
+            'id': n.id,
+            'texto': n.texto,
+            'lida': n.lida,
+            'data': data_exibicao
+        })
+        n.lida = True 
+        
+    db.session.commit()
+    return jsonify({'sucesso': True, 'notificacoes': dados})
+
+@tempo_bp.route('/api/notificacoes/nao_lidas', methods=['GET'])
+def get_nao_lidas():
+    if 'usuario' not in session: return jsonify({'qtd': 0})
+    from database import Jogador, Notificacao
+    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    qtd = Notificacao.query.filter_by(jogador_id=usuario.id, lida=False).count()
+    return jsonify({'qtd': qtd})
+
+@tempo_bp.route('/api/notificacoes/limpar', methods=['POST'])
+def limpar_notificacoes():
+    if 'usuario' not in session: return jsonify({'sucesso': False})
+    from database import Jogador, Notificacao
+    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    Notificacao.query.filter_by(jogador_id=usuario.id).delete()
+    db.session.commit()
+    return jsonify({'sucesso': True})

@@ -4,16 +4,18 @@ from database import db, Jogador, Propriedade, Transacao
 armazem_bp = Blueprint('armazem', __name__)
 
 # TABELA DE PREÇOS DE VENDA DOS INSUMOS
+# 🔥 CORREÇÃO: Os preços de venda agora são exatamente 50% do valor pago na Loja. Fim do dinheiro infinito!
 PRECOS_VENDA_INSUMO = {
-    'sal': 40,
-    'racao': 60,
-    'adubo': 75,
-    'veneno': 100,
-    'combustivel': 220,
-    'vacina_aftosa': 75,
-    'vacina_brucelose': 90,
-    'medicamento_geral': 45,
-    'suplemento_engorda': 60
+    'sal': 12.50,
+    'racao': 20.0,
+    'adubo': 25.0,
+    'veneno': 40.0,
+    'combustivel': 75.0,
+    'vacina_aftosa': 25.0,
+    'vacina_brucelose': 30.0,
+    'medicamento_geral': 15.0,
+    'suplemento_engorda': 20.0,
+    'racao_peixe': 17.50
 }
 
 @armazem_bp.route('/api/armazem/vender', methods=['POST'])

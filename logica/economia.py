@@ -82,3 +82,47 @@ def renomear_fazenda(prop_id):
             db.session.commit()
             return jsonify({'sucesso': True})
     return jsonify({'sucesso': False, 'erro': 'Erro ao renomear.'})
+
+@economia_bp.route('/api/cotacoes_diarias')
+def cotacoes_diarias():
+    if 'usuario' not in session: return jsonify({'sucesso': False})
+    
+    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    
+    from logica.mercado import PRECOS_REAIS, calcular_fator_dia
+    from logica.silo import PRECOS_VENDA
+    
+    fator = calcular_fator_dia(usuario.dia, usuario.mes, usuario.ano)
+    
+    # 1. Pecuária em Arroba (@)
+    gado_arroba = {
+        'Corte (Nelore, Angus, etc)': round(PRECOS_REAIS.get('bovino_corte', 280.0) * fator, 2),
+        'Leite (Girolando)': round(PRECOS_REAIS.get('bovino_leite', 250.0) * fator, 2)
+    }
+    
+    # 2. Pecuária em Kg
+    gado_kg = {
+        'Suínos (Porco)': round(PRECOS_REAIS.get('suino', 8.0) * fator, 2),
+        'Ovinos (Ovelha, Cabra)': round(PRECOS_REAIS.get('ovino', 20.0) * fator, 2),
+        'Aves (Galinha, Peru)': round(PRECOS_REAIS.get('ave', 6.0) * fator, 2),
+        'Peixes Nobres (Pirarucu)': round(PRECOS_REAIS.get('peixe_gigante', 20.0) * fator, 2),
+        'Peixes (Tambaqui, Pacu)': round(PRECOS_REAIS.get('peixe_medio', 10.0) * fator, 2),
+        'Equinos (Cavalo)': round(PRECOS_REAIS.get('equino', 15.0) * fator, 2)
+    }
+    
+    # 3. Derivados (Atualmente com preço fixo no jogo)
+    derivados = {
+        'Leite (Litro)': 2.50,
+        'Ovos (Unidade)': 0.50
+    }
+    
+    culturas = {k.capitalize(): v for k, v in PRECOS_VENDA.items()}
+    
+    return jsonify({
+        'sucesso': True,
+        'gado_arroba': gado_arroba,
+        'gado_kg': gado_kg,
+        'derivados': derivados,
+        'culturas': culturas,
+        'fator': fator
+    })

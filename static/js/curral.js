@@ -1,8 +1,9 @@
 // Função auxiliar para alternar entre Kg e Arrobas (@)
 function formatarPeso(peso) {
     let p = parseFloat(peso) || 0;
-    if (p >= 15.0) {
-        return (p / 15.0).toFixed(1) + ' @';
+    if (p >= 30.0) {
+        // Agora reflete o rendimento comercial correto (30 kg vivos = 1 @)
+        return (p / 30.0).toFixed(1) + ' @';
     } else {
         return p.toFixed(1) + ' kg';
     }
@@ -12,11 +13,11 @@ function formatarPeso(peso) {
 // MANEJO E EXPANSÃO DO CURRAL
 // ==========================================
 window.confirmarExpansaoCurral = function() {
-    const fazendaId = window.location.pathname.split('/').pop(); // 🔥 GPS Adicionado
+    const fazendaId = window.location.pathname.split('/').pop(); 
     fetch('/api/fazenda/expandir_curral', { 
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ fazenda_id: fazendaId }) // 🔥 Blindagem
+        body: JSON.stringify({ fazenda_id: fazendaId }) 
     })
     .then(r => r.json()).then(d => {
         if(d.sucesso) { 
@@ -30,10 +31,10 @@ window.confirmarExpansaoCurral = function() {
 };
 
 window.aplicarManejo = function(animal_id, acao) {
-    const fazendaId = window.location.pathname.split('/').pop(); // 🔥 GPS Adicionado
+    const fazendaId = window.location.pathname.split('/').pop(); 
     fetch('/api/animal/aplicar_insumo', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ animal_id: animal_id, acao: acao, fazenda_id: fazendaId }) // 🔥 Blindagem
+        body: JSON.stringify({ animal_id: animal_id, acao: acao, fazenda_id: fazendaId }) 
     }).then(r => r.json()).then(d => {
         if(d.sucesso) { 
             Swal.fire('Feito!', d.msg, 'success').then(()=> {
@@ -46,10 +47,12 @@ window.aplicarManejo = function(animal_id, acao) {
 };
 
 window.abrirSelecaoVacinaLote = async function(tipoTratamento) {
+    // 🔥 O MAPA CORRIGIDO (O Suplemento agora existe na lista!)
     let tituloMap = {
         'aftosa': 'Vacinação contra Aftosa (Lote)',
         'brucelose': 'Vacinação contra Brucelose (Lote)',
-        'medicamento': 'Aplicação de Medicamento Geral (Lote)'
+        'medicamento': 'Aplicação de Medicamento Geral (Lote)',
+        'suplemento': 'Suplemento de Engorda (+15kg) (Lote)'
     };
 
     const fazendaId = window.location.pathname.split('/').pop();
@@ -73,9 +76,12 @@ window.abrirSelecaoVacinaLote = async function(tipoTratamento) {
 
     dados.animais.forEach(a => {
         let jaTemTratamento = false;
+        
+        // 🔥 A VERIFICAÇÃO CORRIGIDA (O Suplemento agora não deixa aplicar 2x)
         if (tipoTratamento === 'aftosa' && a.vacinado_aftosa) jaTemTratamento = true;
         if (tipoTratamento === 'brucelose' && a.vacinado_brucelose) jaTemTratamento = true;
         if (tipoTratamento === 'medicamento' && a.medicado) jaTemTratamento = true;
+        if (tipoTratamento === 'suplemento' && a.suplementado) jaTemTratamento = true;
 
         const cAft = a.vacinado_aftosa ? '#2196f3' : '#444';
         const cBruc = a.vacinado_brucelose ? '#f44336' : '#444';
@@ -173,7 +179,7 @@ window.prepararApartamento = async function(animal_id) {
 };
 
 // ==========================================
-// MÓDULO DE VENDAS E GRÁFICO (O restante do arquivo original que você mandou, não precisou de alterações, pode mantê-lo igual!)
+// MÓDULO DE VENDAS E GRÁFICO 
 // ==========================================
 window.atualizarTotalLeilao = function() {
     const qtd = parseInt(document.getElementById('swal-qtd').value) || 0;

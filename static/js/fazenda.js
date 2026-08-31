@@ -165,3 +165,58 @@ window.enviarMensagemChat = async function() {
     });
     carregarMensagensChat();
 };
+
+window.abrirPainelCotacoes = function() {
+    Swal.fire({ title: 'Buscando cotações...', didOpen: () => Swal.showLoading() });
+    
+    fetch('/api/cotacoes_diarias').then(r => r.json()).then(d => {
+        if(d.sucesso) {
+            let html = '<div style="text-align:left; font-size:14px; max-height:60vh; overflow-y:auto; padding-right:5px;">';
+            
+            html += `<div style="color:#aaa; font-size:12px; margin-bottom:15px; text-align:center; background:#222; padding:8px; border-radius:6px; border:1px solid #333;">Fator de Mercado Atual: <b style="color:${d.fator >= 1 ? '#4caf50' : '#f44336'}; font-size:14px;">${Math.round(d.fator * 100)}%</b></div>`;
+            
+            // Bovinos (@)
+            html += '<h4 style="color:#ff9800; border-bottom:1px solid #444; padding-bottom:5px; margin-top:0;"><i class="fas fa-cow"></i> Bovinos (Preço por Arroba)</h4>';
+            for(let [nome, preco] of Object.entries(d.gado_arroba)) {
+                html += `<div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed #333; font-size:13px;">
+                            <span>${nome}</span> <b style="color:#ff9800;">R$ ${preco.toFixed(2).replace('.',',')} / @</b>
+                         </div>`;
+            }
+            
+            // Outros Animais (Kg)
+            html += '<h4 style="color:#ff5722; border-bottom:1px solid #444; padding-bottom:5px; margin-top:15px;"><i class="fas fa-piggy-bank"></i> Outros Animais (Preço por Kg)</h4>';
+            for(let [nome, preco] of Object.entries(d.gado_kg)) {
+                html += `<div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed #333; font-size:13px;">
+                            <span>${nome}</span> <b style="color:#ff5722;">R$ ${preco.toFixed(2).replace('.',',')} / kg</b>
+                         </div>`;
+            }
+
+            // Derivados
+            html += '<h4 style="color:#03a9f4; border-bottom:1px solid #444; padding-bottom:5px; margin-top:15px;"><i class="fas fa-glass-whiskey"></i> Laticínios e Derivados</h4>';
+            for(let [nome, preco] of Object.entries(d.derivados)) {
+                html += `<div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed #333; font-size:13px;">
+                            <span>${nome}</span> <b style="color:#03a9f4;">R$ ${preco.toFixed(2).replace('.',',')}</b>
+                         </div>`;
+            }
+            
+            // Agricultura
+            html += '<h4 style="color:#8bc34a; border-bottom:1px solid #444; padding-bottom:5px; margin-top:15px;"><i class="fas fa-seedling"></i> Agricultura (Preço por Kg)</h4>';
+            for(let [nome, preco] of Object.entries(d.culturas)) {
+                html += `<div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed #333; font-size:13px;">
+                            <span>${nome}</span> <b style="color:#8bc34a;">R$ ${preco.toFixed(2).replace('.',',')} / kg</b>
+                         </div>`;
+            }
+            
+            html += '</div>';
+            
+            Swal.fire({
+                title: '📈 Cotações de Hoje',
+                html: html,
+                background: '#1a1a1a', color: '#fff',
+                confirmButtonText: 'Voltar', confirmButtonColor: '#555'
+            });
+        } else {
+            Swal.fire('Erro', 'Não foi possível carregar as cotações.', 'error');
+        }
+    });
+}

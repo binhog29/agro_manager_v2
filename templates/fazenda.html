@@ -69,11 +69,16 @@
                  {{ "%02d"|format(jogador.dia|default(1)) }}/{{ "%02d"|format(jogador.mes|default(1)) }}/{{ jogador.ano|default(2026) }}
             </div>
             
-            <!-- BLOQUEIA AVANÇAR TEMPO PARA VISITAS -->
+                        <!-- BLOQUEIA AVANÇAR TEMPO PARA VISITAS -->
             {% if not visitante %}
-                <button onclick="document.getElementById('modal-tempo').style.display='flex'" style="margin-top:5px; background: #2e7d32; color: white; border: none; padding: 2px 10px; border-radius: 5px; font-size: 10px; cursor: pointer;">
-                    <i class="fas fa-forward"></i> Avançar Tempo
-                </button>
+                <div style="display: flex; gap: 5px; justify-content: center; margin-top: 5px;">
+                    <button onclick="abrirPainelCotacoes()" style="background: #1565c0; color: white; border: none; padding: 2px 8px; border-radius: 5px; font-size: 10px; cursor: pointer; font-weight: bold;">
+                        <i class="fas fa-chart-line"></i> Mercado
+                    </button>
+                    <button onclick="document.getElementById('modal-tempo').style.display='flex'" style="background: #2e7d32; color: white; border: none; padding: 2px 8px; border-radius: 5px; font-size: 10px; cursor: pointer; font-weight: bold;">
+                        <i class="fas fa-forward"></i> Avançar
+                    </button>
+                </div>
             {% endif %}
         </div>
     </header>
@@ -281,6 +286,12 @@
     {% include 'partes/chiqueiro.html' %}
     {% include 'partes/galinheiro.html' %}
     
+    <!-- BOTÃO FLUTUANTE DE AJUDA -->
+    <a href="/ajuda" style="position: fixed; bottom: 85px; right: 20px; background: #4caf50; color: white; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 8px rgba(0,0,0,0.4); z-index: 1000; text-decoration: none; font-size: 24px;">
+        <i class="fas fa-question"></i>
+    </a>
+    
+    <script src="{{ url_for('static', filename='js/silo.js') }}"></script>
     <script src="{{ url_for('static', filename='js/habitats.js') }}?v=2"></script>
     <script src="{{ url_for('static', filename='js/fazenda.js') }}?v=2"></script>
     <script src="{{ url_for('static', filename='js/barracao.js') }}"></script>

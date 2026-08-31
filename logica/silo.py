@@ -4,24 +4,10 @@ from logica.funcionarios import obter_bonus_equipe
 
 silo_bp = Blueprint('silo', __name__)
 
-# TABELA DE PREÇOS DE VENDA (Economia "Agro-Barão" - Alto Lucro!)
 PRECOS_VENDA = {
-    'milho': 5.00,       # 6.000kg = R$ 30.000 por Hectare
-    'soja': 8.50,        # 3.600kg = R$ 30.600 por Hectare
-    'arroz': 7.00,       # 4.200kg = R$ 29.400 por Hectare
-    'feijao': 12.00,     # 2.000kg = R$ 24.000 por Hectare
-    'algodao': 15.00,    # 3.000kg = R$ 45.000 por Hectare
-    'mandioca': 2.50,    # 20.000kg = R$ 50.000 (Demora 240 dias para colher!)
-    'cana': 0.80,        # 80.000kg = R$ 64.000 (Demora quase 1 ano)
-    'tomate': 5.50,
-    'banana': 4.00,
-    'abacaxi': 3.50,
-    'melancia': 3.00,
-    'pimenta': 18.00,
-    'cacau': 35.00,
-    'acai': 14.00,
-    'cupuacu': 16.00,
-    'cafe': 25.00
+    'milho': 5.00, 'soja': 8.50, 'arroz': 7.00, 'feijao': 12.00, 'algodao': 15.00,
+    'mandioca': 2.50, 'cana': 0.80, 'tomate': 5.50, 'banana': 4.00, 'abacaxi': 3.50,
+    'melancia': 3.00, 'pimenta': 18.00, 'cacau': 35.00, 'acai': 14.00, 'cupuacu': 16.00, 'cafe': 25.00
 }
 
 @silo_bp.route('/api/silo/vender', methods=['POST'])
@@ -30,7 +16,7 @@ def vender_grao():
         return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
 
     dados = request.get_json()
-    item_chave = dados.get('item') # ex: 'milho' ou 'mandioca'
+    item_chave = dados.get('item') 
     quantidade_venda = int(dados.get('quantidade', 0))
     fazenda_id = dados.get('fazenda_id') 
 
@@ -38,14 +24,16 @@ def vender_grao():
         return jsonify({'sucesso': False, 'erro': 'Quantidade inválida.'})
 
     usuario_sessao = session['usuario']
-    jogador = Jogador.query.filter_by(username=usuario_sessao).first()
+    
+    # 🔥 BLINDAGEM: with_for_update enfileira requisições, barrando scripts de clonagem
+    jogador = Jogador.query.filter_by(username=usuario_sessao).with_for_update().first()
     if not jogador:
-        jogador = Jogador.query.get(usuario_sessao)
+        jogador = Jogador.query.filter_by(id=usuario_sessao).with_for_update().first()
 
     if fazenda_id:
-        fazenda = Propriedade.query.filter_by(id=fazenda_id, dono_id=jogador.id).first()
+        fazenda = Propriedade.query.filter_by(id=fazenda_id, dono_id=jogador.id).with_for_update().first()
     else:
-        fazenda = Propriedade.query.filter_by(dono_id=jogador.id).first()
+        fazenda = Propriedade.query.filter_by(dono_id=jogador.id).with_for_update().first()
 
     if not fazenda:
         return jsonify({'sucesso': False, 'erro': 'Fazenda não encontrada.'})
@@ -60,11 +48,9 @@ def vender_grao():
     if estoque_atual < quantidade_venda:
         return jsonify({'sucesso': False, 'erro': f'Você não tem essa quantidade toda no estoque!'})
 
-    # 🔥 IDENTIFICA AUTOMATICAMENTE DE ONDE SAIU A VENDA
     itens_silo = ['soja', 'milho', 'arroz', 'feijao']
     local_venda = "Silo" if item_chave in itens_silo else "Galpão"
 
-    # 💰 INJEÇÃO DE RH: Bônus do Capataz nas Vendas
     preco_unidade = PRECOS_VENDA.get(item_chave, 50) 
     from logica.funcionarios import obter_bonus_equipe
     bonus_rh = obter_bonus_equipe(fazenda.id)
@@ -72,17 +58,14 @@ def vender_grao():
     
     valor_total = (quantidade_venda * preco_unidade) * multiplicador_venda
 
-    # 1. Desconta o estoque e adiciona o saldo
     setattr(fazenda, nome_coluna, estoque_atual - quantidade_venda)
     jogador.saldo += valor_total
 
-    # 🔥 CORREÇÃO DO EXTRATO: Texto 100% dinâmico (com e sem bônus)
     if multiplicador_venda > 1.0:
         texto_venda = f"Venda de {local_venda}: {quantidade_venda}x {item_chave.capitalize()} (+10% Capataz)"
     else:
         texto_venda = f"Venda de {local_venda}: {quantidade_venda}x {item_chave.capitalize()}"
 
-    # 2. Registra no fluxo de caixa (ENTRADA)
     nova_transacao = Transacao(
         jogador_id=jogador.id,
         tipo='entrada',
@@ -106,9 +89,8 @@ def expandir_silo():
 
     dados = request.get_json() or {}
     fazenda_id = dados.get('fazenda_id')
-    pacote = dados.get('pacote', 'pequeno') # 🔥 Novo: Descobre qual obra o jogador quer
+    pacote = dados.get('pacote', 'pequeno') 
 
-    # 🔥 TABELA DE OBRAS DO SILO (Com desconto para as obras maiores)
     PACOTES_OBRA = {
         'pequeno': {'custo': 5000, 'capacidade': 500},
         'medio': {'custo': 45000, 'capacidade': 5000},

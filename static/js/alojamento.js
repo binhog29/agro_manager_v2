@@ -17,11 +17,11 @@ window.abrirModalRH = async function() {
 
         const equipeAtual = data.equipe;
         const catalogoRH = [
-            { id: 'peoes', nome: 'Peão', custo: 1000, salario: 25, icone: 'fa-shield-alt', benef: 'Protege Animais' },
-            { id: 'tratoristas', nome: 'Tratorista', custo: 2500, salario: 45, icone: 'fa-tractor', benef: '+15% Colheita' },
-            { id: 'capatazes', nome: 'Capataz', custo: 10000, salario: 150, icone: 'fa-dollar-sign', benef: '+10% Venda' },
-            { id: 'veterinarios', nome: 'Veterinário', custo: 8000, salario: 120, icone: 'fa-notes-medical', benef: 'Reduz Doenças' },
-            { id: 'agronomos', nome: 'Agrônomo', custo: 9000, salario: 130, icone: 'fa-seedling', benef: 'Safra Rápida' }
+            { id: 'peoes', nome: 'Peão', custo: 500, salario: 4, icone: 'fa-shield-alt', benef: 'Protege Animais' },
+            { id: 'tratoristas', nome: 'Tratorista', custo: 1200, salario: 7, icone: 'fa-tractor', benef: '+15% Colheita' },
+            { id: 'capatazes', nome: 'Capataz', custo: 2500, salario: 12, icone: 'fa-dollar-sign', benef: '+10% Venda' },
+            { id: 'veterinarios', nome: 'Veterinário', custo: 3000, salario: 18, icone: 'fa-notes-medical', benef: 'Reduz Doenças' },
+            { id: 'agronomos', nome: 'Agrônomo', custo: 3500, salario: 22, icone: 'fa-seedling', benef: 'Safra Rápida' }
         ];
 
         let equipeHtml = '';

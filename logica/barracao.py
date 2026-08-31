@@ -15,6 +15,8 @@ class Concessionaria:
         'escavadeira': {'nome': 'Escavadeira', 'tipo': 'Escavadeira', 'hp': 140, 'preco': 550000},
         'colheitadeira': {'nome': 'Colheitadeira Grãos', 'tipo': 'Colheitadeira', 'hp': 320, 'preco': 850000},
         'pulverizador': {'nome': 'Pulverizador', 'tipo': 'Implemento', 'hp': 190, 'preco': 420000},
+        'caminhonete_usada': {'nome': 'Caminhonete Usada', 'tipo': 'Veiculo', 'hp': 110, 'preco': 45000},
+        'caminhonete_nova': {'nome': 'Caminhonete Nova', 'tipo': 'Veiculo', 'hp': 160, 'preco': 180000},
         'caminhao_boiadeiro': {'nome': 'Caminhão Boiadeiro', 'tipo': 'Caminhao', 'hp': 300, 'preco': 250000},
         'caminhao_bau': {'nome': 'Caminhão Baú (Frios)', 'tipo': 'Caminhao', 'hp': 250, 'preco': 200000}
     }
@@ -32,8 +34,8 @@ def listar_barracao():
     if not fazenda: return jsonify({'sucesso': False})
 
     maquinas = Maquinario.query.filter_by(propriedade_id=fazenda.id).all()
+    limite_vagas = fazenda.cap_barracao if getattr(fazenda, 'cap_barracao', 0) > 0 else 4
     
-    # 📸 Mapeador de Imagens
     def get_imagem(modelo):
         mapa = {
             'Trator Leve': 'trator_leve.png',
@@ -43,7 +45,9 @@ def listar_barracao():
             'Colheitadeira Grãos': 'colheitadeira.png',
             'Pulverizador': 'pulverizador.png',
             'Caminhão Boiadeiro': 'caminhao_boiadeiro.png',
-            'Caminhão Baú (Frios)': 'caminhao_bau.png'
+            'Caminhão Baú (Frios)': 'caminhao_bau.png',
+            'Caminhonete Usada': 'caminhonete_usada.png',
+            'Caminhonete Nova': 'caminhonete_nova.png'
         }
         return mapa.get(modelo, 'trator.png')
     
@@ -58,7 +62,12 @@ def listar_barracao():
         'imagem': get_imagem(m.modelo)
     } for m in maquinas]
     
-    return jsonify({'sucesso': True, 'maquinas': lista, 'estoque_diesel': getattr(fazenda, 'est_combustivel', 0)})
+    return jsonify({
+        'sucesso': True, 
+        'maquinas': lista, 
+        'estoque_diesel': getattr(fazenda, 'est_combustivel', 0),
+        'limite_vagas': limite_vagas
+    })
 
 @barracao_bp.route('/api/barracao/comprar', methods=['POST'])
 def comprar_maquina():
@@ -75,7 +84,6 @@ def comprar_maquina():
     fazenda = Propriedade.query.filter_by(id=fazenda_id, dono_id=jogador.id).first()
     if not fazenda: return jsonify({'sucesso': False, 'erro': 'Fazenda não encontrada.'})
 
-    # Proteção de Limite de Vagas no Barracão
     limite = fazenda.cap_barracao if getattr(fazenda, 'cap_barracao', 0) > 0 else 4
     qtd_atual = Maquinario.query.filter_by(propriedade_id=fazenda.id).count()
     if qtd_atual >= limite:
@@ -103,6 +111,62 @@ def comprar_maquina():
     
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': f'{maquina_info["nome"]} estacionado no barracão!'})
+
+@barracao_bp.route('/api/barracao/vender', methods=['POST'])
+def vender_maquina():
+    if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
+    jogador = Jogador.query.filter_by(username=session['usuario']).first()
+    dados = request.get_json()
+    
+    maquina = Maquinario.query.get(dados.get('maquina_id'))
+    if not maquina: return jsonify({'sucesso': False, 'erro': 'Máquina não encontrada.'})
+    
+    fazenda = Propriedade.query.filter_by(id=maquina.propriedade_id, dono_id=jogador.id).first()
+    if not fazenda: return jsonify({'sucesso': False, 'erro': 'Acesso negado.'})
+
+    # Busca o preço original na concessionária
+    preco_base = 0
+    for chave, info in Concessionaria.CATALOGO.items():
+        if info['nome'] == maquina.modelo:
+            preco_base = info['preco']
+            break
+            
+    # O ferro-velho paga 50% do valor da tabela
+    valor_venda = preco_base * 0.50 if preco_base > 0 else 10000.0
+    
+    jogador.saldo += valor_venda
+    registrar_transacao(jogador.id, 'entrada', valor_venda, f'Venda de Máquina (Usada): {maquina.modelo}')
+    
+    db.session.delete(maquina)
+    db.session.commit()
+    
+    return jsonify({'sucesso': True, 'msg': f'{maquina.modelo} vendido por R$ {valor_venda:,.2f}!'})
+
+@barracao_bp.route('/api/barracao/expandir', methods=['POST'])
+def expandir_barracao():
+    if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
+    jogador = Jogador.query.filter_by(username=session['usuario']).first()
+    dados = request.get_json()
+    fazenda_id = dados.get('fazenda_id')
+    
+    fazenda = Propriedade.query.filter_by(id=fazenda_id, dono_id=jogador.id).first()
+    if not fazenda: return jsonify({'sucesso': False, 'erro': 'Fazenda não encontrada.'})
+
+    CUSTO_EXPANSAO = 150000.0
+    VAGAS_ADCIONAIS = 4
+
+    if jogador.saldo < CUSTO_EXPANSAO:
+        return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente. A obra custa R$ {CUSTO_EXPANSAO:,.2f}.'})
+
+    jogador.saldo -= CUSTO_EXPANSAO
+    
+    capacidade_atual = fazenda.cap_barracao if getattr(fazenda, 'cap_barracao', 0) > 0 else 4
+    fazenda.cap_barracao = capacidade_atual + VAGAS_ADCIONAIS
+
+    registrar_transacao(jogador.id, 'saida', CUSTO_EXPANSAO, f'Engenharia: Expansão do Barracão (+{VAGAS_ADCIONAIS} vagas)')
+    db.session.commit()
+    
+    return jsonify({'sucesso': True, 'msg': f'Barracão expandido! Agora você tem {fazenda.cap_barracao} vagas.'})
 
 @barracao_bp.route('/api/barracao/manutencao', methods=['POST'])
 def manutencao_maquina():

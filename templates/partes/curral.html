@@ -31,17 +31,23 @@
             </button>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px;">
-            <button onclick="abrirSelecaoVacinaLote('aftosa')" style="background:#1e3a8a; padding:8px; border-radius:10px; font-size:11px; border:1px solid #1e40af; color:#fff; cursor:pointer; text-align:left; font-weight:bold; box-shadow: 0 3px 6px rgba(0,0,0,0.4);">
-                💉 Aftosa: {{ fazenda.est_vacina_aftosa }} un <span style="float:right; font-size:9px; background:#1d4ed8; padding:2px 5px; border-radius:4px;">Aplicar Lote</span>
-            </button>
-            <button onclick="abrirSelecaoVacinaLote('brucelose')" style="background:#78350f; padding:8px; border-radius:10px; font-size:11px; border:1px solid #92400e; color:#fff; cursor:pointer; text-align:left; font-weight:bold; box-shadow: 0 3px 6px rgba(0,0,0,0.4);">
-                🧪 Brucelose: {{ fazenda.est_vacina_brucelose }} un <span style="float:right; font-size:9px; background:#b45309; padding:2px 5px; border-radius:4px;">Aplicar Lote</span>
-            </button>
-            <button onclick="abrirSelecaoVacinaLote('medicamento')" style="background:#4a044e; padding:8px; border-radius:10px; font-size:11px; border:1px solid #701a75; color:#fff; cursor:pointer; text-align:left; font-weight:bold; grid-column: span 2; box-shadow: 0 3px 6px rgba(0,0,0,0.4);">
-                💊 Med. Geral: {{ fazenda.est_medicamento_geral }} un <span style="float:right; font-size:9px; background:#7e22ce; padding:2px 5px; border-radius:4px;">Aplicar Lote</span>
-            </button>
-        </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px;">
+        <button onclick="abrirSelecaoVacinaLote('aftosa')" style="background: #1565c0; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px;">
+            💉 Aftosa: {{ fazenda.est_vacina_aftosa|default(0) }} un
+        </button>
+        
+        <button onclick="abrirSelecaoVacinaLote('brucelose')" style="background: #e65100; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px;">
+            🧪 Brucelose: {{ fazenda.est_vacina_brucelose|default(0) }} un
+        </button>
+        
+        <button onclick="abrirSelecaoVacinaLote('medicamento')" style="background: #6a1b9a; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px;">
+            💊 Med. Geral: {{ fazenda.est_medicamento_geral|default(0) }} un
+        </button>
+        
+        <button onclick="abrirSelecaoVacinaLote('suplemento')" style="background: #2e7d32; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px;">
+            🌽 Suplemento: {{ fazenda.est_suplemento_engorda|default(0) }} un
+        </button>
+    </div>
 
         <!-- Caixinha do Frigorífico translúcida -->
         <div style="background: rgba(69, 10, 10, 0.85); border: 1px solid rgba(127, 29, 29, 0.6); padding: 12px; border-radius: 12px; margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
@@ -69,8 +75,8 @@
                             </div>
                             <div style="text-align:right;">
                                 <b style="color:#4caf50; font-size:18px; text-shadow: 1px 1px 2px #000;">
-                                    {% if animal.peso >= 15.0 %}
-                                        {{ "%.1f"|format(animal.peso / 15.0) }} @
+                                    {% if animal.peso >= 30.0 %}
+                                        {{ "%.1f"|format(animal.peso / 30.0) }} @
                                     {% else %}
                                         {{ "%.1f"|format(animal.peso) }} kg
                                     {% endif %}

@@ -41,7 +41,8 @@ class Jogador(db.Model):
         self.xp += quantidade
         subiu_de_nivel = False
         
-        while self.xp >= (self.nivel * 5000):
+        # 🔥 CORREÇÃO: O servidor agora usa a mesma matemática da tela (Nível * 1000)
+        while self.xp >= (self.nivel * 1000):
             self.nivel += 1
             subiu_de_nivel = True
             bonus_dinheiro = self.nivel * 5000 
@@ -98,6 +99,7 @@ class Propriedade(db.Model):
     est_banana = db.Column(db.Integer, default=0)
     est_abacaxi = db.Column(db.Integer, default=0)
     est_melancia = db.Column(db.Integer, default=0)
+    est_tomate = db.Column(db.Integer, default=0)
 
     est_sal = db.Column(db.Integer, default=0)
     est_racao = db.Column(db.Integer, default=0)
@@ -357,3 +359,23 @@ def popular_mapa_inicial():
                     nova_propriedade.lotes.append(Lote(nome=f"Hectare {j+1}", status="mato"))
                 db.session.add(nova_propriedade)
     db.session.commit()
+
+class AnuncioImovel(db.Model):
+    __tablename__ = 'anuncios_imoveis'
+    id = db.Column(db.Integer, primary_key=True)
+    propriedade_id = db.Column(db.Integer, db.ForeignKey('propriedades.id'), nullable=False)
+    vendedor_id = db.Column(db.Integer, db.ForeignKey('jogadores.id'), nullable=False)
+    valor = db.Column(db.Float, nullable=False)
+    data_anuncio = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    propriedade = db.relationship('Propriedade', backref='anuncio_imovel', uselist=False)
+    vendedor = db.relationship('Jogador', backref='imoveis_anunciados')
+
+class Notificacao(db.Model):
+    __tablename__ = 'notificacoes'
+    id = db.Column(db.Integer, primary_key=True)
+    jogador_id = db.Column(db.Integer, db.ForeignKey('jogadores.id'), nullable=False)
+    texto = db.Column(db.String(255), nullable=False)
+    lida = db.Column(db.Boolean, default=False)
+    data = db.Column(db.DateTime, default=datetime.utcnow)
+    jogador = db.relationship('Jogador', backref=db.backref('notificacoes_recebidas', lazy=True))

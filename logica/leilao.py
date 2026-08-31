@@ -76,7 +76,16 @@ def cancelar_anuncio():
     if not anuncio or anuncio.vendedor_id != usuario.id: return jsonify({'sucesso': False, 'erro': 'Anúncio não encontrado.'})
 
     animal = Animal.query.get(anuncio.animal_id)
-    if animal: animal.onde_esta = 'curral' 
+    if animal: 
+        prop = Propriedade.query.get(animal.propriedade_id)
+        animais_no_curral = Animal.query.filter_by(propriedade_id=prop.id, onde_esta='curral').count()
+        limite_curral = getattr(prop, 'cap_curral', 10)
+        
+        # 🔥 CORREÇÃO: Impede de cancelar se não houver vaga no tronco!
+        if animais_no_curral >= limite_curral:
+            return jsonify({'sucesso': False, 'erro': f'Curral lotado! Você precisa de vaga no tronco para cancelar e abrigar o animal devolvido.'})
+            
+        animal.onde_esta = 'curral' 
 
     db.session.delete(anuncio)
     db.session.commit()

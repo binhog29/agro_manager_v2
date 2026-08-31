@@ -7,13 +7,38 @@ window.alterarQtdCarrinho = function(itemChave, itemNome, precoUn, delta) {
     
     window.CARRINHO_LOJA[itemChave].qtd += delta;
     
-    if (window.CARRINHO_LOJA[itemChave].qtd <= 0) {
+    if (window.CARRINHO_LOJA[itemChave].qtd < 0) {
+        window.CARRINHO_LOJA[itemChave].qtd = 0;
+    }
+    
+    if (window.CARRINHO_LOJA[itemChave].qtd === 0) {
         delete window.CARRINHO_LOJA[itemChave];
     }
     
     let displayEl = document.getElementById(`qtd-${itemChave}`);
     if (displayEl) {
-        displayEl.innerText = window.CARRINHO_LOJA[itemChave] ? window.CARRINHO_LOJA[itemChave].qtd : 0;
+        let valorAtual = window.CARRINHO_LOJA[itemChave] ? window.CARRINHO_LOJA[itemChave].qtd : 0;
+        if (displayEl.tagName === 'INPUT') {
+            displayEl.value = valorAtual;
+        } else {
+            displayEl.innerText = valorAtual;
+        }
+    }
+
+    atualizarCarrinhoVisual();
+};
+
+window.atualizarQtdDireta = function(itemChave, itemNome, precoUn, inputEl) {
+    let qtd = parseInt(inputEl.value) || 0;
+    if (qtd < 0) qtd = 0;
+    
+    if (qtd === 0) {
+        delete window.CARRINHO_LOJA[itemChave];
+    } else {
+        if (!window.CARRINHO_LOJA[itemChave]) {
+            window.CARRINHO_LOJA[itemChave] = { nome: itemNome, preco: precoUn, qtd: 0 };
+        }
+        window.CARRINHO_LOJA[itemChave].qtd = qtd;
     }
 
     atualizarCarrinhoVisual();
@@ -92,7 +117,6 @@ window.abrirCheckoutCarrinho = function() {
         if (result.isConfirmed) {
             Swal.fire({ title: 'Processando pagamento...', didOpen: () => Swal.showLoading() });
             
-            // 🔥 BLINDADO: Pega o ID da fazenda atual pela URL para a entrega!
             const fazendaId = window.location.pathname.split('/').pop();
             
             fetch('/api/loja/checkout_carrinho', {

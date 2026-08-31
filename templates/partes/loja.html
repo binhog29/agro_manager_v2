@@ -1,7 +1,6 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/loja.css') }}?v=1">
 
 <style>
-    /* CSS Injetado para o Carrinho sem quebrar o css/loja.css */
     .loja-grid-pequeno {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
@@ -60,88 +59,83 @@
     .loja-qtd-display {
         font-size: 14px;
         font-weight: bold;
-        width: 30px;
+        width: 35px;
         text-align: center;
+        background: transparent;
+        border: none;
+        outline: none;
+        color: #333;
     }
 </style>
 
 <div id="view-loja" class="view-section" style="display: none; padding: 10px; padding-bottom: 80px;">
-
-    <!-- TRATOR / MÁQUINAS -->
-    <div style="background: white; border-radius: 15px; padding: 15px; text-align: center; border: 2px dashed #ccc; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
-        <img src="/static/img/trator.png" style="height: 70px; object-fit: contain;" onerror="this.src='/static/img/arado.png'">
-        <h3 style="color:#333; margin: 10px 0 5px 0;">Trator Agrícola</h3>
-        <p style="color:#999; font-size:12px; margin: 0 0 15px 0;">Disponível no nível 10</p>
-        <button class="btn-compra-verde" style="background:#ccc; box-shadow:none; color:#666; cursor:not-allowed; margin-top: 0;">BLOQUEADO</button>
-    </div>
-
+    
     <!-- INSUMOS AGRÍCOLAS -->
     <div class="loja-cat-title">🧪 Insumos Agrícolas</div>
     <div class="loja-grid-pequeno">
         <div class="loja-card-pequeno">
             <img src="/static/img/sal.png" onerror="this.src='/static/img/sal_mineral.png'">
             <h5>Sal Mineral</h5>
-            <div class="preco">$80 un</div>
+            <div class="preco">$25 un</div>
             <div class="loja-controles">
-                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('sal', 'Sal Mineral', 80, -1)">-</button>
-                <div class="loja-qtd-display" id="qtd-sal">0</div>
-                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('sal', 'Sal Mineral', 80, 1)">+</button>
+                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('sal', 'Sal Mineral', 25.0, -1)">-</button>
+                <input type="number" class="loja-qtd-display" id="qtd-sal" value="0" min="0" oninput="atualizarQtdDireta('sal', 'Sal Mineral', 25.0, this)">
+                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('sal', 'Sal Mineral', 25.0, 1)">+</button>
             </div>
         </div>
 
         <div class="loja-card-pequeno">
             <img src="/static/img/racao.png" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3014/3014521.png'">
             <h5>Ração Gado</h5>
-            <div class="preco">$120 sc</div>
+            <div class="preco">$40 sc</div>
             <div class="loja-controles">
-                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('racao', 'Ração Gado', 120, -1)">-</button>
-                <div class="loja-qtd-display" id="qtd-racao">0</div>
-                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('racao', 'Ração Gado', 120, 1)">+</button>
+                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('racao', 'Ração Gado', 40.0, -1)">-</button>
+                <input type="number" class="loja-qtd-display" id="qtd-racao" value="0" min="0" oninput="atualizarQtdDireta('racao', 'Ração Gado', 40.0, this)">
+                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('racao', 'Ração Gado', 40.0, 1)">+</button>
             </div>
         </div>
 
-        <!-- 🔥 NOVO: Ração de Peixe (Exclusiva para a Represa) -->
         <div class="loja-card-pequeno">
             <img src="/static/img/racao_peixe.png" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3014/3014521.png'">
             <h5>Ração de Peixe</h5>
-            <div class="preco">$100 sc</div>
+            <div class="preco">$35 sc</div>
             <div class="loja-controles">
-                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('racao_peixe', 'Ração de Peixe', 100, -1)">-</button>
-                <div class="loja-qtd-display" id="qtd-racao_peixe">0</div>
-                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('racao_peixe', 'Ração de Peixe', 100, 1)">+</button>
+                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('racao_peixe', 'Ração de Peixe', 35.0, -1)">-</button>
+                <input type="number" class="loja-qtd-display" id="qtd-racao_peixe" value="0" min="0" oninput="atualizarQtdDireta('racao_peixe', 'Ração de Peixe', 35.0, this)">
+                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('racao_peixe', 'Ração de Peixe', 35.0, 1)">+</button>
             </div>
         </div>
 
         <div class="loja-card-pequeno">
             <img src="/static/img/adubo.png" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3222/3222830.png'">
             <h5>Adubo</h5>
-            <div class="preco">$150 sc</div>
+            <div class="preco">$50 sc</div>
             <div class="loja-controles">
-                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('adubo', 'Adubo', 150, -1)">-</button>
-                <div class="loja-qtd-display" id="qtd-adubo">0</div>
-                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('adubo', 'Adubo', 150, 1)">+</button>
+                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('adubo', 'Adubo', 50.0, -1)">-</button>
+                <input type="number" class="loja-qtd-display" id="qtd-adubo" value="0" min="0" oninput="atualizarQtdDireta('adubo', 'Adubo', 50.0, this)">
+                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('adubo', 'Adubo', 50.0, 1)">+</button>
             </div>
         </div>
 
         <div class="loja-card-pequeno">
             <img src="/static/img/veneno.png" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2854/2854308.png'">
             <h5>Defensivo</h5>
-            <div class="preco">$200 gl</div>
+            <div class="preco">$80 gl</div>
             <div class="loja-controles">
-                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('veneno', 'Defensivo', 200, -1)">-</button>
-                <div class="loja-qtd-display" id="qtd-veneno">0</div>
-                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('veneno', 'Defensivo', 200, 1)">+</button>
+                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('veneno', 'Defensivo', 80.0, -1)">-</button>
+                <input type="number" class="loja-qtd-display" id="qtd-veneno" value="0" min="0" oninput="atualizarQtdDireta('veneno', 'Defensivo', 80.0, this)">
+                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('veneno', 'Defensivo', 80.0, 1)">+</button>
             </div>
         </div>
 
         <div class="loja-card-pequeno">
             <img src="/static/img/combustivel.png" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2854/2854308.png'">
             <h5>Combustível</h5>
-            <div class="preco">$450 gl</div>
+            <div class="preco">$150 gl</div>
             <div class="loja-controles">
-                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('combustivel', 'Combustível', 450, -1)">-</button>
-                <div class="loja-qtd-display" id="qtd-combustivel">0</div>
-                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('combustivel', 'Combustível', 450, 1)">+</button>
+                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('combustivel', 'Combustível', 150.0, -1)">-</button>
+                <input type="number" class="loja-qtd-display" id="qtd-combustivel" value="0" min="0" oninput="atualizarQtdDireta('combustivel', 'Combustível', 150.0, this)">
+                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('combustivel', 'Combustível', 150.0, 1)">+</button>
             </div>
         </div>
     </div>
@@ -154,9 +148,9 @@
             <h5>Milho</h5>
             <div class="preco">$200 sc</div>
             <div class="loja-controles">
-                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('sem_milho', 'Sem. Milho', 200, -1)">-</button>
-                <div class="loja-qtd-display" id="qtd-sem_milho">0</div>
-                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('sem_milho', 'Sem. Milho', 200, 1)">+</button>
+                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('sem_milho', 'Sem. Milho', 200.0, -1)">-</button>
+                <input type="number" class="loja-qtd-display" id="qtd-sem_milho" value="0" min="0" oninput="atualizarQtdDireta('sem_milho', 'Sem. Milho', 200.0, this)">
+                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('sem_milho', 'Sem. Milho', 200.0, 1)">+</button>
             </div>
         </div>
 
@@ -165,9 +159,9 @@
             <h5>Soja</h5>
             <div class="preco">$350 sc</div>
             <div class="loja-controles">
-                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('sem_soja', 'Sem. Soja', 350, -1)">-</button>
-                <div class="loja-qtd-display" id="qtd-sem_soja">0</div>
-                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('sem_soja', 'Sem. Soja', 350, 1)">+</button>
+                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('sem_soja', 'Sem. Soja', 350.0, -1)">-</button>
+                <input type="number" class="loja-qtd-display" id="qtd-sem_soja" value="0" min="0" oninput="atualizarQtdDireta('sem_soja', 'Sem. Soja', 350.0, this)">
+                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('sem_soja', 'Sem. Soja', 350.0, 1)">+</button>
             </div>
         </div>
 
@@ -176,9 +170,9 @@
             <h5>Arroz</h5>
             <div class="preco">$180 sc</div>
             <div class="loja-controles">
-                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('sem_arroz', 'Sem. Arroz', 180, -1)">-</button>
-                <div class="loja-qtd-display" id="qtd-sem_arroz">0</div>
-                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('sem_arroz', 'Sem. Arroz', 180, 1)">+</button>
+                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('sem_arroz', 'Sem. Arroz', 180.0, -1)">-</button>
+                <input type="number" class="loja-qtd-display" id="qtd-sem_arroz" value="0" min="0" oninput="atualizarQtdDireta('sem_arroz', 'Sem. Arroz', 180.0, this)">
+                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('sem_arroz', 'Sem. Arroz', 180.0, 1)">+</button>
             </div>
         </div>
 
@@ -187,9 +181,9 @@
             <h5>Feijão</h5>
             <div class="preco">$250 sc</div>
             <div class="loja-controles">
-                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('sem_feijao', 'Sem. Feijão', 250, -1)">-</button>
-                <div class="loja-qtd-display" id="qtd-sem_feijao">0</div>
-                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('sem_feijao', 'Sem. Feijão', 250, 1)">+</button>
+                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('sem_feijao', 'Sem. Feijão', 250.0, -1)">-</button>
+                <input type="number" class="loja-qtd-display" id="qtd-sem_feijao" value="0" min="0" oninput="atualizarQtdDireta('sem_feijao', 'Sem. Feijão', 250.0, this)">
+                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('sem_feijao', 'Sem. Feijão', 250.0, 1)">+</button>
             </div>
         </div>
 
@@ -198,9 +192,9 @@
             <h5>Algodão</h5>
             <div class="preco">$400 sc</div>
             <div class="loja-controles">
-                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('sem_algodao', 'Sem. Algodão', 400, -1)">-</button>
-                <div class="loja-qtd-display" id="qtd-sem_algodao">0</div>
-                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('sem_algodao', 'Sem. Algodão', 400, 1)">+</button>
+                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('sem_algodao', 'Sem. Algodão', 400.0, -1)">-</button>
+                <input type="number" class="loja-qtd-display" id="qtd-sem_algodao" value="0" min="0" oninput="atualizarQtdDireta('sem_algodao', 'Sem. Algodão', 400.0, this)">
+                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('sem_algodao', 'Sem. Algodão', 400.0, 1)">+</button>
             </div>
         </div>
 
@@ -209,9 +203,9 @@
             <h5>Cana</h5>
             <div class="preco">$300 md</div>
             <div class="loja-controles">
-                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('sem_cana', 'Muda de Cana', 300, -1)">-</button>
-                <div class="loja-qtd-display" id="qtd-sem_cana">0</div>
-                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('sem_cana', 'Muda de Cana', 300, 1)">+</button>
+                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('sem_cana', 'Muda de Cana', 300.0, -1)">-</button>
+                <input type="number" class="loja-qtd-display" id="qtd-sem_cana" value="0" min="0" oninput="atualizarQtdDireta('sem_cana', 'Muda de Cana', 300.0, this)">
+                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('sem_cana', 'Muda de Cana', 300.0, 1)">+</button>
             </div>
         </div>
 
@@ -220,9 +214,9 @@
             <h5>Mandioca</h5>
             <div class="preco">$150 md</div>
             <div class="loja-controles">
-                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('sem_mandioca', 'Muda Mandioca', 150, -1)">-</button>
-                <div class="loja-qtd-display" id="qtd-sem_mandioca">0</div>
-                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('sem_mandioca', 'Muda Mandioca', 150, 1)">+</button>
+                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('sem_mandioca', 'Muda Mandioca', 150.0, -1)">-</button>
+                <input type="number" class="loja-qtd-display" id="qtd-sem_mandioca" value="0" min="0" oninput="atualizarQtdDireta('sem_mandioca', 'Muda Mandioca', 150.0, this)">
+                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('sem_mandioca', 'Muda Mandioca', 150.0, 1)">+</button>
             </div>
         </div>
     </div>
@@ -235,9 +229,9 @@
             <h5>Café</h5>
             <div class="preco">$500 md</div>
             <div class="loja-controles">
-                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('sem_cafe', 'Muda de Café', 500, -1)">-</button>
-                <div class="loja-qtd-display" id="qtd-sem_cafe">0</div>
-                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('sem_cafe', 'Muda de Café', 500, 1)">+</button>
+                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('sem_cafe', 'Muda de Café', 500.0, -1)">-</button>
+                <input type="number" class="loja-qtd-display" id="qtd-sem_cafe" value="0" min="0" oninput="atualizarQtdDireta('sem_cafe', 'Muda de Café', 500.0, this)">
+                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('sem_cafe', 'Muda de Café', 500.0, 1)">+</button>
             </div>
         </div>
 
@@ -246,9 +240,9 @@
             <h5>Cacau</h5>
             <div class="preco">$600 md</div>
             <div class="loja-controles">
-                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('sem_cacau', 'Muda de Cacau', 600, -1)">-</button>
-                <div class="loja-qtd-display" id="qtd-sem_cacau">0</div>
-                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('sem_cacau', 'Muda de Cacau', 600, 1)">+</button>
+                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('sem_cacau', 'Muda de Cacau', 600.0, -1)">-</button>
+                <input type="number" class="loja-qtd-display" id="qtd-sem_cacau" value="0" min="0" oninput="atualizarQtdDireta('sem_cacau', 'Muda de Cacau', 600.0, this)">
+                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('sem_cacau', 'Muda de Cacau', 600.0, 1)">+</button>
             </div>
         </div>
 
@@ -257,9 +251,9 @@
             <h5>Açaí</h5>
             <div class="preco">$450 md</div>
             <div class="loja-controles">
-                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('sem_acai', 'Muda de Açaí', 450, -1)">-</button>
-                <div class="loja-qtd-display" id="qtd-sem_acai">0</div>
-                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('sem_acai', 'Muda de Açaí', 450, 1)">+</button>
+                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('sem_acai', 'Muda de Açaí', 450.0, -1)">-</button>
+                <input type="number" class="loja-qtd-display" id="qtd-sem_acai" value="0" min="0" oninput="atualizarQtdDireta('sem_acai', 'Muda de Açaí', 450.0, this)">
+                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('sem_acai', 'Muda de Açaí', 450.0, 1)">+</button>
             </div>
         </div>
 
@@ -268,9 +262,9 @@
             <h5>Cupuaçu</h5>
             <div class="preco">$400 md</div>
             <div class="loja-controles">
-                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('sem_cupuacu', 'Muda Cupuaçu', 400, -1)">-</button>
-                <div class="loja-qtd-display" id="qtd-sem_cupuacu">0</div>
-                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('sem_cupuacu', 'Muda Cupuaçu', 400, 1)">+</button>
+                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('sem_cupuacu', 'Muda Cupuaçu', 400.0, -1)">-</button>
+                <input type="number" class="loja-qtd-display" id="qtd-sem_cupuacu" value="0" min="0" oninput="atualizarQtdDireta('sem_cupuacu', 'Muda Cupuaçu', 400.0, this)">
+                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('sem_cupuacu', 'Muda Cupuaçu', 400.0, 1)">+</button>
             </div>
         </div>
 
@@ -279,9 +273,9 @@
             <h5>Banana</h5>
             <div class="preco">$200 md</div>
             <div class="loja-controles">
-                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('sem_banana', 'Muda de Banana', 200, -1)">-</button>
-                <div class="loja-qtd-display" id="qtd-sem_banana">0</div>
-                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('sem_banana', 'Muda de Banana', 200, 1)">+</button>
+                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('sem_banana', 'Muda de Banana', 200.0, -1)">-</button>
+                <input type="number" class="loja-qtd-display" id="qtd-sem_banana" value="0" min="0" oninput="atualizarQtdDireta('sem_banana', 'Muda de Banana', 200.0, this)">
+                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('sem_banana', 'Muda de Banana', 200.0, 1)">+</button>
             </div>
         </div>
 
@@ -290,20 +284,21 @@
             <h5>Abacaxi</h5>
             <div class="preco">$250 md</div>
             <div class="loja-controles">
-                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('sem_abacaxi', 'Muda de Abacaxi', 250, -1)">-</button>
-                <div class="loja-qtd-display" id="qtd-sem_abacaxi">0</div>
-                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('sem_abacaxi', 'Muda de Abacaxi', 250, 1)">+</button>
+                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('sem_abacaxi', 'Muda de Abacaxi', 250.0, -1)">-</button>
+                <input type="number" class="loja-qtd-display" id="qtd-sem_abacaxi" value="0" min="0" oninput="atualizarQtdDireta('sem_abacaxi', 'Muda de Abacaxi', 250.0, this)">
+                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('sem_abacaxi', 'Muda de Abacaxi', 250.0, 1)">+</button>
             </div>
         </div>
 
-        <div class="loja-card-pequeno">
+                <div class="loja-card-pequeno">
             <img src="/static/img/tomate.png" onerror="this.src='https://cdn-icons-png.flaticon.com/512/628/628283.png'">
             <h5>Tomate</h5>
             <div class="preco">$15 sc</div>
             <div class="loja-controles">
-                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('sem_melancia', 'Sem. de Tomate', 15, -1)">-</button>
-                <div class="loja-qtd-display" id="qtd-sem_melancia">0</div>
-                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('sem_melancia', 'Sem. de Tomate', 15, 1)">+</button>
+                <!-- 🔥 CORREÇÃO: Chave mudada de 'sem_melancia' para 'sem_tomate' -->
+                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('sem_tomate', 'Sem. de Tomate', 15.0, -1)">-</button>
+                <input type="number" class="loja-qtd-display" id="qtd-sem_tomate" value="0" min="0" oninput="atualizarQtdDireta('sem_tomate', 'Sem. de Tomate', 15.0, this)">
+                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('sem_tomate', 'Sem. de Tomate', 15.0, 1)">+</button>
             </div>
         </div>
 
@@ -312,9 +307,9 @@
             <h5>Pimenta</h5>
             <div class="preco">$300 sc</div>
             <div class="loja-controles">
-                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('sem_pimenta', 'Sem. de Pimenta', 300, -1)">-</button>
-                <div class="loja-qtd-display" id="qtd-sem_pimenta">0</div>
-                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('sem_pimenta', 'Sem. de Pimenta', 300, 1)">+</button>
+                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('sem_pimenta', 'Sem. de Pimenta', 300.0, -1)">-</button>
+                <input type="number" class="loja-qtd-display" id="qtd-sem_pimenta" value="0" min="0" oninput="atualizarQtdDireta('sem_pimenta', 'Sem. de Pimenta', 300.0, this)">
+                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('sem_pimenta', 'Sem. de Pimenta', 300.0, 1)">+</button>
             </div>
         </div>
     </div>
@@ -325,48 +320,48 @@
         <div class="loja-card-pequeno">
             <img src="/static/img/vacina_aftosa.png" onerror="this.src='https://cdn-icons-png.flaticon.com/512/824/824055.png'">
             <h5>Vacina Aftosa</h5>
-            <div class="preco">$150 un</div>
+            <div class="preco">$50 un</div>
             <div class="loja-controles">
-                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('vacina_aftosa', 'Vacina Aftosa', 150, -1)">-</button>
-                <div class="loja-qtd-display" id="qtd-vacina_aftosa">0</div>
-                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('vacina_aftosa', 'Vacina Aftosa', 150, 1)">+</button>
+                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('vacina_aftosa', 'Vacina Aftosa', 50.0, -1)">-</button>
+                <input type="number" class="loja-qtd-display" id="qtd-vacina_aftosa" value="0" min="0" oninput="atualizarQtdDireta('vacina_aftosa', 'Vacina Aftosa', 50.0, this)">
+                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('vacina_aftosa', 'Vacina Aftosa', 50.0, 1)">+</button>
             </div>
         </div>
 
         <div class="loja-card-pequeno">
             <img src="/static/img/medicamento_geral.png" onerror="this.src='https://cdn-icons-png.flaticon.com/512/824/824055.png'">
             <h5>Medicamento Geral</h5>
-            <div class="preco">$90 un</div>
+            <div class="preco">$30 un</div>
             <div class="loja-controles">
-                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('medicamento_geral', 'Medicamento', 90, -1)">-</button>
-                <div class="loja-qtd-display" id="qtd-medicamento_geral">0</div>
-                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('medicamento_geral', 'Medicamento', 90, 1)">+</button>
+                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('medicamento_geral', 'Medicamento', 30.0, -1)">-</button>
+                <input type="number" class="loja-qtd-display" id="qtd-medicamento_geral" value="0" min="0" oninput="atualizarQtdDireta('medicamento_geral', 'Medicamento', 30.0, this)">
+                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('medicamento_geral', 'Medicamento', 30.0, 1)">+</button>
             </div>
         </div>
 
         <div class="loja-card-pequeno">
             <img src="/static/img/vacina_brucelose.png" onerror="this.src='/static/img/veneno.png'">
             <h5>Vacina Brucelose</h5>
-            <div class="preco">$180 un</div>
+            <div class="preco">$60 un</div>
             <div class="loja-controles">
-                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('vacina_brucelose', 'Vacina Brucelose', 180, -1)">-</button>
-                <div class="loja-qtd-display" id="qtd-vacina_brucelose">0</div>
-                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('vacina_brucelose', 'Vacina Brucelose', 180, 1)">+</button>
+                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('vacina_brucelose', 'Vacina Brucelose', 60.0, -1)">-</button>
+                <input type="number" class="loja-qtd-display" id="qtd-vacina_brucelose" value="0" min="0" oninput="atualizarQtdDireta('vacina_brucelose', 'Vacina Brucelose', 60.0, this)">
+                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('vacina_brucelose', 'Vacina Brucelose', 60.0, 1)">+</button>
             </div>
         </div>
 
         <div class="loja-card-pequeno">
             <img src="/static/img/suplemento.png" onerror="this.src='/static/img/racao.png'">
             <h5>Suplemento Engorda</h5>
-            <div class="preco">$120 un</div>
+            <div class="preco">$40 un</div>
             <div class="loja-controles">
-                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('suplemento_engorda', 'Suplemento Engorda', 120, -1)">-</button>
-                <div class="loja-qtd-display" id="qtd-suplemento_engorda">0</div>
-                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('suplemento_engorda', 'Suplemento Engorda', 120, 1)">+</button>
+                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('suplemento_engorda', 'Suplemento Engorda', 40.0, -1)">-</button>
+                <input type="number" class="loja-qtd-display" id="qtd-suplemento_engorda" value="0" min="0" oninput="atualizarQtdDireta('suplemento_engorda', 'Suplemento Engorda', 40.0, this)">
+                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('suplemento_engorda', 'Suplemento Engorda', 40.0, 1)">+</button>
             </div>
         </div>
     </div>
 
 </div>
 
-<script src="{{ url_for('static', filename='js/loja.js') }}?v=1"></script>
+<script src="{{ url_for('static', filename='js/loja.js') }}?v=2"></script>
