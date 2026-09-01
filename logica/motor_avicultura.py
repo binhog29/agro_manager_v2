@@ -8,18 +8,17 @@ class MotorAvicultura:
     # ⚙️ PAINEL DE CONFIGURAÇÃO - AVICULTURA
     # ==========================================
     CONFIG_AVES = {
-        'galinha': {'crescimento': 0.05, 'consumo': 0.10},
-        'pato':    {'crescimento': 0.06, 'consumo': 0.12},
-        'peru':    {'crescimento': 0.08, 'consumo': 0.15},
+        'galinha': {'crescimento': 0.05, 'consumo': 0.05},
+        'pato':    {'crescimento': 0.06, 'consumo': 0.06},
+        'peru':    {'crescimento': 0.08, 'consumo': 0.08},
     }
     
-    AUMENTO_FOME_DIA = 30.0        
-    QUEDA_SAUDE_FOME_DIA = 25.0    
+    AUMENTO_FOME_DIA = 15.0        
+    QUEDA_SAUDE_FOME_DIA = 10.0    
     RECUPERACAO_SAUDE_DIA = 10.0   
-    CHANCE_CHOCAR_DIA = 0.05       # 5% de chance de começar a chocar
-    PRODUCAO_OVOS_DIA = 1.0        # 1 Ovo por ave adulta fêmea ao dia
+    CHANCE_CHOCAR_DIA = 0.05       
+    PRODUCAO_OVOS_DIA = 1.0        
     # ==========================================
-
     
     @staticmethod
     def processar_animais(animais_galinheiro, dias, avisos_turno):

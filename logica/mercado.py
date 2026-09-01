@@ -158,19 +158,30 @@ def comprar_ia():
             familia_animal = familia
             break
 
+    # 🔥 AQUI ESTÃO APENAS AS TRAVAS DE LIMITE ADICIONADAS. O RESTO CONTINUA INTACTO!
     if familia_animal == 'ave' or any(t in raca_lower for t in ['galinha', 'pato', 'peru', 'ave']):
         habitat = 'galinheiro'
         if not getattr(propriedade, 'tem_galinheiro', False): return jsonify({'sucesso': False, 'erro': 'Construa um Galinheiro!'})
+        animais_atuais = Animal.query.filter_by(propriedade_id=propriedade.id, onde_esta='galinheiro').count()
+        limite = getattr(propriedade, 'cap_galinheiro', 100)
+        if animais_atuais + quantidade > limite: return jsonify({'sucesso': False, 'erro': f'Galinheiro lotado! O limite é de {limite} aves.'})
+        
     elif familia_animal == 'suino' or any(t in raca_lower for t in ['porco', 'leitao', 'javali', 'suino']):
         habitat = 'chiqueiro'
         if not getattr(propriedade, 'tem_chiqueiro', False): return jsonify({'sucesso': False, 'erro': 'Construa um Chiqueiro!'})
+        animais_atuais = Animal.query.filter_by(propriedade_id=propriedade.id, onde_esta='chiqueiro').count()
+        limite = getattr(propriedade, 'cap_chiqueiro', 50)
+        if animais_atuais + quantidade > limite: return jsonify({'sucesso': False, 'erro': f'Chiqueiro lotado! O limite é de {limite} suínos.'})
+        
     elif 'peixe' in familia_animal or any(t in raca_lower for t in ['tambaqui', 'pirarucu', 'pacu', 'matrinxa', 'jaraqui', 'curimata', 'surubim', 'pintado', 'cachara', 'tucunare', 'piau', 'peixe']):
         habitat = 'represa'
         if not getattr(propriedade, 'tem_represa_geral', False): return jsonify({'sucesso': False, 'erro': 'Construa uma Represa!'})
+        animais_atuais = Animal.query.filter_by(propriedade_id=propriedade.id, onde_esta='represa').count()
+        limite = getattr(propriedade, 'cap_represa', 200)
+        if animais_atuais + quantidade > limite: return jsonify({'sucesso': False, 'erro': f'Represa lotada! O limite é de {limite} peixes.'})
+        
     else:
         habitat = 'curral' 
-        
-    if habitat == 'curral':
         animais_atuais = Animal.query.filter_by(propriedade_id=propriedade.id, onde_esta='curral').count()
         limite = propriedade.cap_curral if hasattr(propriedade, 'cap_curral') else 10
         if animais_atuais + quantidade > limite: return jsonify({'sucesso': False, 'erro': 'Tronco lotado!'})

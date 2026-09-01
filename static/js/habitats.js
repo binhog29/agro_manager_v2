@@ -43,20 +43,26 @@ window.carregarAnimaisHabitat = function(habitat) {
     const divLista = document.getElementById(`lista-${habitat}`);
     if (!divLista) return;
 
-    const fazendaId = window.location.pathname.split('/').pop(); // 🔥 GPS Adicionado
+    const fazendaId = window.location.pathname.split('/').pop(); 
 
     divLista.innerHTML = `<div style="text-align:center; padding: 20px; color:#888;"><i class="fas fa-spinner fa-spin"></i> Buscando animais...</div>`;
     
-    // 🔥 Puxa os animais SOMENTE da fazenda atual!
     fetch(`/api/pecuaria/habitat/${habitat}?fazenda_id=${fazendaId}`) 
     .then(r => r.json())
     .then(d => {
+        let corLotacao = d.qtd_atual >= d.capacidade ? '#f44336' : '#4caf50';
+        let htmlCabecalho = `
+            <div style="text-align:center; padding: 10px; color:#aaa; font-size:13px; margin-bottom:10px; background:#222; border-radius:6px; border:1px solid #444;">
+                Capacidade do ${habitat.charAt(0).toUpperCase() + habitat.slice(1)}: <b style="color:${corLotacao}; font-size: 15px;">${d.qtd_atual} / ${d.capacidade}</b>
+            </div>
+        `;
+
         if(!d.animais || d.animais.length === 0) {
-            divLista.innerHTML = `<div style="text-align:center; padding: 20px; color:#f44336; font-weight: bold;">Nenhum animal neste local. Compre no mercado!</div>`;
+            divLista.innerHTML = htmlCabecalho + `<div style="text-align:center; padding: 20px; color:#f44336; font-weight: bold;">Nenhum animal neste local. Compre no mercado!</div>`;
             return;
         }
         
-        let html = '';
+        let html = htmlCabecalho;
         d.animais.forEach(a => {
             const corSaude = a.saude > 70 ? '#4caf50' : (a.saude > 30 ? '#ff9800' : '#f44336');
             const corFome = a.fome < 30 ? '#4caf50' : (a.fome < 70 ? '#ff9800' : '#f44336');
@@ -90,7 +96,7 @@ window.carregarPainelComedouroHabitat = function(habitat) {
         if (d.tem_comedouro) {
             painel.innerHTML = `
                 <div style="background: #1a1a1a; padding: 8px 10px; border-radius: 6px; border: 1px solid #444; text-align: center; margin-bottom: 10px;">
-                    <div style="font-size: 11px; color: #aaa; margin-bottom: 4px;">Depósito de Ração: <b>${Math.round(d.qtd_racao)} / 50 un</b></div>
+                    <div style="font-size: 11px; color: #aaa; margin-bottom: 4px;">Depósito de Ração: <b>${Math.round(d.qtd_racao)} / 200 un</b></div>
                     <button onclick="reabastecerComedouroHabitat('${habitat}')" style="width: 100%; background: #ff9800; color: #fff; border: none; padding: 6px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 11px;">
                         <i class="fas fa-cube"></i> Reabastecer Depósito
                     </button>
@@ -146,8 +152,8 @@ window.reabastecerComedouroHabitat = async function(habitat) {
     const { value: qtd } = await Swal.fire({
         title: `Abastecer com ${nomesInsumo[habitat]}`,
         input: 'number',
-        inputLabel: 'Quantas unidades deseja colocar? (Máx: 50)',
-        inputAttributes: { min: 1, max: 50, step: 1 },
+        inputLabel: 'Quantas unidades deseja colocar? (Máx: 200)',
+        inputAttributes: { min: 1, max: 200, step: 1 },
         showCancelButton: true, confirmButtonText: 'Despejar', cancelButtonText: 'Cancelar',
         background: '#2a2a2a', color: '#fff'
     });

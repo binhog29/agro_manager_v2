@@ -236,3 +236,32 @@ def reverter_cultivo():
     
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': 'Lavoura destruída e revertida para terra nua!'})
+
+@terras_bp.route('/api/fazenda/comprar_hectare', methods=['POST'])
+def comprar_hectare():
+    if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
+    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    dados = request.get_json()
+    fazenda_id = dados.get('fazenda_id')
+
+    fazenda = Propriedade.query.filter_by(id=fazenda_id, dono_id=usuario.id).first()
+    if not fazenda: return jsonify({'sucesso': False, 'erro': 'Fazenda não encontrada.'})
+
+    qtd_lotes_atual = Lote.query.filter_by(fazenda_id=fazenda.id).count()
+    custo = 15000.0 + (qtd_lotes_atual * 2000.0) # Cada novo hectare fica 2k mais caro
+
+    if usuario.saldo < custo:
+        return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente! Custa R$ {custo:,.2f}.'})
+
+    usuario.saldo -= custo
+    novo_lote = Lote(fazenda_id=fazenda.id, nome=f"Hectare {qtd_lotes_atual + 1}", status="mato")
+    db.session.add(novo_lote)
+
+    from logica.economia import registrar_transacao
+    registrar_transacao(usuario.id, 'saida', custo, f'Aquisição de nova Terra (Hectare {qtd_lotes_atual + 1})')
+
+    if getattr(usuario, 'xp', None) is None: usuario.xp = 0
+    usuario.xp += 50
+
+    db.session.commit()
+    return jsonify({'sucesso': True, 'msg': f'Hectare comprado com sucesso por R$ {custo:,.2f}!'})

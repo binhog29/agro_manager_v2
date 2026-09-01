@@ -65,6 +65,9 @@ class Propriedade(db.Model):
     cap_curral = db.Column(db.Integer, default=10)
     cap_barracao = db.Column(db.Integer, default=0)
     cap_camara_fria = db.Column(db.Integer, default=0)
+    cap_represa = db.Column(db.Integer, default=200)
+    cap_chiqueiro = db.Column(db.Integer, default=50)
+    cap_galinheiro = db.Column(db.Integer, default=100)
     
     tem_represa_geral = db.Column(db.Boolean, default=False)
     tem_chiqueiro = db.Column(db.Boolean, default=False)

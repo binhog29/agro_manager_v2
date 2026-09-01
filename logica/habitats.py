@@ -12,7 +12,6 @@ def ver_habitat(habitat):
     usuario = Jogador.query.filter_by(username=session['usuario']).first()
     
     fazenda_id = request.args.get('fazenda_id')
-    # 🔥 BLINDADO
     if not fazenda_id:
         return jsonify({'animais': [], 'sucesso': False, 'erro': 'Fazenda não identificada.'})
         
@@ -21,18 +20,24 @@ def ver_habitat(habitat):
         return jsonify({'animais': [], 'sucesso': False, 'erro': 'Fazenda não encontrada.'})
     
     animais = Animal.query.filter_by(propriedade_id=fazenda.id, onde_esta=habitat).all()
+    qtd_atual = len(animais)
     
     tem_comedouro = False
     qtd_racao = 0.0
+    capacidade = 0
+
     if habitat == 'represa':
         tem_comedouro = getattr(fazenda, 'represa_tem_comedouro', False)
         qtd_racao = float(getattr(fazenda, 'represa_qtd_racao', 0.0) or 0.0)
+        capacidade = getattr(fazenda, 'cap_represa', 200)
     elif habitat == 'chiqueiro':
         tem_comedouro = getattr(fazenda, 'chiqueiro_tem_comedouro', False)
         qtd_racao = float(getattr(fazenda, 'chiqueiro_qtd_racao', 0.0) or 0.0)
+        capacidade = getattr(fazenda, 'cap_chiqueiro', 50)
     elif habitat == 'galinheiro':
         tem_comedouro = getattr(fazenda, 'galinheiro_tem_comedouro', False)
         qtd_racao = float(getattr(fazenda, 'galinheiro_qtd_racao', 0.0) or 0.0)
+        capacidade = getattr(fazenda, 'cap_galinheiro', 100)
 
     lista = [{
         'id': a.id, 
@@ -48,7 +53,9 @@ def ver_habitat(habitat):
         'sucesso': True,
         'animais': lista,
         'tem_comedouro': tem_comedouro,
-        'qtd_racao': qtd_racao
+        'qtd_racao': qtd_racao,
+        'qtd_atual': qtd_atual,
+        'capacidade': capacidade
     })
 
 @habitats_bp.route('/api/habitat/construir_comedouro', methods=['POST'])
@@ -134,7 +141,7 @@ def reabastecer_comedouro_habitat():
     
     estoque_atual = int(getattr(fazenda, coluna_estoque, 0) or 0)
     qtd_atual_comedouro = float(getattr(fazenda, f'{habitat}_qtd_racao', 0.0) or 0.0)
-    capacidade_maxima = 50.0
+    capacidade_maxima = 200.0
     espaco_livre = capacidade_maxima - qtd_atual_comedouro
     
     if espaco_livre <= 0:

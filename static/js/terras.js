@@ -91,3 +91,23 @@ window.enviarObra = function(loteId, acao_escolhida) {
         Swal.fire('Erro', 'Falha na comunicação com a fazenda.', 'error');
     });
 };
+
+window.comprarHectare = function(fazendaId, custoEstimado) {
+    Swal.fire({
+        title: 'Comprar Novo Hectare?',
+        text: `Deseja expandir as terras desta propriedade? O novo hectare virá coberto de mato e custará aproximadamente R$ ${custoEstimado.toLocaleString('pt-BR')}.`,
+        icon: 'question', showCancelButton: true, confirmButtonColor: '#2e7d32',
+        confirmButtonText: 'Sim, Comprar!', cancelButtonText: 'Cancelar', background: '#2a2a2a', color: '#fff'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            Swal.fire({ title: 'Assinando papéis...', didOpen: () => Swal.showLoading() });
+            fetch('/api/fazenda/comprar_hectare', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ fazenda_id: fazendaId })
+            }).then(r => r.json()).then(d => {
+                if(d.sucesso) Swal.fire('Sucesso!', d.msg, 'success').then(() => location.reload());
+                else Swal.fire('Atenção', d.erro, 'warning');
+            });
+        }
+    });
+};

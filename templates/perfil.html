@@ -150,6 +150,8 @@
             <h2 class="nome">{{ jogador.username }}</h2>
             <div class="cargo">Fazendeiro - Nível {{ jogador.nivel }}</div>
             
+            <!-- 🔥 LÓGICA DO XP E TEXTO ALINHADOS 🔥 -->
+            {% set xp_prox_nivel = jogador.nivel * 1000 %}
             {% set xp_base = (jogador.nivel - 1) * 1000 %}
             {% set xp_bruto = jogador.xp - xp_base %}
             {% set xp_do_nivel = xp_bruto if xp_bruto > 0 else 0 %}
@@ -157,7 +159,7 @@
             
             <div class="barra-xp-container">
                 <div class="barra-xp-fill" style="width: {{ porcentagem }}%;"></div>
-                <div class="barra-xp-texto">{{ xp_do_nivel }} / 1000 XP</div>
+                <div class="barra-xp-texto">{{ jogador.xp }} / {{ xp_prox_nivel }} XP</div>
             </div>
 
             <div id="alerta-box"></div>
