@@ -1,69 +1,169 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Agro Manager - Perfil</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perfil - Agro Manager</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/perfil.css') }}">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Poppins', sans-serif;
+            background-color: #2e7d32;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .perfil-container {
+            background: #fff;
+            width: 90%;
+            max-width: 400px;
+            border-radius: 15px;
+            padding: 30px 20px;
+            box-sizing: border-box;
+            text-align: center;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            position: relative;
+        }
+        .btn-voltar {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #999;
+            font-size: 20px;
+            text-decoration: none;
+        }
+        .avatar {
+            width: 80px;
+            height: 80px;
+            background: #e8f5e9;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 15px;
+            font-size: 40px;
+            color: #4caf50;
+            border: 4px solid #fff;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        .nome {
+            font-size: 24px;
+            font-weight: 800;
+            color: #333;
+            margin: 0;
+        }
+        .cargo {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+        .barra-xp-container {
+            background: #e0e0e0;
+            border-radius: 20px;
+            height: 24px;
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 30px;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .barra-xp-fill {
+            background: #4caf50;
+            height: 100%;
+            transition: width 0.5s ease;
+        }
+        .barra-xp-texto {
+            position: absolute;
+            width: 100%;
+            left: 0;
+            top: 0;
+            line-height: 24px;
+            font-weight: bold;
+            color: #333;
+            font-size: 12px;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 12px 15px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            outline: none;
+            font-family: 'Poppins', sans-serif;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+        .btn-salvar {
+            background: #558b2f;
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .footer {
+            margin-top: 30px;
+            font-size: 10px;
+            color: #fff;
+            font-weight: bold;
+        }
+        #alerta-box { margin-bottom: 15px; }
+        .msg-sucesso { color: #2e7d32; font-weight: bold; font-size: 13px; }
+        .msg-erro { color: #d32f2f; font-weight: bold; font-size: 13px; }
+    </style>
 </head>
 <body>
-    <div class="card">
-        <a href="/mapa" class="btn-back"><i class="fas fa-arrow-left"></i></a>
-        <div class="avatar"><i class="fas fa-user-circle"></i></div>
-        
-        <h2>{{ jogador.username }}</h2>
-        <p class="titulo-jogador">
-            {% if jogador.is_admin %}👑 Dono do Jogo{% else %}Fazendeiro - Nível {{ jogador.nivel }}{% endif %}
-        </p>
-        
-        <!-- ========================================== -->
-        <!-- NOVA BARRA DE XP ELEGANTE -->
-        <!-- ========================================== -->
-        <div style="width: 100%; max-width: 280px; margin: 5px auto 25px auto; background: #e0e0e0; border-radius: 12px; height: 18px; overflow: hidden; border: 1px solid #ccc; position: relative; box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);">
+    <div style="display:flex; flex-direction:column; align-items:center; width:100%;">
+        <div class="perfil-container">
+            <a href="{{ url_for('mapa') }}" class="btn-voltar"><i class="fas fa-arrow-left"></i></a>
             
-            <!-- Lógica de cálculo do XP embutida no Jinja2 -->
-            {% set xp_atual = jogador.xp|default(0) %}
-            {% set xp_necessario = (jogador.nivel * 1000) if jogador.nivel else 1000 %}
-            {% set porcentagem = (xp_atual / xp_necessario * 100) if xp_necessario > 0 else 0 %}
-            {% set porcentagem_final = 100 if porcentagem > 100 else porcentagem %}
+            <div class="avatar">
+                <i class="fas fa-user"></i>
+            </div>
             
-            <!-- Preenchimento Verde Animado -->
-            <div style="width: {{ porcentagem_final }}%; background: linear-gradient(90deg, #4caf50, #81c784); height: 100%; border-radius: 12px; transition: width 0.5s ease-in-out;"></div>
+            <h2 class="nome">{{ jogador.username }}</h2>
+            <div class="cargo">Fazendeiro - Nível {{ jogador.nivel }}</div>
             
-            <!-- Texto centralizado com sombra branca para facilitar a leitura -->
-            <span style="position: absolute; width: 100%; height: 100%; top: 0; left: 0; font-size: 11px; font-weight: 800; color: #333; display: flex; align-items: center; justify-content: center; text-shadow: 0px 0px 3px rgba(255,255,255,0.9); letter-spacing: 0.5px;">
-                {{ xp_atual }} / {{ xp_necessario }} XP
-            </span>
-        </div>
-        <!-- ========================================== -->
-        
-        <div id="alerta-box"></div>
-        
-        <input type="text" id="nome" value="{{ jogador.username }}" placeholder="Nome">
-        <input type="email" id="email" value="{{ jogador.email or '' }}" placeholder="E-mail">
-        <input type="password" id="senha" placeholder="Nova Senha (deixe em branco para manter)">
-        
-        <button onclick="salvarPerfil()">SALVAR DADOS</button>
-    </div>
-    
-    <!-- 🔥 BOTÃO DA RECEITA FEDERAL (Visível apenas para o Administrador/CEO) -->
-    {% if jogador and jogador.is_admin %}
-    <div style="width: 90%; max-width: 360px; margin: 15px auto 0 auto; background: #2a1a00; border: 1px solid #f9a825; padding: 15px; border-radius: 10px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
-        <h4 style="color: #f9a825; margin: 0 0 5px 0; font-size: 15px;"><i class="fas fa-landmark"></i> Área do Administrador</h4>
-        <p style="color: #ccc; font-size: 12px; margin-bottom: 10px;">Painel de auditoria fiscal e monitoramento do servidor.</p>
-        <a href="/admin/receita-federal" style="background: #f9a825; color: #121212; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: bold; display: inline-block; font-size: 13px;">
-            <i class="fas fa-file-invoice-dollar"></i> Acessar Receita Federal
-        </a>
-                <a href="/admin/painel-ceo" style="background: #2e7d32; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: bold; display: inline-block; font-size: 13px; margin-top: 10px;">
-            <i class="fas fa-user-shield"></i> Painel CEO (God Mode)
-        </a>
-    </div>
-    {% endif %}
+            <!-- 🔥 LÓGICA DO XP CORRIGIDA AQUI 🔥 -->
+            {% set xp_base = (jogador.nivel - 1) * 1000 %}
+            {% set xp_bruto = jogador.xp - xp_base %}
+            {% set xp_do_nivel = xp_bruto if xp_bruto > 0 else 0 %}
+            {% set porcentagem = (xp_do_nivel / 1000) * 100 %}
+            
+            <div class="barra-xp-container">
+                <div class="barra-xp-fill" style="width: {{ porcentagem }}%;"></div>
+                <div class="barra-xp-texto">{{ xp_do_nivel }} / 1000 XP</div>
+            </div>
 
-    <div class="copyright-perfil">
-        &copy; 2026 DualCore Solutions
+            <div id="alerta-box"></div>
+
+            <div class="input-group">
+                <input type="text" id="nome" value="{{ jogador.username }}" placeholder="Nome">
+            </div>
+            <div class="input-group">
+                <input type="email" id="email" value="{{ jogador.email or '' }}" placeholder="E-mail">
+            </div>
+            <div class="input-group">
+                <input type="password" id="senha" placeholder="Nova Senha (deixe em branco para manter)">
+            </div>
+
+            <button class="btn-salvar" onclick="salvarPerfil()">SALVAR DADOS</button>
+        </div>
+        
+        <div class="footer">
+            © 2026 DUALCORE SOLUTIONS
+        </div>
     </div>
 
     <script src="{{ url_for('static', filename='js/perfil.js') }}"></script>
