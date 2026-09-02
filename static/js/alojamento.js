@@ -19,7 +19,7 @@ window.abrirModalRH = async function() {
         const catalogoRH = [
             { id: 'peoes', nome: 'Peão', custo: 500, salario: 4, icone: 'fa-shield-alt', benef: 'Protege Animais' },
             { id: 'tratoristas', nome: 'Tratorista', custo: 1200, salario: 7, icone: 'fa-tractor', benef: '+15% Colheita' },
-            { id: 'capatazes', nome: 'Capataz', custo: 2500, salario: 12, icone: 'fa-dollar-sign', benef: '+10% Venda' },
+            { id: 'capatazes', nome: 'Capataz', custo: 8000, salario: 50, icone: 'fa-dollar-sign', benef: '+2% Venda' },
             { id: 'veterinarios', nome: 'Veterinário', custo: 3000, salario: 18, icone: 'fa-notes-medical', benef: 'Reduz Doenças' },
             { id: 'agronomos', nome: 'Agrônomo', custo: 3500, salario: 22, icone: 'fa-seedling', benef: 'Safra Rápida' }
         ];
