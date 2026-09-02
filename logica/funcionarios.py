@@ -17,7 +17,7 @@ class GerenciadorRH:
     CATALOGO = {
         'peoes': Cargo('peoes', 'Peão', 500.0, 4.0, 'Proteção animal básica'),
         'tratoristas': Cargo('tratoristas', 'Tratorista', 1200.0, 7.0, '+15% Colheita (Máx 5)'),
-        'capatazes': Cargo('capatazes', 'Capataz', 2500.0, 12.0, '+10% Venda (Máx 5)'),
+                'capatazes': Cargo('capatazes', 'Capataz', 8000.0, 50.0, '+2% Venda (Máx 5)'),
         'veterinarios': Cargo('veterinarios', 'Veterinário', 3000.0, 18.0, 'Reduz doenças'),
         'agronomos': Cargo('agronomos', 'Agrônomo', 3500.0, 22.0, '-20% Safra (Máx 2)')
     }
@@ -110,7 +110,7 @@ def obter_bonus_equipe(propriedade_id):
         return {'bonus_colheita': 1.0, 'protecao_animal': False, 'bonus_venda': 1.0, 'reduz_doencas': False, 'acelera_safra': 1.0}
 
     bonus_trator = min(0.75, getattr(equipe, 'tratoristas', 0) * 0.15) 
-    bonus_venda = min(0.50, getattr(equipe, 'capatazes', 0) * 0.10)    
+    bonus_venda = min(0.10, getattr(equipe, 'capatazes', 0) * 0.02)    
 
     return {
         'bonus_colheita': 1.0 + bonus_trator,
