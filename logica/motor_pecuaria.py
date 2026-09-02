@@ -189,13 +189,30 @@ class MotorPecuaria:
     @staticmethod
     def _processar_reproducao(animal, dias, avisos_turno):
         
-        # 🥛 Produção de Leite
+        # 1. 🥛 Produção de Leite Realista e Curva de Lactação (Girolando)
         if animal.raca.lower() == 'girolando' and animal.sexo == 'F' and animal.fase == 'Adulto':
             dias_lactacao_atual = float(getattr(animal, 'dias_lactacao', 0.0))
             
+            # 🔥 SECAGEM OBRIGATÓRIA: Para de dar leite 60 dias antes do parto (Aos 220 dias de gestação)
+            if getattr(animal, 'prenha', False) and float(getattr(animal, 'dias_gestacao', 0.0)) >= 220.0:
+                animal.dias_lactacao = 0.0
+                dias_lactacao_atual = 0.0
+
             if dias_lactacao_atual > 0:
                 dias_producao = min(dias, dias_lactacao_atual)
-                litros_gerados = 12.0 * dias_producao 
+                
+                # Base de produção
+                producao_diaria = 12.0
+                
+                # 🔥 PICO DE LACTAÇÃO: Nos primeiros 60 dias (Cronômetro reverso de 300 a 240)
+                if dias_lactacao_atual > 240.0:
+                    producao_diaria = 18.0  
+                    
+                # 🔥 DESMAME / CONSUMO DO BEZERRO: Nos primeiros 90 dias (300 a 210), o filhote bebe parte do leite
+                if dias_lactacao_atual > 210.0:
+                    producao_diaria -= 4.0
+                    
+                litros_gerados = producao_diaria * dias_producao 
                 
                 if float(animal.saude or 100.0) < 50.0:
                     litros_gerados *= 0.5
@@ -208,7 +225,7 @@ class MotorPecuaria:
                 
                 animal.dias_lactacao = max(0, dias_lactacao_atual - dias)
 
-        # 1. SE A FÊMEA JÁ ESTÁ PRENHA
+        # 2. SE A FÊMEA JÁ ESTÁ PRENHA
         if getattr(animal, 'prenha', False):
             animal.dias_gestacao = float(getattr(animal, 'dias_gestacao', 0.0)) + dias
             
@@ -216,7 +233,7 @@ class MotorPecuaria:
             tempo_gestacao = dna.get('gestacao', MotorPecuaria.DIAS_GESTACAO_PADRAO)
             peso_nascimento = dna.get('peso_jovem', MotorPecuaria.PESO_NASCIMENTO_BASE)
             
-            # 2. CHEGOU A HORA DO PARTO?
+            # CHEGOU A HORA DO PARTO?
             if animal.dias_gestacao >= tempo_gestacao:
                 import random
                 novo_filhote = Animal(
@@ -236,16 +253,25 @@ class MotorPecuaria:
                 animal.dias_gestacao = 0.0
                 
                 if animal.raca.lower() == 'girolando':
-                    animal.dias_lactacao = 300
+                    animal.dias_lactacao = 300.0
 
         # 3. SE NÃO ESTÁ PRENHA: Verifica se pode cruzar
         elif animal.sexo == 'F' and animal.fase == 'Adulto' and animal.onde_esta != 'curral':
-            import random
-            tem_macho = Animal.query.filter_by(lote_id=animal.lote_id, onde_esta=animal.onde_esta, sexo='M', fase='Adulto').first()
+            pode_cruzar = True
             
-            if tem_macho:
-                chance_real = MotorPecuaria.CHANCE_PRENHEZ_DIA * dias
-                if random.random() < chance_real:
-                    animal.prenha = True
-                    animal.dias_gestacao = 0.0
-                    avisos_turno.append(f"💘 A fêmea {animal.raca.capitalize()} (ID #{animal.id}) acabou de emprenhar no pasto!")
+            # 🔥 PUERPÉRIO (Descanso Pós-Parto de 45 dias): Impede nova gravidez imediata
+            if animal.raca.lower() == 'girolando':
+                dias_lactacao_atual = float(getattr(animal, 'dias_lactacao', 0.0))
+                if dias_lactacao_atual > 255.0:
+                    pode_cruzar = False
+
+            if pode_cruzar:
+                import random
+                tem_macho = Animal.query.filter_by(lote_id=animal.lote_id, onde_esta=animal.onde_esta, sexo='M', fase='Adulto').first()
+                
+                if tem_macho:
+                    chance_real = MotorPecuaria.CHANCE_PRENHEZ_DIA * dias
+                    if random.random() < chance_real:
+                        animal.prenha = True
+                        animal.dias_gestacao = 0.0
+                        avisos_turno.append(f"💘 A fêmea {animal.raca.capitalize()} (ID #{animal.id}) acabou de emprenhar no pasto!")

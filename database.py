@@ -39,14 +39,24 @@ class Jogador(db.Model):
         self.xp = self.xp or 0
         self.nivel = self.nivel or 1
         self.xp += quantidade
+        
+        # Trava para o XP nunca ficar negativo
+        if self.xp < 0:
+            self.xp = 0
+            
         subiu_de_nivel = False
         
-        # 🔥 CORREÇÃO: O servidor agora usa a mesma matemática da tela (Nível * 1000)
+        # Lógica para SUBIR de nível
         while self.xp >= (self.nivel * 1000):
             self.nivel += 1
             subiu_de_nivel = True
             bonus_dinheiro = self.nivel * 5000 
             self.saldo += bonus_dinheiro
+            
+        # 🔥 NOVA LÓGICA: Rebaixamento caso o admin remova XP
+        while self.nivel > 1 and self.xp < ((self.nivel - 1) * 1000):
+            self.nivel -= 1
+            
         return subiu_de_nivel
 
 # ==============================================================

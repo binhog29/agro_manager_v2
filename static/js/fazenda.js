@@ -6,11 +6,25 @@ if ('scrollRestoration' in history) {
 window.PRECOS_BASE = {};
 
 document.addEventListener('DOMContentLoaded', () => {
+    // 🔥 CORREÇÃO 1: Força a tela a acender imediatamente (Desbuga a tela preta)
+    document.body.style.opacity = '1';
+    document.body.style.transition = 'opacity 0.3s ease';
+
     // 1. Restaura o scroll instantaneamente (sem pular na frente do jogador)
     const scrollPos = localStorage.getItem('scroll_pos_fazenda');
     if (scrollPos) {
         window.scrollTo(0, parseInt(scrollPos));
     }
+
+    // 🔥 CORREÇÃO 2: Processa o tempo offline em segundo plano sem travar a tela
+    fetch('/api/tempo/sincronizar_offline', { method: 'POST' })
+    .then(r => r.json())
+    .then(d => {
+        // Se aconteceu algo offline, acende a caixa de correio na hora
+        if(d.sucesso && d.horas > 0 && typeof window.checarNotificacoes === 'function') {
+            window.checarNotificacoes();
+        }
+    }).catch(e => console.log("Aviso: Sincronização offline rodando no fundo."));
 
     fetch('/api/mercado/precos')
         .then(r => r.json())

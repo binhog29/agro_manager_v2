@@ -15,15 +15,15 @@
         
         /* Estilo Sanfona (Accordion) */
         details { background: #1e1e1e; border: 1px solid #333; border-radius: 8px; margin-bottom: 12px; overflow: hidden; }
-        summary { padding: 15px; font-weight: bold; font-size: 16px; cursor: pointer; color: #4caf50; display: flex; align-items: center; gap: 10px; outline: none; }
+        summary { padding: 15px; font-weight: bold; font-size: 15px; cursor: pointer; color: #4caf50; display: flex; align-items: center; gap: 10px; outline: none; }
         summary::-webkit-details-marker { display: none; }
         
-        .conteudo { padding: 15px; border-top: 1px solid #333; font-size: 14px; line-height: 1.6; color: #ddd; background: #181818; }
+        .conteudo { padding: 15px; border-top: 1px solid #333; font-size: 13px; line-height: 1.6; color: #ddd; background: #181818; }
         .conteudo strong { color: #fff; }
         .destaque { color: #ffb300; font-weight: bold; }
         
         /* Tabela simples */
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
         th, td { border: 1px solid #444; padding: 8px; text-align: left; }
         th { background: #2e7d32; color: white; }
         
@@ -39,117 +39,105 @@
 
     <div class="container">
 
-        <!-- 1. AGRICULTURA -->
+        <!-- 1. AGRICULTURA E SOLO -->
         <details>
-            <summary><i class="fas fa-seedling"></i> 1. Agricultura e Tipos de Plantas</summary>
+            <summary><i class="fas fa-seedling"></i> 1. Agricultura, Solo e Irrigação</summary>
             <div class="conteudo">
-                Existem 3 categorias principais de plantio na sua fazenda:<br><br>
-                <strong>🌱 Culturas Anuais (Soja, Milho, Arroz, etc):</strong> Plantou, cresceu, colheu. A planta morre após a colheita e a terra fica limpa para o próximo ciclo.<br><br>
-                <strong>🌳 Culturas Perenes (Banana, Cacau, etc):</strong> São árvores frutíferas. Após a primeira colheita, entram em descanso temporário e voltam a produzir sozinhas. Atenção: com o tempo elas envelhecem e o rendimento diminui.<br><br>
-                <strong>🍂 Culturas Sazonais (Café):</strong> Exigentes com o clima, produzem frutos apenas na estação correta (Outono e Inverno).
-                
-                <table>
-                    <tr><th>Cultura</th><th>Preparo</th><th>Tempo (Aprox.)</th></tr>
-                    <tr><td>Soja / Milho</td><td>Arado</td><td>90 a 100 dias</td></tr>
-                    <tr><td>Arroz / Feijão</td><td>Arado</td><td>80 a 110 dias</td></tr>
-                    <tr><td>Tomate / Melancia</td><td>Arado/Cova</td><td>85 a 90 dias</td></tr>
-                    <tr><td>Algodão / Mandioca</td><td>Arado</td><td>150 a 240 dias</td></tr>
-                    <tr><td>Banana / Abacaxi</td><td>Coveado</td><td>300 a 400 dias</td></tr>
-                    <tr><td>Café / Cacau</td><td>Coveado</td><td>365 a 500 dias</td></tr>
-                </table>
-            </div>
-        </details>
-
-        <!-- 2. PECUÁRIA E HABITATS -->
-        <details>
-            <summary><i class="fas fa-cow"></i> 2. Pecuária e Alimentação Automática</summary>
-            <div class="conteudo">
-                O manejo animal foi inteiramente modernizado para garantir autonomia:<br><br>
-                <strong>🐮 No Curral e Pasto:</strong> O gado exige infraestrutura completa (<span class="destaque">Cerca, Bebedouro e Cocho</span>) abastecida com <strong>Sal Mineral</strong> e ração de pasto.<br><br>
-                <strong>🐔 Galinheiro, Chiqueiro e Represa:</strong> Construa um depósito de ração em cada habitat e abasteça-o! 
+                <strong>🌱 Preparo e Rotação:</strong> Plantar a mesma cultura seguidas vezes (Monocultura) reduz a produtividade máxima para 80%. Alterne as sementes para revitalizar o solo e garantir 100% de rendimento. A fertilidade cai 20% ao plantar e 30% ao colher, exigindo Adubo para recuperar (+40% por saco).<br><br>
+                <strong>🐛 Pragas e Clima:</strong> Pragas atacam aleatoriamente e reduzem a produtividade em 10% ao dia. No inverno sem chuva, a produtividade cai 3% ao dia por seca, a menos que você instale um <strong>Pivô de Irrigação</strong>.<br><br>
+                <strong>🌳 Tipos de Cultivo:</strong>
                 <ul>
-                    <li><strong>Galinheiro:</strong> Consome Milho armazenado no Silo.</li>
-                    <li><strong>Chiqueiro:</strong> Você escolhe se deseja alimentar com Soja ou Milho do Silo.</li>
-                    <li><strong>Represa:</strong> Consome Ração de Peixe comprada na Loja.</li>
-                </ul>
-                <strong>🤖 Automação:</strong> Enquanto houver ração no depósito do habitat, <strong>os animais se alimentam sozinhos e mantêm a fome zerada</strong>. Só se o depósito secar é que eles passarão a sentir fome e perder saúde.
-            </div>
-        </details>
-
-        <!-- 3. SAÚDE ANIMAL E TETO BIOLÓGICO -->
-        <details>
-            <summary><i class="fas fa-notes-medical"></i> 3. Saúde e Teto Biológico (Pesagem)</summary>
-            <div class="conteudo">
-                Os animais não crescem infinitamente. O jogo simula a biologia real:<br><br>
-                <strong>⚖️ Teto Biológico:</strong> Quando um animal atinge 150% do seu peso adulto ideal, ele para de engordar. Neste ponto, o pasto mostrará o status <span style="color:#ff9800;">Peso Máximo Atingido</span>, indicando que é a hora exata de mandar para o frigorífico.<br><br>
-                <strong>💉 Sanidade:</strong> Animais sem as vacinas de <strong>Aftosa</strong> e <strong>Brucelose</strong> ganham até 30% menos peso por dia. Se a saúde cair muito, o animal entra em déficit calórico e começa a emagrecer até morrer. Use o <strong>Medicamento Geral</strong> para curar animais doentes.
-            </div>
-        </details>
-
-        <!-- 4. MERCADO, COTAÇÕES E TEMPO -->
-        <details>
-            <summary><i class="fas fa-chart-line"></i> 4. Mercado, Arroba e Tempo Offline</summary>
-            <div class="conteudo">
-                A economia do jogo é viva e muda a cada dia na fazenda:<br><br>
-                <strong>📈 Fator de Mercado:</strong> Os preços de compra e venda variam até 15% para cima ou para baixo diariamente. Acompanhe a aba de Cotações para vender na alta!<br><br>
-                <strong>🥩 Arroba vs Kg:</strong> Animais de grande porte (Bovinos de Corte e Leite) são comercializados por <strong>Arroba (@)</strong>. O jogo divide o peso vivo por 30 para encontrar o rendimento de carcaça. Outros animais (Suínos, Aves, Peixes) são vendidos por peso vivo (Kg).<br><br>
-                <strong>⏳ Tempo Offline:</strong> A fazenda nunca dorme. Quando você fecha o jogo, o tempo continua passando (de forma um pouco mais lenta) para simular o crescimento das lavouras e engorda do gado enquanto você está fora.
-            </div>
-        </details>
-
-        <!-- 5. GESTÃO DE EQUIPE E CORREIO -->
-        <details>
-            <summary><i class="fas fa-envelope"></i> 5. RH e Caixa de Correio</summary>
-            <div class="conteudo">
-                Acompanhe o que acontece na fazenda e gerencie seus funcionários:<br><br>
-                <strong>👨‍🌾 Benefícios do RH:</strong> Peões protegem o gado, Tratoristas dão +15% na colheita, Capatazes +10% nas vendas, Veterinários reduzem doenças e Agrônomos aceleram a safra.<br><br>
-                <strong>💼 Pagamentos Diários:</strong> A folha de pagamento não é cobrada por hora. Os salários são debitados do caixa da fazenda <strong>1 vez ao dia</strong> (a cada 24 horas no relógio do jogo).<br><br>
-                <strong>📫 Caixa de Correio:</strong> Todas as cobranças de salário, alertas de animais mortos ou ações tomadas pelos funcionários enquanto você estava offline são registradas e enviadas para a sua Caixa de Entrada flutuante.
-            </div>
-        </details>
-
-        <!-- 6. MAQUINÁRIO E BARRACÃO -->
-        <details>
-            <summary><i class="fas fa-tractor"></i> 6. Barracão e Maquinário Agrícola</summary>
-            <div class="conteudo">
-                Investir em máquinas pesadas através da Concessionária gera grandes retornos a longo prazo. Toda máquina consome <strong>Diesel</strong> e sofre desgaste (condição), exigindo manutenção na oficina.<br><br>
-                <strong>🚛 Caminhões (Logística):</strong> Comprar um Caminhão Boiadeiro ou Caminhão Baú (Frios) <strong>zera o custo de frete</strong> ao comprar animais no mercado e leilão!<br><br>
-                <strong>🚜 Trator de Esteira (Obras):</strong> Zera a taxa de aluguel ao desmatar lotes novos e extrai a madeira com eficiência máxima, aumentando seu lucro de R$ 1.000 para <span class="destaque">R$ 2.500 por hectare limpo</span>.
-            </div>
-        </details>
-
-        <!-- 7. ESTOQUES -->
-        <details>
-            <summary><i class="fas fa-warehouse"></i> 7. Limites de Estoque e Vagas</summary>
-            <div class="conteudo">
-                Monitore de perto as capacidades da fazenda:<br><br>
-                <strong>📦 Armazém e Silo:</strong> Se lotarem, novas produções e compras são bloqueadas. Venda produtos para liberar espaço.<br><br>
-                <strong>🏡 Limites de Pasto:</strong> A quantidade máxima de animais em um único pasto depende do tamanho da sua propriedade:
-                <ul>
-                    <li>Chácara: 10 cabeças por pasto</li>
-                    <li>Sítio: 25 cabeças por pasto</li>
-                    <li>Fazenda: 50 cabeças por pasto</li>
-                    <li>Latifúndio: 100 cabeças por pasto</li>
+                    <li><strong>Anuais (Arado):</strong> Soja, Milho, Arroz, Feijão, Algodão e Mandioca. Morrem após a colheita.</li>
+                    <li><strong>Perenes (Covas):</strong> Banana, Cacau, Cupuaçu, Açaí, Pimenta. Possuem ciclos de descanso antes de dar frutos novamente.</li>
+                    <li><strong>Sazonais:</strong> Café Clonal. Só dá frutos no Outono e Inverno.</li>
                 </ul>
             </div>
         </details>
 
-        <!-- 8. MULTIPLAYER E SOCIAL -->
+        <!-- 2. PECUÁRIA E BIOLOGIA -->
         <details>
-            <summary><i class="fas fa-comments"></i> 8. Multiplayer: Chat Global e Visitas</summary>
+            <summary><i class="fas fa-cow"></i> 2. Pecuária, Reprodução e Lactação</summary>
             <div class="conteudo">
-                O campo agora está conectado em tempo real!<br><br>
-                <strong>💬 Chat Global (Comunidade):</strong> Troque ideias, negocie safras e bata papo com todos os fazendeiros do servidor através do botão de comunidade na Sede.<br><br>
-                <strong>👁️ Modo Turista:</strong> Acesse o Mapa Global, clique na terra de outros jogadores e visite a fazenda deles para inspecionar suas estruturas e estratégias de sucesso.
+                <strong>⏱️ Gestação Realista:</strong> Fêmeas no pasto cruzam naturalmente. O tempo de gravidez varia: Bovinos (280 dias), Equinos (340 dias), Ovinos/Caprinos (150 dias), Suínos (114 dias) e Aves (21 dias).<br><br>
+                <strong>🥛 Ciclo Leiteiro (Girolando):</strong> O sistema de lactação simula vacas reais:
+                <ul>
+                    <li><strong>Pico de Lactação:</strong> Nos primeiros 60 dias pós-parto, a produção sobe para 18 Litros/dia.</li>
+                    <li><strong>Consumo do Bezerro:</strong> Nos primeiros 90 dias, o bezerro consome 4 Litros/dia do total produzido.</li>
+                    <li><strong>Lactação Base:</strong> Após o desmame, a vaca estabiliza em 12 Litros/dia.</li>
+                    <li><strong>Período Seco:</strong> Aos 220 dias da próxima gestação (60 dias antes de parir), a vaca seca e para de dar leite obrigatoriamente.</li>
+                    <li><strong>Puerpério:</strong> Vacas recém-paridas precisam de 45 dias de descanso antes de conseguirem emprenhar novamente.</li>
+                </ul>
             </div>
         </details>
 
-        <!-- 9. RECEITA FEDERAL -->
+        <!-- 3. SAÚDE, SUPLEMENTAÇÃO E LIMITES -->
         <details>
-            <summary><i class="fas fa-gavel"></i> 9. Leis Fiscais e Receita Federal</summary>
+            <summary><i class="fas fa-notes-medical"></i> 3. Saúde, Suplementação e Limites</summary>
             <div class="conteudo">
-                Para manter uma economia limpa e competitiva, a <strong>Receita Federal do Jogo</strong> monitora o extrato financeiro e as transações globais do servidor.<br><br>
-                <strong>⚖️ Punições:</strong> Tentativas de fraudes, manipulações indevidas (como injetar dinheiro via navegador) ou exploits de bugs resultam em autuações imediatas e descontos de multas severas no caixa da fazenda infratora. Jogue limpo e prospere!
+                <strong>⚖️ Teto Biológico:</strong> Animais não crescem para sempre. O limite máximo de peso é 150% do peso ideal da raça adulta (ex: Nelore até ~975kg). Após isso, parem de engordar.<br><br>
+                <strong>💉 Sanidade e Ganhos:</strong>
+                <ul>
+                    <li>Falta de <strong>Vacina Aftosa</strong> ou <strong>Brucelose</strong> reduz o ganho de peso diário em 30% (cada).</li>
+                    <li>Falta de <strong>Medicamento Geral (Vermífugo)</strong> reduz o ganho em 20%.</li>
+                    <li>Aplicar <strong>Suplemento de Engorda</strong> garante +1 Kg extra por dia direto na balança.</li>
+                </ul>
+                <strong>🏡 Capacidade dos Habitats:</strong>
+                Represas suportam até 200 peixes, Galinheiros 100 aves e Chiqueiros 50 suínos. O Curral (Tronco) inicia com 10 vagas e pode ser expandido de 5 em 5.
+            </div>
+        </details>
+
+        <!-- 4. MERCADO, COTAÇÕES E LEILÃO -->
+        <details>
+            <summary><i class="fas fa-chart-line"></i> 4. Mercado, Arroba e Leilão</summary>
+            <div class="conteudo">
+                <strong>📉 Cotação e Arroba (@):</strong> O Fator de Mercado varia o preço de tudo no jogo (de 85% a 115%) todos os dias. Bovinos de corte e leite são vendidos por Arroba, onde o jogo divide o peso vivo do animal por 30 para encontrar o rendimento real.<br><br>
+                <strong>⚖️ Leilão da Comunidade:</strong> Destravado no Nível 3, permite vender gado para outros jogadores. Para evitar fraudes e lavagem de dinheiro, a Receita Federal bloqueia anúncios que cobrem mais de 3x o valor base de mercado da raça adulta.
+            </div>
+        </details>
+
+        <!-- 5. TERRAS E EXPANSÃO -->
+        <details>
+            <summary><i class="fas fa-map-marked-alt"></i> 5. Compra de Terras e Expansões</summary>
+            <div class="conteudo">
+                <strong>🚜 Expansão de Hectares:</strong> Você pode comprar terras infinitamente para a sua propriedade, mas o preço sofre inflação quadrática para simular a valorização local. O cálculo oficial é: <code>15.000 x (Lotes Atuais ^ 1.5)</code>.<br><br>
+                <strong>📦 Obras de Armazenamento:</strong> Expanda seus limites contratando a construtora:
+                <ul>
+                    <li><strong>Silo:</strong> +500kg, +5.000kg, +50.000kg ou Complexo Gigante de +500.000kg.</li>
+                    <li><strong>Armazém (Insumos):</strong> +300un, +3.500un, +35.000un ou Complexo Gigante de +300.000un.</li>
+                </ul>
+            </div>
+        </details>
+
+        <!-- 6. GESTÃO DE EQUIPE E RH -->
+        <details>
+            <summary><i class="fas fa-users"></i> 6. Funcionários, Automação e RH</summary>
+            <div class="conteudo">
+                Os funcionários são cobrados do seu saldo a cada 24 horas no jogo. Além de gerar bônus, eles automatizam tarefas enquanto você está offline:<br><br>
+                <strong>👨‍🌾 Peão (R$ 4/h):</strong> Reduz a perda de peso/saúde dos animais em 80% na falta de comida. Automação: Se o cocho secar, ele busca Sal e Ração no Armazém e abastece o pasto sozinho.<br><br>
+                <strong>🚜 Tratorista (R$ 7/h):</strong> Garante +15% de eficiência na Colheita (acumula até 5). Automação: Aplica Veneno automaticamente se houver pragas e aplica Adubo se a fertilidade cair abaixo de 60%.<br><br>
+                <strong>💼 Capataz (R$ 12/h):</strong> Adiciona +10% de ágio em qualquer venda da fazenda (animais, grãos, derivados).<br><br>
+                <strong>🩺 Veterinário (R$ 18/h):</strong> Reduz os danos de doenças e fome na saúde do rebanho em 90%.<br><br>
+                <strong>🌱 Agrônomo (R$ 22/h):</strong> Acelera o tempo de crescimento das plantas em 25% (máximo de 2 por fazenda).
+            </div>
+        </details>
+
+        <!-- 7. MAQUINÁRIO E BARRACÃO -->
+        <details>
+            <summary><i class="fas fa-tractor"></i> 7. Máquinas e Caminhões</summary>
+            <div class="conteudo">
+                Máquinas ficam estacionadas no Barracão, consomem Diesel e exigem manutenção quando a condição cai.<br><br>
+                <strong>🚛 Logística (Frete Grátis):</strong> O Caminhão Boiadeiro isenta o frete de animais grandes. O Caminhão Baú (Frios) isenta o frete de Peixes. Caminhonetes isentam o frete de Aves, Suínos e Ovinos.<br><br>
+                <strong>🚜 Trator de Esteira:</strong> Ao desmatar novos lotes, possuir o Trator de Esteira zera a taxa de aluguel (R$ 500) e extrai madeira pesada avaliada em <span class="destaque">R$ 2.500</span> (em vez de madeira bruta de R$ 1.500).
+            </div>
+        </details>
+
+        <!-- 8. IMOBILIÁRIA E RECEITA FEDERAL -->
+        <details>
+            <summary><i class="fas fa-building"></i> 8. Mercado Imobiliário e Falência</summary>
+            <div class="conteudo">
+                Você pode negociar propriedades inteiras com outros jogadores ou com o Estado:<br><br>
+                <strong>🤝 Venda na Corretora (Jogadores):</strong> Anuncie a fazenda de "porteira fechada" (o comprador leva tudo dentro dela). A transação retém 10% de ITBI (Imposto) do valor do anúncio.<br><br>
+                <strong>🏦 Venda Imediata ao Banco:</strong> Se precisar de dinheiro rápido, venda ao Banco. O Banco paga 70% do valor venal da terra e faz um "Wipe" total: destrói as lavouras, apaga os animais, vende as máquinas e reseta a infraestrutura da fazenda para o zero.
             </div>
         </details>
 

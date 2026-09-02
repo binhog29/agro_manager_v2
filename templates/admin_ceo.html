@@ -2,127 +2,135 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Painel do Administrador (CEO)</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel do CEO - Modo Deus</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/mercado.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        body { margin: 0; padding: 0; font-family: 'Poppins', sans-serif; background: #121212; color: #fff; }
+        .header { background: #222; padding: 20px; text-align: center; border-bottom: 2px solid #333; position: relative; }
+        .btn-voltar { position: absolute; top: 20px; left: 20px; color: #fff; font-size: 20px; text-decoration: none; }
+        .container { padding: 15px; max-width: 600px; margin: 0 auto; }
+        .card-jogador { background: #1e1e1e; border: 1px solid #333; border-radius: 12px; padding: 15px; margin-bottom: 15px; }
+        .info-topo { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #444; padding-bottom: 10px; margin-bottom: 10px; }
+        .nome { font-size: 18px; font-weight: bold; color: #fff; margin: 0; display: flex; align-items: center; gap: 8px;}
+        .id-badge { font-size: 10px; color: #888; background: #333; padding: 2px 6px; border-radius: 4px; }
+        .stats { display: flex; justify-content: space-between; font-size: 14px; }
+        .saldo { color: #4caf50; font-weight: bold; }
+        .nivel { color: #64b5f6; font-weight: bold; }
+        .grid-botoes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 15px; }
+        .btn-god { border: none; padding: 10px; border-radius: 8px; color: white; cursor: pointer; font-size: 16px; transition: 0.2s; }
+        .btn-god:hover { opacity: 0.8; }
+        .bg-money { background: #2e7d32; }
+        .bg-xp { background: #1565c0; }
+        .bg-heal { background: #e91e63; }
+        .bg-harvest { background: #8bc34a; color: #000; }
+        .bg-box { background: #9c27b0; }
+        .bg-gavel { background: #ff9800; }
+        .bg-trash { background: #d32f2f; }
+    </style>
 </head>
 <body>
-    <div class="top-panel" style="background: #111; border-bottom: 2px solid #ff9800;">
-        <button onclick="window.location.href='/perfil'" class="btn-voltar"><i class="fas fa-arrow-left"></i></button>
-        <h3 style="margin: 0; color: #ff9800;">👑 Modo Deus</h3>
+
+    <div class="header">
+        <a href="/perfil" class="btn-voltar"><i class="fas fa-arrow-left"></i></a>
+        <h2 style="margin: 0; color: #ffb300;"><i class="fas fa-crown"></i> Painel do CEO</h2>
+        <p style="margin: 5px 0 0 0; font-size: 12px; color: #aaa;">Controle Absoluto do Servidor</p>
     </div>
 
-    <div style="padding: 20px; max-width: 800px; margin: 0 auto;">
-        <h3 style="color: #fff; margin-bottom: 20px;"><i class="fas fa-users-cog"></i> Gestão de Jogadores</h3>
-
-        <div style="background: #1a1a1a; border-radius: 12px; border: 1px solid #333; overflow: hidden;">
-            {% for j in jogadores %}
-            <div style="padding: 15px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-                
-                <!-- Informações do Jogador -->
-                <div style="flex: 1; min-width: 200px;">
-                    <b style="color: #fff; font-size: 16px;">
-                        {% if j.is_admin %}<i class="fas fa-crown" style="color: #ffb300;"></i>{% endif %} 
-                        {{ j.username }}
-                    </b>
-                    <span style="color: #aaa; font-size: 12px; margin-left: 10px;">ID: #{{ j.id }}</span>
-                    
-                    <div style="display: flex; gap: 15px; margin-top: 5px; font-size: 13px;">
-                        <span style="color: #4caf50;"><b>R$</b> {{ "{:,.2f}".format(j.saldo).replace(',','v').replace('.',',').replace('v','.') }}</span>
-                        <span style="color: #64b5f6;"><b>Nvl</b> {{ j.nivel|default(1) }} ({{ j.xp|default(0) }} XP)</span>
-                    </div>
-                </div>
-
-                <!-- Botões de Ação do God Mode -->
-                <div style="display: flex; gap: 8px;">
-                    <button onclick="injetarSaldo({{ j.id }}, '{{ j.username }}')" title="Adicionar/Remover Dinheiro" style="background: #2e7d32; color: #fff; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold;">
-                        <i class="fas fa-money-bill-wave"></i>
-                    </button>
-                    
-                    <button onclick="injetarXP({{ j.id }}, '{{ j.username }}')" title="Dar Nível/XP" style="background: #0288d1; color: #fff; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold;">
-                        <i class="fas fa-star"></i>
-                    </button>
-
-                    {% if not j.is_admin %}
-                    <button onclick="deletarConta({{ j.id }}, '{{ j.username }}')" title="Banir e Apagar Conta" style="background: #c62828; color: #fff; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold;">
-                        <i class="fas fa-trash-alt"></i>
-                    </button>
-                    {% endif %}
-                </div>
-
+    <div class="container">
+        {% for j in jogadores %}
+        <div class="card-jogador">
+            <div class="info-topo">
+                <h3 class="nome">
+                    {% if j.is_admin %}<i class="fas fa-crown" style="color: #ffb300;"></i>{% endif %}
+                    {{ j.username }} <span class="id-badge">ID: #{{ j.id }}</span>
+                </h3>
             </div>
-            {% endfor %}
+            <div class="stats">
+                <span class="saldo">R$ {{ "{:,.2f}".format(j.saldo).replace(',','v').replace('.',',').replace('v','.') }}</span>
+                <span class="nivel">Nvl {{ j.nivel }} ({{ j.xp }} XP)</span>
+            </div>
+
+            <div class="grid-botoes">
+                <button class="btn-god bg-money" onclick="injetarSaldo({{ j.id }}, '{{ j.username }}')" title="Injetar/Remover Dinheiro"><i class="fas fa-money-bill-wave"></i></button>
+                <button class="btn-god bg-xp" onclick="injetarXP({{ j.id }}, '{{ j.username }}')" title="Injetar/Remover XP"><i class="fas fa-star"></i></button>
+                <button class="btn-god bg-heal" onclick="milagreVida({{ j.id }}, '{{ j.username }}')" title="Curar Todo o Rebanho"><i class="fas fa-heart"></i></button>
+                <button class="btn-god bg-harvest" onclick="bencaoColheita({{ j.id }}, '{{ j.username }}')" title="Colheita Instantânea"><i class="fas fa-seedling"></i></button>
+                <button class="btn-god bg-box" onclick="injetarInsumo({{ j.id }}, '{{ j.username }}')" title="Spawnar Insumos"><i class="fas fa-box-open"></i></button>
+                <button class="btn-god bg-gavel" onclick="confiscarTerras({{ j.id }}, '{{ j.username }}')" title="Confiscar Fazendas"><i class="fas fa-gavel"></i></button>
+                
+                {% if not j.is_admin %}
+                    <button class="btn-god bg-trash" onclick="deletarConta({{ j.id }}, '{{ j.username }}')" title="Banir Jogador" style="grid-column: span 2;"><i class="fas fa-trash"></i> Banir</button>
+                {% endif %}
+            </div>
         </div>
+        {% endfor %}
     </div>
 
     <script>
+        function godAction(url, data) {
+            Swal.fire({ title: 'Aguarde...', didOpen: () => Swal.showLoading() });
+            fetch(url, {
+                method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
+            }).then(r => r.json()).then(d => {
+                if(d.sucesso) Swal.fire('Sucesso!', d.msg, 'success').then(() => location.reload());
+                else Swal.fire('Atenção', d.erro, 'warning');
+            });
+        }
+
         function injetarSaldo(id, nome) {
             Swal.fire({
-                title: `Ajustar Caixa: ${nome}`,
-                text: 'Digite o valor para enviar (use o sinal de menos "-" para remover dinheiro).',
-                input: 'number',
-                showCancelButton: true,
-                confirmButtonText: 'Executar Ordem',
-                background: '#2a2a2a', color: '#fff', confirmButtonColor: '#2e7d32'
-            }).then((res) => {
-                if(res.isConfirmed && res.value) {
-                    Swal.fire({title: 'Processando...', didOpen: () => Swal.showLoading()});
-                    fetch('/api/admin/injetar_saldo', {
-                        method: 'POST', headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ jogador_id: id, valor: parseFloat(res.value) })
-                    }).then(r => r.json()).then(d => {
-                        if(d.sucesso) Swal.fire('Sucesso!', d.msg, 'success').then(()=> location.reload());
-                        else Swal.fire('Erro', d.erro, 'error');
-                    });
-                }
-            });
+                title: `Saldo de ${nome}`, text: "Digite o valor (Use o sinal de - para remover)", input: 'number', background: '#2a2a2a', color: '#fff', showCancelButton: true, confirmButtonText: 'Aplicar'
+            }).then(r => { if(r.isConfirmed && r.value) godAction('/api/admin/injetar_saldo', {jogador_id: id, valor: parseFloat(r.value)}); });
         }
 
         function injetarXP(id, nome) {
             Swal.fire({
-                title: `Injetar XP: ${nome}`,
-                text: 'Quantos pontos de XP deseja dar a este jogador? (XP alto sobe o nível automaticamente).',
-                input: 'number',
-                showCancelButton: true,
-                confirmButtonText: 'Dar XP',
-                background: '#2a2a2a', color: '#fff', confirmButtonColor: '#0288d1'
-            }).then((res) => {
-                if(res.isConfirmed && res.value > 0) {
-                    Swal.fire({title: 'Processando...', didOpen: () => Swal.showLoading()});
-                    fetch('/api/admin/injetar_xp', {
-                        method: 'POST', headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ jogador_id: id, valor: parseInt(res.value) })
-                    }).then(r => r.json()).then(d => {
-                        if(d.sucesso) Swal.fire('Sucesso!', d.msg, 'success').then(()=> location.reload());
-                        else Swal.fire('Erro', d.erro, 'error');
-                    });
-                }
-            });
+                title: `XP de ${nome}`, text: "Digite o XP (Use o sinal de - para remover)", input: 'number', background: '#2a2a2a', color: '#fff', showCancelButton: true, confirmButtonText: 'Aplicar'
+            }).then(r => { if(r.isConfirmed && r.value) godAction('/api/admin/injetar_xp', {jogador_id: id, valor: parseInt(r.value)}); });
+        }
+
+        function milagreVida(id, nome) {
+            Swal.fire({ title: 'Milagre da Vida', text: `Zerar a fome e curar TODOS os animais de ${nome}?`, icon: 'question', background: '#2a2a2a', color: '#fff', showCancelButton: true, confirmButtonColor: '#e91e63', confirmButtonText: 'Fazer Milagre'
+            }).then(r => { if(r.isConfirmed) godAction('/api/admin/milagre_vida', {jogador_id: id}); });
+        }
+
+        function bencaoColheita(id, nome) {
+            Swal.fire({ title: 'Bênção da Colheita', text: `Forçar crescimento de todas as lavouras de ${nome}?`, icon: 'question', background: '#2a2a2a', color: '#fff', showCancelButton: true, confirmButtonColor: '#8bc34a', confirmButtonText: 'Crescer Tudo'
+            }).then(r => { if(r.isConfirmed) godAction('/api/admin/bencao_colheita', {jogador_id: id}); });
+        }
+
+        function confiscarTerras(id, nome) {
+            Swal.fire({ title: 'Confiscar Terras', text: `Tomar todas as fazendas de ${nome} e devolver ao Estado?`, icon: 'warning', background: '#2a2a2a', color: '#fff', showCancelButton: true, confirmButtonColor: '#ff9800', confirmButtonText: 'Confiscar'
+            }).then(r => { if(r.isConfirmed) godAction('/api/admin/confiscar_terras', {jogador_id: id}); });
         }
 
         function deletarConta(id, nome) {
-            Swal.fire({
-                title: 'Banimento Absoluto',
-                html: `Tem certeza que deseja apagar a conta <b>${nome}</b> para sempre?<br><br><span style="color:#f44336; font-size:12px;">As fazendas dele voltarão para o mapa global.</span>`,
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonText: 'Sim, Banir!',
-                background: '#2a2a2a', color: '#fff', confirmButtonColor: '#c62828'
-            }).then((res) => {
-                if(res.isConfirmed) {
-                    Swal.fire({title: 'Desapropriando terras...', didOpen: () => Swal.showLoading()});
-                    fetch('/api/admin/deletar_conta', {
-                        method: 'POST', headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ jogador_id: id })
-                    }).then(r => r.json()).then(d => {
-                        if(d.sucesso) Swal.fire('Exterminado!', d.msg, 'success').then(()=> location.reload());
-                        else Swal.fire('Erro', d.erro, 'error');
-                    });
-                }
+            Swal.fire({ title: 'Banir Jogador', text: `Tem certeza que deseja deletar a conta de ${nome}?`, icon: 'error', background: '#2a2a2a', color: '#fff', showCancelButton: true, confirmButtonColor: '#d32f2f', confirmButtonText: 'DELETAR'
+            }).then(r => { if(r.isConfirmed) godAction('/api/admin/deletar_conta', {jogador_id: id}); });
+        }
+
+        async function injetarInsumo(id, nome) {
+            const { value: formValues } = await Swal.fire({
+                title: `Spawnar Insumos para ${nome}`,
+                html: `
+                    <select id="swal-item" class="swal2-input" style="background:#111; color:#fff; border:1px solid #444; width:85%;">
+                        <option value="soja">Soja</option><option value="milho">Milho</option>
+                        <option value="racao">Ração</option><option value="sal">Sal Mineral</option>
+                        <option value="adubo">Adubo</option><option value="veneno">Veneno</option>
+                        <option value="vacina_aftosa">Vacina Aftosa</option><option value="combustivel">Combustível</option>
+                    </select>
+                    <input id="swal-qtd" type="number" class="swal2-input" placeholder="Quantidade" style="width:85%;">
+                `,
+                background: '#2a2a2a', color: '#fff', focusConfirm: false, showCancelButton: true, confirmButtonColor: '#9c27b0', confirmButtonText: 'Injetar',
+                preConfirm: () => { return { item: document.getElementById('swal-item').value, qtd: document.getElementById('swal-qtd').value } }
             });
+
+            if (formValues && formValues.qtd) {
+                godAction('/api/admin/injetar_insumo', { jogador_id: id, item: formValues.item, quantidade: formValues.qtd });
+            }
         }
     </script>
 </body>

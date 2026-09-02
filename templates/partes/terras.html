@@ -23,8 +23,8 @@
             {% endif %}
         {% endfor %}
         
-        <!-- 🔥 BOTÃO CORRIGIDO AQUI 🔥 -->
-        <div class="card pasto-card" onclick="comprarHectare({{ fazenda.id }}, {{ 15000 + (fazenda.lotes|length * 2000) }})" style="background: transparent; border: 2px dashed #444; border-radius: 12px; padding: 15px; text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 120px; transition: 0.2s;">
+        <!-- 🔥 BOTÃO COM MATEMÁTICA 1.5 🔥 -->
+                <div class="card pasto-card" onclick="comprarHectare({{ fazenda.id }}, {{ (15000 * (fazenda.lotes|length ** 1.5))|int }})" style="background: transparent; border: 2px dashed #444; border-radius: 12px; padding: 15px; text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 120px; transition: 0.2s;">
             <img src="/static/img/mapa.png" style="width:35px; opacity:0.5; margin-bottom: 10px;">
             <h3 style="margin: 0; font-size: 14px; color: #777;">Comprar Hectares</h3>
         </div>

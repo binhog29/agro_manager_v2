@@ -248,7 +248,7 @@ def comprar_hectare():
     if not fazenda: return jsonify({'sucesso': False, 'erro': 'Fazenda não encontrada.'})
 
     qtd_lotes_atual = Lote.query.filter_by(fazenda_id=fazenda.id).count()
-    custo = 15000.0 + (qtd_lotes_atual * 2000.0) # Cada novo hectare fica 2k mais caro
+    custo = int(15000.0 * (qtd_lotes_atual ** 1.5)) # Cada novo hectare ficar mais caro
 
     if usuario.saldo < custo:
         return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente! Custa R$ {custo:,.2f}.'})

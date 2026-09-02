@@ -339,7 +339,6 @@ def fazenda(prop_id):
     visitante = False
     
     if propriedade.dono_id == jogador.id:
-        GerenciadorTempo.calcular_progresso_offline(jogador)
         verificar_nivel(jogador) # 🔥 Atualiza o nível ao abrir a Fazenda
     else:
         visitante = True

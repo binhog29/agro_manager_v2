@@ -220,3 +220,16 @@ def limpar_notificacoes():
     Notificacao.query.filter_by(jogador_id=usuario.id).delete()
     db.session.commit()
     return jsonify({'sucesso': True})
+
+@tempo_bp.route('/api/tempo/sincronizar_offline', methods=['POST'])
+def sincronizar_offline():
+    if 'usuario' not in session: 
+        return jsonify({'sucesso': False})
+    
+    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    
+    # Executa o cálculo pesado no servidor em segundo plano
+    horas_processadas = GerenciadorTempo.calcular_progresso_offline(usuario)
+    
+    return jsonify({'sucesso': True, 'horas': horas_processadas})
+
