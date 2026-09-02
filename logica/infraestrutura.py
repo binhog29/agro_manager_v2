@@ -21,7 +21,19 @@ def construir_estrutura():
     dados = request.get_json()
     
     tipo = dados.get('tipo') 
-    custo = float(dados.get('custo', 0))
+    
+    # 🔥 BLINDAGEM ANTI-HACKER: O servidor agora define o preço, ignorando o celular!
+    TABELA_CUSTOS = {
+        'represa': 12000.0,
+        'chiqueiro': 8000.0,
+        'galinheiro': 5000.0
+    }
+    
+    if tipo not in TABELA_CUSTOS:
+        return jsonify({'sucesso': False, 'erro': 'Tipo de construção inválido.'})
+        
+    custo = TABELA_CUSTOS[tipo]
+    
     fazenda = Propriedade.query.filter_by(dono_id=usuario.id).first()
     
     if usuario.saldo < custo:
