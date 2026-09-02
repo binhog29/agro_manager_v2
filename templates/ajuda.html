@@ -22,11 +22,6 @@
         .conteudo strong { color: #fff; }
         .destaque { color: #ffb300; font-weight: bold; }
         
-        /* Tabela simples */
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
-        th, td { border: 1px solid #444; padding: 8px; text-align: left; }
-        th { background: #2e7d32; color: white; }
-        
         .btn-voltar { display: block; width: calc(100% - 40px); margin: 20px auto; background: #e53935; color: white; text-align: center; padding: 15px; border-radius: 8px; text-decoration: none; font-weight: bold; }
     </style>
 </head>
@@ -43,13 +38,13 @@
         <details>
             <summary><i class="fas fa-seedling"></i> 1. Agricultura, Solo e Irrigação</summary>
             <div class="conteudo">
-                <strong>🌱 Preparo e Rotação:</strong> Plantar a mesma cultura seguidas vezes (Monocultura) reduz a produtividade máxima para 80%. Alterne as sementes para revitalizar o solo e garantir 100% de rendimento. A fertilidade cai 20% ao plantar e 30% ao colher, exigindo Adubo para recuperar (+40% por saco).<br><br>
-                <strong>🐛 Pragas e Clima:</strong> Pragas atacam aleatoriamente e reduzem a produtividade em 10% ao dia. No inverno sem chuva, a produtividade cai 3% ao dia por seca, a menos que você instale um <strong>Pivô de Irrigação</strong>.<br><br>
+                <strong>🌱 Preparo e Rotação:</strong> Plantar a mesma cultura repetidas vezes (Monocultura) esgota a terra e trava a produtividade máxima em 80%. Faça a rotação de sementes para revitalizar o solo e garantir 100% de rendimento. O plantio consome 20% da fertilidade e a colheita 30%, exigindo Adubo para recuperar a terra (+40% por saco).<br><br>
+                <strong>🐛 Pragas e Clima:</strong> Pragas atacam de forma imprevisível e devoram 10% da sua produtividade por dia. No inverno, a falta de chuva resseca o solo, causando perdas de 3% ao dia, a menos que você invista na instalação de um <strong>Pivô de Irrigação</strong>.<br><br>
                 <strong>🌳 Tipos de Cultivo:</strong>
                 <ul>
-                    <li><strong>Anuais (Arado):</strong> Soja, Milho, Arroz, Feijão, Algodão e Mandioca. Morrem após a colheita.</li>
-                    <li><strong>Perenes (Covas):</strong> Banana, Cacau, Cupuaçu, Açaí, Pimenta. Possuem ciclos de descanso antes de dar frutos novamente.</li>
-                    <li><strong>Sazonais:</strong> Café Clonal. Só dá frutos no Outono e Inverno.</li>
+                    <li><strong>Anuais (Arado):</strong> Soja, Milho, Arroz, Feijão, Algodão e Mandioca. A planta morre após a colheita, liberando a terra.</li>
+                    <li><strong>Perenes (Covas):</strong> Banana, Cacau, Cupuaçu, Açaí, Pimenta. São árvores que entram em um período de descanso pós-colheita, mas voltam a dar frutos sem precisar replantar.</li>
+                    <li><strong>Sazonais:</strong> O Café Clonal é exigente. Ele só frutifica e permite colheita durante o Outono e o Inverno.</li>
                 </ul>
             </div>
         </details>
@@ -58,14 +53,14 @@
         <details>
             <summary><i class="fas fa-cow"></i> 2. Pecuária, Reprodução e Lactação</summary>
             <div class="conteudo">
-                <strong>⏱️ Gestação Realista:</strong> Fêmeas no pasto cruzam naturalmente. O tempo de gravidez varia: Bovinos (280 dias), Equinos (340 dias), Ovinos/Caprinos (150 dias), Suínos (114 dias) e Aves (21 dias).<br><br>
-                <strong>🥛 Ciclo Leiteiro (Girolando):</strong> O sistema de lactação simula vacas reais:
+                <strong>⏱️ Gestação Realista:</strong> Fêmeas e machos adultos no mesmo pasto cruzam naturalmente. O tempo de gravidez segue a biologia: Bovinos (280 dias), Equinos (340 dias), Ovinos/Caprinos (150 dias), Suínos (114 dias) e Aves (21 dias).<br><br>
+                <strong>🥛 Ciclo Leiteiro (Girolando):</strong> A produção de leite exige gestão de calendário:
                 <ul>
-                    <li><strong>Pico de Lactação:</strong> Nos primeiros 60 dias pós-parto, a produção sobe para 18 Litros/dia.</li>
-                    <li><strong>Consumo do Bezerro:</strong> Nos primeiros 90 dias, o bezerro consome 4 Litros/dia do total produzido.</li>
-                    <li><strong>Lactação Base:</strong> Após o desmame, a vaca estabiliza em 12 Litros/dia.</li>
-                    <li><strong>Período Seco:</strong> Aos 220 dias da próxima gestação (60 dias antes de parir), a vaca seca e para de dar leite obrigatoriamente.</li>
-                    <li><strong>Puerpério:</strong> Vacas recém-paridas precisam de 45 dias de descanso antes de conseguirem emprenhar novamente.</li>
+                    <li><strong>Pico de Lactação:</strong> Nos primeiros 60 dias pós-parto, a vaca atinge o ápice produzindo 18 Litros/dia.</li>
+                    <li><strong>Consumo do Bezerro:</strong> Durante os primeiros 90 dias de vida, o filhote mama, consumindo 4 Litros/dia do total produzido pela mãe.</li>
+                    <li><strong>Lactação Base:</strong> Após o desmame do bezerro, a vaca estabiliza a produção em 12 Litros/dia.</li>
+                    <li><strong>Período Seco:</strong> Aos 220 dias da próxima gestação (60 dias antes de parir), a vaca "seca" para poupar energia e a produção é interrompida.</li>
+                    <li><strong>Puerpério:</strong> Vacas recém-paridas precisam de 45 dias de descanso uterino antes de conseguirem emprenhar novamente.</li>
                 </ul>
             </div>
         </details>
@@ -74,15 +69,15 @@
         <details>
             <summary><i class="fas fa-notes-medical"></i> 3. Saúde, Suplementação e Limites</summary>
             <div class="conteudo">
-                <strong>⚖️ Teto Biológico:</strong> Animais não crescem para sempre. O limite máximo de peso é 150% do peso ideal da raça adulta (ex: Nelore até ~975kg). Após isso, parem de engordar.<br><br>
+                <strong>⚖️ Teto Biológico:</strong> A genética tem um limite. O peso máximo de um animal é 150% da média da raça adulta (ex: um Nelore trava em ~975kg). Ao atingir esse limite, ele para de engordar e deve ser enviado ao frigorífico.<br><br>
                 <strong>💉 Sanidade e Ganhos:</strong>
                 <ul>
-                    <li>Falta de <strong>Vacina Aftosa</strong> ou <strong>Brucelose</strong> reduz o ganho de peso diário em 30% (cada).</li>
-                    <li>Falta de <strong>Medicamento Geral (Vermífugo)</strong> reduz o ganho em 20%.</li>
-                    <li>Aplicar <strong>Suplemento de Engorda</strong> garante +1 Kg extra por dia direto na balança.</li>
+                    <li>Falta de <strong>Vacina Aftosa</strong> ou <strong>Brucelose</strong> derruba o ganho de peso diário em 30% cada.</li>
+                    <li>Não aplicar o <strong>Medicamento Geral (Vermífugo)</strong> reduz o ganho em 20%.</li>
+                    <li>Aplicar <strong>Suplemento de Engorda</strong> força o metabolismo, garantindo +1 Kg extra por dia direto na balança.</li>
                 </ul>
                 <strong>🏡 Capacidade dos Habitats:</strong>
-                Represas suportam até 200 peixes, Galinheiros 100 aves e Chiqueiros 50 suínos. O Curral (Tronco) inicia com 10 vagas e pode ser expandido de 5 em 5.
+                Para evitar superlotação, represas suportam até 200 peixes, Galinheiros 100 aves e Chiqueiros 50 suínos. O Curral (Tronco) inicia com 10 vagas e deve ser expandido de 5 em 5.
             </div>
         </details>
 
@@ -90,20 +85,20 @@
         <details>
             <summary><i class="fas fa-chart-line"></i> 4. Mercado, Arroba e Leilão</summary>
             <div class="conteudo">
-                <strong>📉 Cotação e Arroba (@):</strong> O Fator de Mercado varia o preço de tudo no jogo (de 85% a 115%) todos os dias. Bovinos de corte e leite são vendidos por Arroba, onde o jogo divide o peso vivo do animal por 30 para encontrar o rendimento real.<br><br>
-                <strong>⚖️ Leilão da Comunidade:</strong> Destravado no Nível 3, permite vender gado para outros jogadores. Para evitar fraudes e lavagem de dinheiro, a Receita Federal bloqueia anúncios que cobrem mais de 3x o valor base de mercado da raça adulta.
+                <strong>📉 Cotação e Arroba (@):</strong> O Fator de Mercado é volátil, alterando os preços de 85% a 115% diariamente. Fique de olho para vender na alta. Bovinos de corte e leite são precificados por Arroba (o peso vivo é dividido por 30 para calcular o rendimento de carcaça).<br><br>
+                <strong>⚖️ Leilão da Comunidade:</strong> Destravado no Nível 3, o Leilão permite negociar gado diretamente com outros fazendeiros. Como medida anti-fraude, a Receita Federal bloqueia ofertas que ultrapassem 3x o valor base da raça.
             </div>
         </details>
 
         <!-- 5. TERRAS E EXPANSÃO -->
         <details>
-            <summary><i class="fas fa-map-marked-alt"></i> 5. Compra de Terras e Expansões</summary>
+            <summary><i class="fas fa-map-marked-alt"></i> 5. Compra de Terras e Estoques</summary>
             <div class="conteudo">
-                <strong>🚜 Expansão de Hectares:</strong> Você pode comprar terras infinitamente para a sua propriedade, mas o preço sofre inflação quadrática para simular a valorização local. O cálculo oficial é: <code>15.000 x (Lotes Atuais ^ 1.5)</code>.<br><br>
-                <strong>📦 Obras de Armazenamento:</strong> Expanda seus limites contratando a construtora:
+                <strong>🚜 Expansão de Hectares:</strong> Você pode anexar terras infinitamente à sua fazenda. Porém, a especulação imobiliária aplica uma inflação quadrática: cada novo hectare custa mais caro que o anterior.<br><br>
+                <strong>📦 Obras de Armazenamento:</strong> Quando a produção estourar, chame a construtora:
                 <ul>
-                    <li><strong>Silo:</strong> +500kg, +5.000kg, +50.000kg ou Complexo Gigante de +500.000kg.</li>
-                    <li><strong>Armazém (Insumos):</strong> +300un, +3.500un, +35.000un ou Complexo Gigante de +300.000un.</li>
+                    <li><strong>Silo (Grãos):</strong> Pacotes de +500kg até o Complexo Gigante de +500.000kg.</li>
+                    <li><strong>Armazém (Insumos):</strong> Pacotes de +300un até o Complexo Gigante de +300.000un.</li>
                 </ul>
             </div>
         </details>
@@ -112,22 +107,22 @@
         <details>
             <summary><i class="fas fa-users"></i> 6. Funcionários, Automação e RH</summary>
             <div class="conteudo">
-                Os funcionários são cobrados do seu saldo a cada 24 horas no jogo. Além de gerar bônus, eles automatizam tarefas enquanto você está offline:<br><br>
-                <strong>👨‍🌾 Peão (R$ 4/h):</strong> Reduz a perda de peso/saúde dos animais em 80% na falta de comida. Automação: Se o cocho secar, ele busca Sal e Ração no Armazém e abastece o pasto sozinho.<br><br>
-                <strong>🚜 Tratorista (R$ 7/h):</strong> Garante +15% de eficiência na Colheita (acumula até 5). Automação: Aplica Veneno automaticamente se houver pragas e aplica Adubo se a fertilidade cair abaixo de 60%.<br><br>
-                <strong>💼 Capataz (R$ 12/h):</strong> Adiciona +10% de ágio em qualquer venda da fazenda (animais, grãos, derivados).<br><br>
-                <strong>🩺 Veterinário (R$ 18/h):</strong> Reduz os danos de doenças e fome na saúde do rebanho em 90%.<br><br>
-                <strong>🌱 Agrônomo (R$ 22/h):</strong> Acelera o tempo de crescimento das plantas em 25% (máximo de 2 por fazenda).
+                Sua equipe cobra os salários a cada 24 horas no relógio do jogo. Eles são essenciais para automatizar a fazenda enquanto você está offline:<br><br>
+                <strong>👨‍🌾 Peão (R$ 4/h):</strong> Protege o gado, reduzindo em 80% o impacto da fome na saúde. Automação: Reabastece os cochos de sal e ração sozinhos se houver estoque no armazém.<br><br>
+                <strong>🚜 Tratorista (R$ 7/h):</strong> Aumenta a colheita em +15% (acumula até 5 tratoristas). Automação: Bate veneno contra pragas e joga adubo no solo se a fertilidade cair abaixo de 60%.<br><br>
+                <strong>💼 Capataz (R$ 50/h):</strong> Cargo de chefia avançada. Exige R$ 1.200 por dia, mas negocia pesado no mercado, garantindo um ágio de +2% em qualquer venda da fazenda (animais, grãos ou leite).<br><br>
+                <strong>🩺 Veterinário (R$ 18/h):</strong> Zela pelo bem-estar, reduzindo em 90% a perda de saúde por doenças e subnutrição.<br><br>
+                <strong>🌱 Agrônomo (R$ 22/h):</strong> Especialista em biotecnologia. Acelera o tempo de crescimento de todas as plantas em 25% (máximo de 2 por fazenda).
             </div>
         </details>
 
         <!-- 7. MAQUINÁRIO E BARRACÃO -->
         <details>
-            <summary><i class="fas fa-tractor"></i> 7. Máquinas e Caminhões</summary>
+            <summary><i class="fas fa-tractor"></i> 7. Frota e Maquinário</summary>
             <div class="conteudo">
-                Máquinas ficam estacionadas no Barracão, consomem Diesel e exigem manutenção quando a condição cai.<br><br>
-                <strong>🚛 Logística (Frete Grátis):</strong> O Caminhão Boiadeiro isenta o frete de animais grandes. O Caminhão Baú (Frios) isenta o frete de Peixes. Caminhonetes isentam o frete de Aves, Suínos e Ovinos.<br><br>
-                <strong>🚜 Trator de Esteira:</strong> Ao desmatar novos lotes, possuir o Trator de Esteira zera a taxa de aluguel (R$ 500) e extrai madeira pesada avaliada em <span class="destaque">R$ 2.500</span> (em vez de madeira bruta de R$ 1.500).
+                Máquinas agrícolas ficam no Barracão, queimam Diesel a cada uso e precisam de idas ao mecânico quando a condição se deteriora.<br><br>
+                <strong>🚛 Logística (Frete):</strong> Possuir a frota certa zera a pesada taxa de frete nas compras e vendas. O Caminhão Boiadeiro isenta o transporte de animais de grande porte; o Baú (Frios) isenta os peixes; e Caminhonetes servem para aves, suínos e ovinos.<br><br>
+                <strong>🚜 Trator de Esteira:</strong> Máquina definitiva de desmatamento. Ter um desses zera o custo de aluguel ao abrir novas terras e extrai madeira nobre, elevando o ganho de R$ 1.500 para <span class="destaque">R$ 2.500</span> por hectare limpo.
             </div>
         </details>
 
@@ -135,9 +130,9 @@
         <details>
             <summary><i class="fas fa-building"></i> 8. Mercado Imobiliário e Falência</summary>
             <div class="conteudo">
-                Você pode negociar propriedades inteiras com outros jogadores ou com o Estado:<br><br>
-                <strong>🤝 Venda na Corretora (Jogadores):</strong> Anuncie a fazenda de "porteira fechada" (o comprador leva tudo dentro dela). A transação retém 10% de ITBI (Imposto) do valor do anúncio.<br><br>
-                <strong>🏦 Venda Imediata ao Banco:</strong> Se precisar de dinheiro rápido, venda ao Banco. O Banco paga 70% do valor venal da terra e faz um "Wipe" total: destrói as lavouras, apaga os animais, vende as máquinas e reseta a infraestrutura da fazenda para o zero.
+                Cansou de uma região? Venda a fazenda inteira e mude de ares:<br><br>
+                <strong>🤝 Venda na Corretora (Jogadores):</strong> Anuncie de "porteira fechada" (o comprador leva as terras, o gado e os tratores). O estado retém 10% de ITBI (Imposto) sobre a transação.<br><br>
+                <strong>🏦 Venda Imediata ao Banco:</strong> A saída de emergência para evitar a falência. O Banco paga apenas 70% do valor venal da terra e executa uma limpeza extrema: o gado e as lavouras são destruídos, as máquinas leiloadas e as melhorias resetadas para que a propriedade volte nua para o mapa global.
             </div>
         </details>
 
