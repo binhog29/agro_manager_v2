@@ -220,3 +220,28 @@ window.carregarStatusDinamico = async function() {
     }
 };
 setTimeout(carregarStatusDinamico, 300);
+
+window.destruirLavoura = function(loteId) {
+    Swal.fire({
+        title: 'Passar o Trator?',
+        text: "Isso vai destruir toda a plantação atual e devolver a terra limpa. Custa R$ 300 de aluguel da máquina.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonText: 'Cancelar',
+        confirmButtonText: 'Sim, destruir!',
+        background: '#2a2a2a', color: '#fff'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            Swal.fire({ title: 'Limpando terra...', didOpen: () => Swal.showLoading() });
+            fetch('/api/fazenda/reverter_cultivo', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ lote_id: loteId })
+            })
+            .then(r => r.json()).then(d => {
+                if(d.sucesso) Swal.fire('Sucesso!', d.msg, 'success').then(() => location.reload());
+                else Swal.fire('Atenção', d.erro, 'warning');
+            });
+        }
+    });
+};

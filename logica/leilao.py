@@ -1,6 +1,6 @@
 from flask import Blueprint, session, request, jsonify
 from sqlalchemy import func
-from database import db, Jogador, Anuncio, Propriedade, Animal
+from database import db, Jogador, Anuncio, Propriedade, Animal, Maquinario
 from logica.economia import registrar_transacao
 from logica.constantes import TABELA_PRECOS # 🔥 Importando os preços reais para a Malha Fina
 
@@ -135,10 +135,19 @@ def comprar_leilao():
 
     if usa_caminhao:
         modelo_necessario = 'Caminhão Baú (Frios)' if habitat == 'represa' else 'Caminhão Boiadeiro'
-        from database import Maquinario
-        tem_caminhao = Maquinario.query.filter_by(propriedade_id=propriedade.id, modelo=modelo_necessario).first()
+        tem_caminhao = Maquinario.query.filter(
+            Maquinario.propriedade_id == propriedade.id, 
+            Maquinario.modelo == modelo_necessario,
+            Maquinario.nivel_combustivel >= 15,
+            Maquinario.estado_conservacao >= 5
+        ).first()
+        
         if not tem_caminhao:
-            return jsonify({'sucesso': False, 'erro': f'Fraude detectada: Sem {modelo_necessario} na fazenda!'})
+            return jsonify({'sucesso': False, 'erro': f'Veículo indisponível! Sem combustível ou quebrado no Barracão.'})
+            
+        # 🔥 APLICA O DESGASTE DA VIAGEM
+        tem_caminhao.nivel_combustivel -= 15
+        tem_caminhao.estado_conservacao -= 5
     else:
         custo_frete = 50.0  
 

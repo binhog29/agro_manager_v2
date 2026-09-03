@@ -1,15 +1,18 @@
-window.venderDerivados = function(produto, nomeProduto, qtdMax) {
+window.venderDerivados = function(produto, nomeProduto, qtdMaxRaw) {
+    // 🔥 CORREÇÃO: Limpa o número quebrado. Leite com 1 casa decimal, Ovos como inteiro.
+    const qtdMaxFormatada = produto === 'leite' ? parseFloat(qtdMaxRaw).toFixed(1) : Math.floor(qtdMaxRaw);
+
     Swal.fire({
         title: `Vender ${nomeProduto}`,
-        text: `Você possui ${qtdMax} em estoque.`,
+        text: `Você possui ${qtdMaxFormatada} em estoque.`,
         input: 'number',
-                inputAttributes: { 
+        inputAttributes: { 
             min: produto === 'leite' ? 0.1 : 1, 
-            max: qtdMax, 
-            step: produto === 'leite' ? 'any' : '1',
+            max: qtdMaxFormatada, 
+            step: produto === 'leite' ? '0.1' : '1',
             type: 'number'
         },
-        inputValue: qtdMax, 
+        inputValue: qtdMaxFormatada, 
         showCancelButton: true,
         confirmButtonText: 'Confirmar Venda',
         cancelButtonText: 'Cancelar',
@@ -17,7 +20,7 @@ window.venderDerivados = function(produto, nomeProduto, qtdMax) {
         background: '#2a2a2a', 
         color: '#fff',
         preConfirm: (qtd) => {
-            if (!qtd || qtd <= 0 || qtd > qtdMax) {
+            if (!qtd || qtd <= 0 || qtd > parseFloat(qtdMaxFormatada)) {
                 Swal.showValidationMessage('Quantidade inválida!');
             }
             return qtd;

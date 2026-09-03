@@ -156,3 +156,22 @@ def confiscar_terras():
         
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': f'Todas as terras de {alvo.username} foram confiscadas pelo Estado!'})
+
+@admin_bp.route('/api/admin/avancar_tempo_jogador', methods=['POST'])
+def avancar_tempo_jogador():
+    if not verificar_admin(): return jsonify({'sucesso': False, 'erro': 'Acesso negado.'})
+    
+    dados = request.get_json()
+    jogador_id = dados.get('jogador_id')
+    horas = int(dados.get('horas', 0))
+    
+    alvo = Jogador.query.get(jogador_id)
+    if not alvo: return jsonify({'sucesso': False, 'erro': 'Jogador não encontrado.'})
+    if horas <= 0: return jsonify({'sucesso': False, 'erro': 'Quantidade de horas inválida.'})
+    
+    # Chama o motor do tempo para agir apenas na fazenda deste jogador
+    from logica.tempo import GerenciadorTempo
+    GerenciadorTempo.avancar_tempo(alvo, horas)
+    
+    db.session.commit()
+    return jsonify({'sucesso': True, 'msg': f'O tempo de {alvo.username} avançou em {horas} horas!'})

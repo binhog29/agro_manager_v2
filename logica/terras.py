@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, session
-from database import db, Jogador, Lote, Animal, Propriedade
-from logica.economia import registrar_transacao 
+from database import db, Jogador, Lote, Animal, Propriedade, Maquinario
+from logica.economia import registrar_transacao
 
 terras_bp = Blueprint('terras', __name__)
 
@@ -29,18 +29,27 @@ def obras_terra():
         # 🔥 BLINDAGEM 3: O pulo do gato! Só paga a madeira se a terra for MATO!
         if lote.status != 'mato':
             return jsonify({'sucesso': False, 'erro': '🚨 FRAUDE DETECTADA: Este lote já está limpo ou em uso!'})
-            
-        from database import Maquinario
-        tem_esteira = Maquinario.query.filter_by(propriedade_id=lote.fazenda_id, modelo='Trator de Esteira').first()
+                
+        # Exige pelo menos 10% de tanque e 5% de saúde para ligar a máquina
+        tem_esteira = Maquinario.query.filter(
+            Maquinario.propriedade_id==lote.fazenda_id, 
+            Maquinario.modelo=='Trator de Esteira',
+            Maquinario.nivel_combustivel >= 10,
+            Maquinario.estado_conservacao >= 5
+        ).first()
 
         if tem_esteira:
+            # 🔥 APLICA O DESGASTE DA MÁQUINA
+            tem_esteira.nivel_combustivel -= 10
+            tem_esteira.estado_conservacao -= 5
+            
             venda_madeira = 2500
             usuario.saldo += venda_madeira
             lote.status = 'limpo'
             registrar_transacao(usuario.id, 'entrada', venda_madeira, f'Venda de Madeira Pesada ({lote.nome})')
             if getattr(usuario, 'xp', None) is None: usuario.xp = 0
             usuario.xp += 15
-            mensagem = f'Limpeza pesada concluída! O Trator de Esteira zerou o custo operacional e extraiu R$ 2.500 em madeira!'
+            mensagem = f'Limpeza concluída! O Trator de Esteira gastou Diesel e extraiu R$ 2.500 em madeira!'        
         else:
             custo_trator = 500
             venda_madeira = 1500

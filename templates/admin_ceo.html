@@ -28,6 +28,7 @@
         .bg-harvest { background: #8bc34a; color: #000; }
         .bg-box { background: #9c27b0; }
         .bg-gavel { background: #ff9800; }
+        .bg-time { background: #00acc1; } /* Cor nova para avançar o tempo */
         .bg-trash { background: #d32f2f; }
     </style>
 </head>
@@ -60,78 +61,20 @@
                 <button class="btn-god bg-harvest" onclick="bencaoColheita({{ j.id }}, '{{ j.username }}')" title="Colheita Instantânea"><i class="fas fa-seedling"></i></button>
                 <button class="btn-god bg-box" onclick="injetarInsumo({{ j.id }}, '{{ j.username }}')" title="Spawnar Insumos"><i class="fas fa-box-open"></i></button>
                 <button class="btn-god bg-gavel" onclick="confiscarTerras({{ j.id }}, '{{ j.username }}')" title="Confiscar Fazendas"><i class="fas fa-gavel"></i></button>
+                <button class="btn-god bg-time" onclick="avancarTempoJogador({{ j.id }}, '{{ j.username }}')" title="Avançar Tempo"><i class="fas fa-clock"></i></button>
                 
                 {% if not j.is_admin %}
-                    <button class="btn-god bg-trash" onclick="deletarConta({{ j.id }}, '{{ j.username }}')" title="Banir Jogador" style="grid-column: span 2;"><i class="fas fa-trash"></i> Banir</button>
+                    <button class="btn-god bg-trash" onclick="deletarConta({{ j.id }}, '{{ j.username }}')" title="Banir Jogador"><i class="fas fa-trash"></i></button>
+                {% else %}
+                    <!-- Botão fantasma apenas para manter o alinhamento do grid caso seja o CEO (que não pode ser banido) -->
+                    <div style="visibility: hidden;"></div>
                 {% endif %}
             </div>
         </div>
         {% endfor %}
     </div>
 
-    <script>
-        function godAction(url, data) {
-            Swal.fire({ title: 'Aguarde...', didOpen: () => Swal.showLoading() });
-            fetch(url, {
-                method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
-            }).then(r => r.json()).then(d => {
-                if(d.sucesso) Swal.fire('Sucesso!', d.msg, 'success').then(() => location.reload());
-                else Swal.fire('Atenção', d.erro, 'warning');
-            });
-        }
-
-        function injetarSaldo(id, nome) {
-            Swal.fire({
-                title: `Saldo de ${nome}`, text: "Digite o valor (Use o sinal de - para remover)", input: 'number', background: '#2a2a2a', color: '#fff', showCancelButton: true, confirmButtonText: 'Aplicar'
-            }).then(r => { if(r.isConfirmed && r.value) godAction('/api/admin/injetar_saldo', {jogador_id: id, valor: parseFloat(r.value)}); });
-        }
-
-        function injetarXP(id, nome) {
-            Swal.fire({
-                title: `XP de ${nome}`, text: "Digite o XP (Use o sinal de - para remover)", input: 'number', background: '#2a2a2a', color: '#fff', showCancelButton: true, confirmButtonText: 'Aplicar'
-            }).then(r => { if(r.isConfirmed && r.value) godAction('/api/admin/injetar_xp', {jogador_id: id, valor: parseInt(r.value)}); });
-        }
-
-        function milagreVida(id, nome) {
-            Swal.fire({ title: 'Milagre da Vida', text: `Zerar a fome e curar TODOS os animais de ${nome}?`, icon: 'question', background: '#2a2a2a', color: '#fff', showCancelButton: true, confirmButtonColor: '#e91e63', confirmButtonText: 'Fazer Milagre'
-            }).then(r => { if(r.isConfirmed) godAction('/api/admin/milagre_vida', {jogador_id: id}); });
-        }
-
-        function bencaoColheita(id, nome) {
-            Swal.fire({ title: 'Bênção da Colheita', text: `Forçar crescimento de todas as lavouras de ${nome}?`, icon: 'question', background: '#2a2a2a', color: '#fff', showCancelButton: true, confirmButtonColor: '#8bc34a', confirmButtonText: 'Crescer Tudo'
-            }).then(r => { if(r.isConfirmed) godAction('/api/admin/bencao_colheita', {jogador_id: id}); });
-        }
-
-        function confiscarTerras(id, nome) {
-            Swal.fire({ title: 'Confiscar Terras', text: `Tomar todas as fazendas de ${nome} e devolver ao Estado?`, icon: 'warning', background: '#2a2a2a', color: '#fff', showCancelButton: true, confirmButtonColor: '#ff9800', confirmButtonText: 'Confiscar'
-            }).then(r => { if(r.isConfirmed) godAction('/api/admin/confiscar_terras', {jogador_id: id}); });
-        }
-
-        function deletarConta(id, nome) {
-            Swal.fire({ title: 'Banir Jogador', text: `Tem certeza que deseja deletar a conta de ${nome}?`, icon: 'error', background: '#2a2a2a', color: '#fff', showCancelButton: true, confirmButtonColor: '#d32f2f', confirmButtonText: 'DELETAR'
-            }).then(r => { if(r.isConfirmed) godAction('/api/admin/deletar_conta', {jogador_id: id}); });
-        }
-
-        async function injetarInsumo(id, nome) {
-            const { value: formValues } = await Swal.fire({
-                title: `Spawnar Insumos para ${nome}`,
-                html: `
-                    <select id="swal-item" class="swal2-input" style="background:#111; color:#fff; border:1px solid #444; width:85%;">
-                        <option value="soja">Soja</option><option value="milho">Milho</option>
-                        <option value="racao">Ração</option><option value="sal">Sal Mineral</option>
-                        <option value="adubo">Adubo</option><option value="veneno">Veneno</option>
-                        <option value="vacina_aftosa">Vacina Aftosa</option><option value="combustivel">Combustível</option>
-                    </select>
-                    <input id="swal-qtd" type="number" class="swal2-input" placeholder="Quantidade" style="width:85%;">
-                `,
-                background: '#2a2a2a', color: '#fff', focusConfirm: false, showCancelButton: true, confirmButtonColor: '#9c27b0', confirmButtonText: 'Injetar',
-                preConfirm: () => { return { item: document.getElementById('swal-item').value, qtd: document.getElementById('swal-qtd').value } }
-            });
-
-            if (formValues && formValues.qtd) {
-                godAction('/api/admin/injetar_insumo', { jogador_id: id, item: formValues.item, quantidade: formValues.qtd });
-            }
-        }
-    </script>
+    <!-- Importa o novo arquivo JS com todas as funções de CEO -->
+    <script src="/static/js/admin_ceo.js"></script>
 </body>
 </html>

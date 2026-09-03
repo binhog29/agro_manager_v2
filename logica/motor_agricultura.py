@@ -93,6 +93,7 @@ class MotorAgricultura:
                         cache_fazendas[lote.fazenda_id] = {
                             'obj': f,
                             'equipe': eq,
+                            'maquinas_obj': mqs, # Adiciona os objetos das máquinas aqui
                             'tipos_maq': [m.tipo for m in mqs],
                             'modelos_maq': [m.modelo for m in mqs]
                         }
@@ -149,23 +150,30 @@ class MotorAgricultura:
 
                     # 🚜 Defesa contra Pragas (Veneno)
                     if getattr(lote, 'nivel_pragas', 0) > 0:
-                        if tem_tratorista and 'Pulverizador' in dados_faz['modelos_maq'] and getattr(fazenda, 'est_veneno', 0) >= area_lote:
+                        pulverizador = next((m for m in dados_faz['maquinas_obj'] if m.modelo == 'Pulverizador' and m.nivel_combustivel >= 2 and m.estado_conservacao >= 1), None)
+                        if tem_tratorista and pulverizador and getattr(fazenda, 'est_veneno', 0) >= area_lote:
                             fazenda.est_veneno -= area_lote
                             lote.nivel_pragas = 0
-                            teve_ataque = False # Tratorista resolveu silenciosamente!
+                            pulverizador.nivel_combustivel -= 2
+                            pulverizador.estado_conservacao -= 1
+                            teve_ataque = False 
                             msg_veneno = f"🚜 Um Tratorista usou o Pulverizador e defendeu o {lote.nome} contra pragas."
                             if msg_veneno not in avisos_turno: avisos_turno.append(msg_veneno)
                             
                     if teve_ataque and getattr(lote, 'nivel_pragas', 0) > 0:
-                        avisos_turno.append(f"⚠️ Pragas atacaram {lote.nome}! Sem tratorista ou defensivos.")
+                        avisos_turno.append(f"⚠️ Pragas atacaram {lote.nome}! Sem tratorista, defensivos ou máquina abastecida.")
 
                     # 🚜 Recuperação de Solo (Adubo)
                     if getattr(lote, 'fertilidade_solo', 100) <= 60:
-                        if tem_tratorista and 'Trator' in dados_faz['tipos_maq'] and getattr(fazenda, 'est_adubo', 0) >= area_lote:
+                        trator = next((m for m in dados_faz['maquinas_obj'] if m.tipo == 'Trator' and m.nivel_combustivel >= 2 and m.estado_conservacao >= 1), None)
+                        if tem_tratorista and trator and getattr(fazenda, 'est_adubo', 0) >= area_lote:
                             fazenda.est_adubo -= area_lote
                             lote.fertilidade_solo = min(100, getattr(lote, 'fertilidade_solo', 100) + 40)
-                            msg_adubo = f"🚜 O Tratorista aplicou Adubo no {lote.nome} e revitalizou a terra."
+                            trator.nivel_combustivel -= 2
+                            trator.estado_conservacao -= 1
+                            msg_adubo = f"🚜 O Tratorista usou o {trator.modelo} para aplicar Adubo no {lote.nome}."
                             if msg_adubo not in avisos_turno: avisos_turno.append(msg_adubo)
+
 
                     # 📉 Punições se a automação não tiver agido
                     prod_atual = float(getattr(lote, 'produtividade_atual', 100))

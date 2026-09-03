@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, session, redirect, url_for, request, jsonify
-from database import db, Jogador, Anuncio, Propriedade, Animal, TABELA_PRECOS, INFO_ESPECIES
+from database import db, Jogador, Anuncio, Propriedade, Animal, TABELA_PRECOS, INFO_ESPECIES, Maquinario
 from logica.economia import registrar_transacao
 import random
 
@@ -223,14 +223,19 @@ def comprar_ia():
             modelos_aceitos = ['Caminhão Boiadeiro']
             msg_erro = 'Sem Caminhão Boiadeiro na fazenda!'
             
-        from database import Maquinario
         tem_veiculo = Maquinario.query.filter(
             Maquinario.propriedade_id == propriedade.id, 
-            Maquinario.modelo.in_(modelos_aceitos)
+            Maquinario.modelo.in_(modelos_aceitos),
+            Maquinario.nivel_combustivel >= 15,
+            Maquinario.estado_conservacao >= 5
         ).first()
         
         if not tem_veiculo:
-            return jsonify({'sucesso': False, 'erro': f'Fraude detectada: {msg_erro}'})
+            return jsonify({'sucesso': False, 'erro': f'Veículo indisponível! Verifique se você tem o modelo correto e se ele possui pelo menos 15% de Combustível e 5% de Saúde.'})
+            
+        # 🔥 APLICA O DESGASTE DA VIAGEM
+        tem_veiculo.nivel_combustivel -= 15
+        tem_veiculo.estado_conservacao -= 5
         custo_frete = 0.0
     else:
         custo_frete = quantidade * frete_cabeca
