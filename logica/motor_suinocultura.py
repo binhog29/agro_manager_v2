@@ -17,7 +17,7 @@ class MotorSuinocultura:
     RECUPERACAO_SAUDE_DIA = 10.0
     CHANCE_PRENHEZ_DIA = 0.10 # 10% de chance ao dia
     # ==========================================
-
+    
     @staticmethod
     def processar_animais(animais_chiqueiro, dias, avisos_turno):
         if not animais_chiqueiro:
@@ -38,11 +38,30 @@ class MotorSuinocultura:
             consumo_total += config['consumo'] * dias
 
         qtd_comedouro = getattr(fazenda, 'chiqueiro_qtd_racao', 0.0)
+        
+        # 🔥 MÁGICA DO PEÃO: Se a ração faltar, ele busca no Silo!
+        from logica.funcionarios import obter_bonus_equipe
+        bonus_rh_geral = obter_bonus_equipe(fazenda.id)
+        
+        if qtd_comedouro < consumo_total and bonus_rh_geral.get('protecao_animal', False):
+            if getattr(fazenda, 'est_milho', 0) >= 100:
+                fazenda.est_milho -= 100
+                qtd_comedouro += 100.0
+                fazenda.chiqueiro_qtd_racao = qtd_comedouro
+                msg = f"👨‍🌾 Um Peão buscou 100 un. de Milho no Silo para os Porcos."
+                if msg not in avisos_turno: avisos_turno.append(msg)
+            elif getattr(fazenda, 'est_soja', 0) >= 100:
+                fazenda.est_soja -= 100
+                qtd_comedouro += 100.0
+                fazenda.chiqueiro_qtd_racao = qtd_comedouro
+                msg = f"👨‍🌾 Um Peão buscou 100 un. de Soja no Silo para os Porcos."
+                if msg not in avisos_turno: avisos_turno.append(msg)
+
         tem_racao_geral = False
         
         if qtd_comedouro >= consumo_total:
             tem_racao_geral = True
-            fazenda.chiqueiro_qtd_racao -= consumo_total
+            fazenda.chiqueiro_qtd_racao = qtd_comedouro - consumo_total
         else:
             if qtd_comedouro > 0:
                 fazenda.chiqueiro_qtd_racao = 0.0

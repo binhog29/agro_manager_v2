@@ -36,7 +36,8 @@
         <form id="form-registro" action="/autenticar" method="POST" class="hidden">
             <input type="hidden" name="acao" value="criar">
             <input type="text" name="usuario" placeholder="Criar Usuário" required>
-            <input type="email" name="email" placeholder="E-mail">
+            <!-- 🔥 CORREÇÃO: E-mail agora é exigido pelo navegador e verificado no servidor -->
+            <input type="email" name="email" placeholder="Seu E-mail (Obrigatório)" required>
             <input type="password" name="senha" placeholder="Criar Senha" required>
             
             <label class="label-dificuldade">Dificuldade</label>
@@ -47,7 +48,7 @@
             </select>
             <button type="submit">CADASTRAR</button>
         </form>
-                <div class="copyright">
+        <div class="copyright">
             &copy; 2026 DualCore Solutions. Todos os direitos reservados.
         </div>
     </div>

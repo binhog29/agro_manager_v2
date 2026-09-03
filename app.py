@@ -1,6 +1,6 @@
 import re
 import os
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, render_template_string
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -90,15 +90,30 @@ def verificar_nivel(jogador):
         db.session.commit()
 
 # ==========================================
-# ROTAS DO SISTEMA
+# ROTAS DO SISTEMA E SEGURANÇA
 # ==========================================
 @app.route('/')
 @app.route('/login')
 def login():
     return render_template('login.html')
 
+# 🔥 TELA DE BLOQUEIO DE IP (Dispara quando o limite é excedido)
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    return render_template_string('''
+        <div style="text-align:center; margin-top:100px; font-family:'Segoe UI', sans-serif; color:white; background:#121212; padding: 40px; height: 100vh;">
+            <i class="fas fa-shield-alt" style="font-size: 80px; color: #f44336; margin-bottom: 20px;"></i>
+            <h1 style="color:#f44336;">IP BLOQUEADO TEMPORARIAMENTE</h1>
+            <p style="font-size: 18px; color: #ccc;">Detectamos muitas tentativas de login ou criação de conta vindas da sua rede.</p>
+            <p style="color: #888;">Por medidas de segurança contra robôs, aguarde alguns minutos antes de tentar novamente.</p>
+            <br>
+            <a href="/login" style="background: #2e7d32; color: white; padding: 10px 20px; text-decoration: none; border-radius: 8px; font-weight: bold;">Tentar Novamente</a>
+        </div>
+    '''), 429
+
+# 🔥 ROTA DE AUTENTICAÇÃO BLINDADA (Máximo de 5 tentativas por minuto por IP)
 @app.route('/autenticar', methods=['POST'])
-@limiter.limit("10 per minute")
+@limiter.limit("5 per minute")
 def autenticar():
     acao = request.form.get('acao')
     username = request.form.get('usuario').strip()
@@ -109,12 +124,25 @@ def autenticar():
         return redirect(url_for('login'))
 
     if acao == 'criar':
-        dificuldade = request.form.get('dificuldade')
+        email = request.form.get('email', '').strip()
+        
+        # 🔒 SEGURANÇA: Validação estrita de formato de E-mail
+        if not re.match(r"^[\w\.-]+@[\w\.-]+\.\w+$", email):
+            flash("Segurança: Por favor, insira um endereço de e-mail válido!")
+            return redirect(url_for('login'))
         
         usuario_existe = Jogador.query.filter_by(username=username).first()
+        email_existe = Jogador.query.filter_by(email=email).first()
+        
         if usuario_existe:
             flash("Esse nome de usuário já está em uso!")
             return redirect(url_for('login'))
+            
+        if email_existe:
+            flash("Segurança: Esse e-mail já está cadastrado em outra conta!")
+            return redirect(url_for('login'))
+        
+        dificuldade = request.form.get('dificuldade')
         
         is_admin = False
         if username.lower() == 'ceo':
@@ -129,7 +157,9 @@ def autenticar():
                 saldo_inicial = 150000.0 
             
         senha_segura = generate_password_hash(senha)
-        novo_jogador = Jogador(username=username, senha_hash=senha_segura, saldo=saldo_inicial, is_admin=is_admin)
+        
+        # Salva o email obrigatório no banco
+        novo_jogador = Jogador(username=username, email=email, senha_hash=senha_segura, saldo=saldo_inicial, is_admin=is_admin)
         db.session.add(novo_jogador)
         db.session.commit()
         

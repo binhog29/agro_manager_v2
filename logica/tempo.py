@@ -55,6 +55,9 @@ class GerenciadorTempo:
         dias_passados = jogador.hora // 24
         jogador.hora = jogador.hora % 24
 
+        # Inicializa a variável para evitar erros caso não passe nenhum dia
+        meses_passados = 0 
+
         if dias_passados > 0:
             jogador.dia += dias_passados
             meses_passados = jogador.dia // 30
@@ -75,14 +78,15 @@ class GerenciadorTempo:
         motor = MotorBiologico(clima_atual=getattr(jogador, 'clima_atual', 'sol'), jogador=jogador)
         avisos = motor.processar_turno(horas)
         
-        if dias_passados > 0:
+        # 🔥 NOVA FOLHA DE PAGAMENTO MENSAL BLINDADA
+        if meses_passados > 0:
             from logica.funcionarios import cobrar_folha_pagamento
-            # Jornada realista: 8 horas de trabalho cobradas por dia
-            horas_cobradas = dias_passados * 8
+            # 30 dias trabalhados x 8h diárias = 240 horas por mês
+            horas_cobradas = meses_passados * 240
             custo_rh = cobrar_folha_pagamento(jogador, horas_cobradas)
             if custo_rh > 0:
-                texto_dia = "dia" if dias_passados == 1 else "dias"
-                avisos.append(f"💼 Folha de Pagamento: R$ {custo_rh:,.2f} descontados (Ref: Jornada de 8h/dia por {dias_passados} {texto_dia}).")
+                texto_mes = "mês" if meses_passados == 1 else "meses"
+                avisos.append(f"💼 Folha de Pagamento: R$ {custo_rh:,.2f} descontados (Ref: Salário mensal por {meses_passados} {texto_mes}).")
 
         # 🔥 SOLUÇÃO INTELIGENTE: Adapta-se ao Banco de Dados automaticamente!
         if avisos:

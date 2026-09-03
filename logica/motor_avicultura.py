@@ -40,11 +40,24 @@ class MotorAvicultura:
             consumo_total += config['consumo'] * dias
 
         qtd_comedouro = getattr(fazenda, 'galinheiro_qtd_racao', 0.0)
+        
+        # 🔥 MÁGICA DO PEÃO: Ele salva as galinhas buscando Milho
+        from logica.funcionarios import obter_bonus_equipe
+        bonus_rh_geral = obter_bonus_equipe(fazenda.id)
+        
+        if qtd_comedouro < consumo_total and bonus_rh_geral.get('protecao_animal', False):
+            if getattr(fazenda, 'est_milho', 0) >= 100:
+                fazenda.est_milho -= 100
+                qtd_comedouro += 100.0
+                fazenda.galinheiro_qtd_racao = qtd_comedouro
+                msg = f"👨‍🌾 Um Peão buscou 100 un. de Milho no Silo para o Galinheiro."
+                if msg not in avisos_turno: avisos_turno.append(msg)
+
         tem_racao_geral = False
         
         if qtd_comedouro >= consumo_total:
             tem_racao_geral = True
-            fazenda.galinheiro_qtd_racao -= consumo_total
+            fazenda.galinheiro_qtd_racao = qtd_comedouro - consumo_total
         else:
             if qtd_comedouro > 0:
                 fazenda.galinheiro_qtd_racao = 0.0

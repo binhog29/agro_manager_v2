@@ -38,7 +38,7 @@ def ver_habitat(habitat):
         tem_comedouro = getattr(fazenda, 'galinheiro_tem_comedouro', False)
         qtd_racao = float(getattr(fazenda, 'galinheiro_qtd_racao', 0.0) or 0.0)
         capacidade = getattr(fazenda, 'cap_galinheiro', 100)
-
+    
     lista = [{
         'id': a.id, 
         'raca': a.raca.capitalize(), 
@@ -46,7 +46,10 @@ def ver_habitat(habitat):
         'sexo': getattr(a, 'sexo', 'M'),
         'peso': float(getattr(a, 'peso', 0.0)),
         'saude': float(getattr(a, 'saude', 100.0)),
-        'fome': float(getattr(a, 'fome', 0.0))
+        'fome': float(getattr(a, 'fome', 0.0)),
+        # 🔥 A CORREÇÃO: Enviando as variáveis de reprodução para o Javascript ler!
+        'prenha': getattr(a, 'prenha', False),
+        'dias_prenhez': int(getattr(a, 'dias_gestacao', 0))
     } for a in animais]
     
     return jsonify({
@@ -163,3 +166,35 @@ def reabastecer_comedouro_habitat():
     
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': f'{quantidade} unidades de {nome_insumo} despejadas no comedouro!'})
+
+@habitats_bp.route('/api/habitat/expandir', methods=['POST'])
+def expandir_habitat():
+    if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
+    
+    dados = request.get_json()
+    fazenda_id = dados.get('fazenda_id')
+    habitat = dados.get('habitat')
+    
+    jogador = Jogador.query.filter_by(username=session['usuario']).first()
+    fazenda = Propriedade.query.get(fazenda_id)
+    
+    if not fazenda or fazenda.dono_id != jogador.id: 
+        return jsonify({'sucesso': False, 'erro': 'Esta fazenda não é sua.'})
+    
+    custo = 25000 if habitat == 'chiqueiro' else 8000
+    incremento = 50 if habitat == 'chiqueiro' else 100
+    
+    if jogador.saldo < custo: 
+        return jsonify({'sucesso': False, 'erro': 'Saldo insuficiente no caixa da fazenda!'})
+    
+    jogador.saldo -= custo
+    
+    # Adiciona a capacidade dinamicamente na Propriedade
+    if habitat == 'chiqueiro':
+        fazenda.cap_chiqueiro = getattr(fazenda, 'cap_chiqueiro', 50) + incremento
+    elif habitat == 'galinheiro':
+        fazenda.cap_galinheiro = getattr(fazenda, 'cap_galinheiro', 100) + incremento
+        
+    registrar_transacao(jogador.id, 'saida', custo, f'Engenharia: Expansão do {habitat.capitalize()} (+{incremento} vagas)')    
+    db.session.commit()
+    return jsonify({'sucesso': True, 'msg': f'Capacidade aumentada com sucesso em +{incremento} vagas!'})

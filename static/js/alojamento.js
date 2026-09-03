@@ -17,12 +17,13 @@ window.abrirModalRH = async function() {
 
         const equipeAtual = data.equipe;
         const catalogoRH = [
-            { id: 'peoes', nome: 'Peão', custo: 500, salario: 8, icone: 'fa-shield-alt', benef: 'Protege Animais' },
+            { id: 'peoes', nome: 'Peão', custo: 500, salario: 8, icone: 'fa-shield-alt', benef: 'Cuida de TODO o rebanho' },
             { id: 'tratoristas', nome: 'Tratorista', custo: 1200, salario: 12, icone: 'fa-tractor', benef: '+15% Colheita' },
             { id: 'capatazes', nome: 'Capataz', custo: 8000, salario: 20, icone: 'fa-dollar-sign', benef: '+5% Venda' },
             { id: 'veterinarios', nome: 'Veterinário', custo: 3000, salario: 25, icone: 'fa-notes-medical', benef: 'Reduz Doenças' },
             { id: 'agronomos', nome: 'Agrônomo', custo: 3500, salario: 30, icone: 'fa-seedling', benef: 'Safra Rápida' }
         ];
+
 
 
         let equipeHtml = '';
