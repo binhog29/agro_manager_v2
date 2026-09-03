@@ -17,11 +17,11 @@ class GerenciadorRH:
     CATALOGO = {
         'peoes': Cargo('peoes', 'Peão', 500.0, 4.0, 'Proteção animal básica'),
         'tratoristas': Cargo('tratoristas', 'Tratorista', 1200.0, 7.0, '+15% Colheita (Máx 5)'),
-        'capatazes': Cargo('capatazes', 'Capataz', 8000.0, 50.0, '+2% Venda (Máx 5)'),
+        'capatazes': Cargo('capatazes', 'Capataz', 8000.0, 20.0, '+5% Venda (Máx 5)'),
         'veterinarios': Cargo('veterinarios', 'Veterinário', 3000.0, 18.0, 'Reduz doenças'),
         'agronomos': Cargo('agronomos', 'Agrônomo', 3500.0, 22.0, '-20% Safra (Máx 2)')
     }
-
+    
     @classmethod
     def obter_cargo(cls, id_cargo):
         return cls.CATALOGO.get(id_cargo)
@@ -110,7 +110,10 @@ def obter_bonus_equipe(propriedade_id):
         return {'bonus_colheita': 1.0, 'protecao_animal': False, 'bonus_venda': 1.0, 'reduz_doencas': False, 'acelera_safra': 1.0}
 
     bonus_trator = min(0.75, getattr(equipe, 'tratoristas', 0) * 0.15) 
-    bonus_venda = min(0.10, getattr(equipe, 'capatazes', 0) * 0.02)    
+    
+    # 🔥 A MÁGICA DOS 5% ACONTECE AQUI:
+    # 0.05 é 5% por funcionário. 0.25 é a trava máxima de 25% (5 capatazes).
+    bonus_venda = min(0.25, getattr(equipe, 'capatazes', 0) * 0.05)    
 
     return {
         'bonus_colheita': 1.0 + bonus_trator,
@@ -119,6 +122,7 @@ def obter_bonus_equipe(propriedade_id):
         'reduz_doencas': getattr(equipe, 'veterinarios', 0) > 0,
         'acelera_safra': max(0.5, 1.0 - (getattr(equipe, 'agronomos', 0) * 0.20))
     }
+
 
 @funcionarios_bp.route('/api/rh/listar/<int:propriedade_id>', methods=['GET'])
 def listar_equipe(propriedade_id):

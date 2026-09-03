@@ -62,7 +62,9 @@ def vender_grao():
     jogador.saldo += valor_total
 
     if multiplicador_venda > 1.0:
-        texto_venda = f"Venda de {local_venda}: {quantidade_venda}x {item_chave.capitalize()} (+10% Capataz)"
+        # Descobre a porcentagem real (ex: 1.15 - 1.0 = 0.15 * 100 = 15%)
+        porcentagem_real = int(round((multiplicador_venda - 1.0) * 100))
+        texto_venda = f"Venda de {local_venda}: {quantidade_venda}x {item_chave.capitalize()} (+{porcentagem_real}% Capataz)"
     else:
         texto_venda = f"Venda de {local_venda}: {quantidade_venda}x {item_chave.capitalize()}"
 
