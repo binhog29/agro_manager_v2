@@ -9,23 +9,27 @@ def obras_terra():
     if 'usuario' not in session:
         return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
 
-    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    # 🔥 BLINDAGEM 1: Trava o jogador para evitar "clonagem" de saldo por cliques simultâneos de Bots
+    usuario = Jogador.query.filter_by(username=session['usuario']).with_for_update().first()
     dados = request.get_json()
     
     lote_id = dados.get('lote_id')
     acao = dados.get('acao')
     
-    lote = Lote.query.get(lote_id)
+    # 🔥 BLINDAGEM 2: Trava o lote para evitar obras sobrepostas
+    lote = Lote.query.filter_by(id=lote_id).with_for_update().first()
     if not lote:
         return jsonify({'sucesso': False, 'erro': 'Lote não encontrado.'})
 
-    # 🔒 TRAVA ANTI-INJEÇÃO: Garante que o lote pertence ao logado
     fazenda_alvo = Propriedade.query.get(lote.fazenda_id)
     if not fazenda_alvo or fazenda_alvo.dono_id != usuario.id:
         return jsonify({'sucesso': False, 'erro': '🚨 FRAUDE DETECTADA: Você não é dono desta terra!'})
 
     if acao == 'limpar':
-        # Verifica se a fazenda tem o Trator de Esteira no Barracão
+        # 🔥 BLINDAGEM 3: O pulo do gato! Só paga a madeira se a terra for MATO!
+        if lote.status != 'mato':
+            return jsonify({'sucesso': False, 'erro': '🚨 FRAUDE DETECTADA: Este lote já está limpo ou em uso!'})
+            
         from database import Maquinario
         tem_esteira = Maquinario.query.filter_by(propriedade_id=lote.fazenda_id, modelo='Trator de Esteira').first()
 
@@ -33,9 +37,7 @@ def obras_terra():
             venda_madeira = 2500
             usuario.saldo += venda_madeira
             lote.status = 'limpo'
-            
             registrar_transacao(usuario.id, 'entrada', venda_madeira, f'Venda de Madeira Pesada ({lote.nome})')
-            
             if getattr(usuario, 'xp', None) is None: usuario.xp = 0
             usuario.xp += 15
             mensagem = f'Limpeza pesada concluída! O Trator de Esteira zerou o custo operacional e extraiu R$ 2.500 em madeira!'
@@ -49,12 +51,12 @@ def obras_terra():
             
             registrar_transacao(usuario.id, 'entrada', venda_madeira, f'Venda de Madeira Bruta ({lote.nome})')
             registrar_transacao(usuario.id, 'saida', custo_trator, f'Aluguel Trator/Desmatamento ({lote.nome})')
-            
             if getattr(usuario, 'xp', None) is None: usuario.xp = 0
             usuario.xp += 15
             mensagem = f'Mato limpo! A madeira rendeu R$ 1.500 e o trator custou R$ 500. Lucro de R$ 1.000!'
 
     elif acao == 'cercar':
+        if lote.status != 'limpo': return jsonify({'sucesso': False, 'erro': 'A terra precisa estar limpa primeiro.'})
         custo = 800
         if usuario.saldo < custo: return jsonify({'sucesso': False, 'erro': 'Saldo insuficiente.'})
         usuario.saldo -= custo
@@ -66,6 +68,7 @@ def obras_terra():
         mensagem = 'Hectare cercado com sucesso! Pronto para receber capim.'
 
     elif acao == 'arar':
+        if lote.status != 'limpo': return jsonify({'sucesso': False, 'erro': 'A terra precisa estar limpa primeiro.'})
         custo = 600
         if usuario.saldo < custo: return jsonify({'sucesso': False, 'erro': 'Saldo insuficiente.'})
         usuario.saldo -= custo
@@ -76,6 +79,7 @@ def obras_terra():
         mensagem = 'Solo arado e nivelado! Pronto para plantio de Grãos e Cereais.'
 
     elif acao == 'covear':
+        if lote.status != 'limpo': return jsonify({'sucesso': False, 'erro': 'A terra precisa estar limpa primeiro.'})
         custo = 900
         if usuario.saldo < custo: return jsonify({'sucesso': False, 'erro': 'Saldo insuficiente.'})
         usuario.saldo -= custo
@@ -86,6 +90,7 @@ def obras_terra():
         mensagem = 'Covas abertas e adubadas! Pronto para receber mudas de Frutas/Café.'
 
     elif acao in ['plantar_braquiaria', 'plantar_mombaca']:
+        if lote.status != 'cercado': return jsonify({'sucesso': False, 'erro': 'A terra precisa estar cercada primeiro.'})
         if acao == 'plantar_braquiaria':
             custo = 300
             especie_capim = 'braquiaria'

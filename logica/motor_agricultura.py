@@ -16,12 +16,13 @@ class MotorAgricultura:
         'algodao':  {'dias_semente': 6,  'dias_broto': 20,  'dias_colheita': 45,   'agua_necessaria': 60},
         'mandioca': {'dias_semente': 8,  'dias_broto': 25,  'dias_colheita': 60,   'agua_necessaria': 20},
         'banana':   {'dias_semente': 10, 'dias_broto': 30,  'dias_colheita': 80,   'agua_necessaria': 50},
-        'cana':     {'dias_semente': 10, 'dias_broto': 30,  'dias_colheita': 90,   'agua_necessaria': 50},
-        'cafe':     {'dias_semente': 15, 'dias_broto': 45,  'dias_colheita': 120,  'agua_necessaria': 40},
+        'cana':     {'dias_semente': 30, 'dias_broto': 120, 'dias_colheita': 360,  'agua_necessaria': 50},
+        'cafe':     {'dias_semente': 45, 'dias_broto': 150, 'dias_colheita': 365,  'agua_necessaria': 40},
         'cupuacu':  {'dias_semente': 20, 'dias_broto': 60,  'dias_colheita': 150,  'agua_necessaria': 60},
         'cacau':    {'dias_semente': 20, 'dias_broto': 60,  'dias_colheita': 150,  'agua_necessaria': 60},
         'acai':     {'dias_semente': 25, 'dias_broto': 70,  'dias_colheita': 180,  'agua_necessaria': 70},
-        'tomate':   {'dias_semente': 3,  'dias_broto': 10,  'dias_colheita': 25,   'agua_necessaria': 40}
+        'tomate':   {'dias_semente': 3,  'dias_broto': 10,  'dias_colheita': 25,   'agua_necessaria': 40},
+        'abacaxi':  {'dias_semente': 10, 'dias_broto': 30,  'dias_colheita': 400,  'agua_necessaria': 40}
     }
 
 

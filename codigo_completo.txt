@@ -345,7 +345,6 @@ def fazenda(prop_id):
     visitante = False
     
     if propriedade.dono_id == jogador.id:
-        GerenciadorTempo.calcular_progresso_offline(jogador)
         verificar_nivel(jogador) # 🔥 Atualiza o nível ao abrir a Fazenda
     else:
         visitante = True
@@ -1503,6 +1502,19 @@ def limpar_notificacoes():
     db.session.commit()
     return jsonify({'sucesso': True})
 
+@tempo_bp.route('/api/tempo/sincronizar_offline', methods=['POST'])
+def sincronizar_offline():
+    if 'usuario' not in session: 
+        return jsonify({'sucesso': False})
+    
+    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    
+    # Executa o cálculo pesado no servidor em segundo plano
+    horas_processadas = GerenciadorTempo.calcular_progresso_offline(usuario)
+    
+    return jsonify({'sucesso': True, 'horas': horas_processadas})
+
+
 
 ============================================================
 ARQUIVO: ./logica/terras.py
@@ -1519,23 +1531,27 @@ def obras_terra():
     if 'usuario' not in session:
         return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
 
-    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    # 🔥 BLINDAGEM 1: Trava o jogador para evitar "clonagem" de saldo por cliques simultâneos de Bots
+    usuario = Jogador.query.filter_by(username=session['usuario']).with_for_update().first()
     dados = request.get_json()
     
     lote_id = dados.get('lote_id')
     acao = dados.get('acao')
     
-    lote = Lote.query.get(lote_id)
+    # 🔥 BLINDAGEM 2: Trava o lote para evitar obras sobrepostas
+    lote = Lote.query.filter_by(id=lote_id).with_for_update().first()
     if not lote:
         return jsonify({'sucesso': False, 'erro': 'Lote não encontrado.'})
 
-    # 🔒 TRAVA ANTI-INJEÇÃO: Garante que o lote pertence ao logado
     fazenda_alvo = Propriedade.query.get(lote.fazenda_id)
     if not fazenda_alvo or fazenda_alvo.dono_id != usuario.id:
         return jsonify({'sucesso': False, 'erro': '🚨 FRAUDE DETECTADA: Você não é dono desta terra!'})
 
     if acao == 'limpar':
-        # Verifica se a fazenda tem o Trator de Esteira no Barracão
+        # 🔥 BLINDAGEM 3: O pulo do gato! Só paga a madeira se a terra for MATO!
+        if lote.status != 'mato':
+            return jsonify({'sucesso': False, 'erro': '🚨 FRAUDE DETECTADA: Este lote já está limpo ou em uso!'})
+            
         from database import Maquinario
         tem_esteira = Maquinario.query.filter_by(propriedade_id=lote.fazenda_id, modelo='Trator de Esteira').first()
 
@@ -1543,9 +1559,7 @@ def obras_terra():
             venda_madeira = 2500
             usuario.saldo += venda_madeira
             lote.status = 'limpo'
-            
             registrar_transacao(usuario.id, 'entrada', venda_madeira, f'Venda de Madeira Pesada ({lote.nome})')
-            
             if getattr(usuario, 'xp', None) is None: usuario.xp = 0
             usuario.xp += 15
             mensagem = f'Limpeza pesada concluída! O Trator de Esteira zerou o custo operacional e extraiu R$ 2.500 em madeira!'
@@ -1559,12 +1573,12 @@ def obras_terra():
             
             registrar_transacao(usuario.id, 'entrada', venda_madeira, f'Venda de Madeira Bruta ({lote.nome})')
             registrar_transacao(usuario.id, 'saida', custo_trator, f'Aluguel Trator/Desmatamento ({lote.nome})')
-            
             if getattr(usuario, 'xp', None) is None: usuario.xp = 0
             usuario.xp += 15
             mensagem = f'Mato limpo! A madeira rendeu R$ 1.500 e o trator custou R$ 500. Lucro de R$ 1.000!'
 
     elif acao == 'cercar':
+        if lote.status != 'limpo': return jsonify({'sucesso': False, 'erro': 'A terra precisa estar limpa primeiro.'})
         custo = 800
         if usuario.saldo < custo: return jsonify({'sucesso': False, 'erro': 'Saldo insuficiente.'})
         usuario.saldo -= custo
@@ -1576,6 +1590,7 @@ def obras_terra():
         mensagem = 'Hectare cercado com sucesso! Pronto para receber capim.'
 
     elif acao == 'arar':
+        if lote.status != 'limpo': return jsonify({'sucesso': False, 'erro': 'A terra precisa estar limpa primeiro.'})
         custo = 600
         if usuario.saldo < custo: return jsonify({'sucesso': False, 'erro': 'Saldo insuficiente.'})
         usuario.saldo -= custo
@@ -1586,6 +1601,7 @@ def obras_terra():
         mensagem = 'Solo arado e nivelado! Pronto para plantio de Grãos e Cereais.'
 
     elif acao == 'covear':
+        if lote.status != 'limpo': return jsonify({'sucesso': False, 'erro': 'A terra precisa estar limpa primeiro.'})
         custo = 900
         if usuario.saldo < custo: return jsonify({'sucesso': False, 'erro': 'Saldo insuficiente.'})
         usuario.saldo -= custo
@@ -1596,6 +1612,7 @@ def obras_terra():
         mensagem = 'Covas abertas e adubadas! Pronto para receber mudas de Frutas/Café.'
 
     elif acao in ['plantar_braquiaria', 'plantar_mombaca']:
+        if lote.status != 'cercado': return jsonify({'sucesso': False, 'erro': 'A terra precisa estar cercada primeiro.'})
         if acao == 'plantar_braquiaria':
             custo = 300
             especie_capim = 'braquiaria'
@@ -2916,13 +2933,30 @@ class MotorPecuaria:
     @staticmethod
     def _processar_reproducao(animal, dias, avisos_turno):
         
-        # 🥛 Produção de Leite
+        # 1. 🥛 Produção de Leite Realista e Curva de Lactação (Girolando)
         if animal.raca.lower() == 'girolando' and animal.sexo == 'F' and animal.fase == 'Adulto':
             dias_lactacao_atual = float(getattr(animal, 'dias_lactacao', 0.0))
             
+            # 🔥 SECAGEM OBRIGATÓRIA: Para de dar leite 60 dias antes do parto (Aos 220 dias de gestação)
+            if getattr(animal, 'prenha', False) and float(getattr(animal, 'dias_gestacao', 0.0)) >= 220.0:
+                animal.dias_lactacao = 0.0
+                dias_lactacao_atual = 0.0
+
             if dias_lactacao_atual > 0:
                 dias_producao = min(dias, dias_lactacao_atual)
-                litros_gerados = 12.0 * dias_producao 
+                
+                # Base de produção
+                producao_diaria = 12.0
+                
+                # 🔥 PICO DE LACTAÇÃO: Nos primeiros 60 dias (Cronômetro reverso de 300 a 240)
+                if dias_lactacao_atual > 240.0:
+                    producao_diaria = 18.0  
+                    
+                # 🔥 DESMAME / CONSUMO DO BEZERRO: Nos primeiros 90 dias (300 a 210), o filhote bebe parte do leite
+                if dias_lactacao_atual > 210.0:
+                    producao_diaria -= 4.0
+                    
+                litros_gerados = producao_diaria * dias_producao 
                 
                 if float(animal.saude or 100.0) < 50.0:
                     litros_gerados *= 0.5
@@ -2935,7 +2969,7 @@ class MotorPecuaria:
                 
                 animal.dias_lactacao = max(0, dias_lactacao_atual - dias)
 
-        # 1. SE A FÊMEA JÁ ESTÁ PRENHA
+        # 2. SE A FÊMEA JÁ ESTÁ PRENHA
         if getattr(animal, 'prenha', False):
             animal.dias_gestacao = float(getattr(animal, 'dias_gestacao', 0.0)) + dias
             
@@ -2943,7 +2977,7 @@ class MotorPecuaria:
             tempo_gestacao = dna.get('gestacao', MotorPecuaria.DIAS_GESTACAO_PADRAO)
             peso_nascimento = dna.get('peso_jovem', MotorPecuaria.PESO_NASCIMENTO_BASE)
             
-            # 2. CHEGOU A HORA DO PARTO?
+            # CHEGOU A HORA DO PARTO?
             if animal.dias_gestacao >= tempo_gestacao:
                 import random
                 novo_filhote = Animal(
@@ -2963,19 +2997,28 @@ class MotorPecuaria:
                 animal.dias_gestacao = 0.0
                 
                 if animal.raca.lower() == 'girolando':
-                    animal.dias_lactacao = 300
+                    animal.dias_lactacao = 300.0
 
         # 3. SE NÃO ESTÁ PRENHA: Verifica se pode cruzar
         elif animal.sexo == 'F' and animal.fase == 'Adulto' and animal.onde_esta != 'curral':
-            import random
-            tem_macho = Animal.query.filter_by(lote_id=animal.lote_id, onde_esta=animal.onde_esta, sexo='M', fase='Adulto').first()
+            pode_cruzar = True
             
-            if tem_macho:
-                chance_real = MotorPecuaria.CHANCE_PRENHEZ_DIA * dias
-                if random.random() < chance_real:
-                    animal.prenha = True
-                    animal.dias_gestacao = 0.0
-                    avisos_turno.append(f"💘 A fêmea {animal.raca.capitalize()} (ID #{animal.id}) acabou de emprenhar no pasto!")
+            # 🔥 PUERPÉRIO (Descanso Pós-Parto de 45 dias): Impede nova gravidez imediata
+            if animal.raca.lower() == 'girolando':
+                dias_lactacao_atual = float(getattr(animal, 'dias_lactacao', 0.0))
+                if dias_lactacao_atual > 255.0:
+                    pode_cruzar = False
+
+            if pode_cruzar:
+                import random
+                tem_macho = Animal.query.filter_by(lote_id=animal.lote_id, onde_esta=animal.onde_esta, sexo='M', fase='Adulto').first()
+                
+                if tem_macho:
+                    chance_real = MotorPecuaria.CHANCE_PRENHEZ_DIA * dias
+                    if random.random() < chance_real:
+                        animal.prenha = True
+                        animal.dias_gestacao = 0.0
+                        avisos_turno.append(f"💘 A fêmea {animal.raca.capitalize()} (ID #{animal.id}) acabou de emprenhar no pasto!")
 
 
 ============================================================
@@ -3197,7 +3240,7 @@ class GerenciadorRH:
     CATALOGO = {
         'peoes': Cargo('peoes', 'Peão', 500.0, 4.0, 'Proteção animal básica'),
         'tratoristas': Cargo('tratoristas', 'Tratorista', 1200.0, 7.0, '+15% Colheita (Máx 5)'),
-        'capatazes': Cargo('capatazes', 'Capataz', 2500.0, 12.0, '+10% Venda (Máx 5)'),
+        'capatazes': Cargo('capatazes', 'Capataz', 8000.0, 50.0, '+2% Venda (Máx 5)'),
         'veterinarios': Cargo('veterinarios', 'Veterinário', 3000.0, 18.0, 'Reduz doenças'),
         'agronomos': Cargo('agronomos', 'Agrônomo', 3500.0, 22.0, '-20% Safra (Máx 2)')
     }
@@ -3290,7 +3333,7 @@ def obter_bonus_equipe(propriedade_id):
         return {'bonus_colheita': 1.0, 'protecao_animal': False, 'bonus_venda': 1.0, 'reduz_doencas': False, 'acelera_safra': 1.0}
 
     bonus_trator = min(0.75, getattr(equipe, 'tratoristas', 0) * 0.15) 
-    bonus_venda = min(0.50, getattr(equipe, 'capatazes', 0) * 0.10)    
+    bonus_venda = min(0.10, getattr(equipe, 'capatazes', 0) * 0.02)    
 
     return {
         'bonus_colheita': 1.0 + bonus_trator,
@@ -4867,7 +4910,19 @@ def construir_estrutura():
     dados = request.get_json()
     
     tipo = dados.get('tipo') 
-    custo = float(dados.get('custo', 0))
+    
+    # 🔥 BLINDAGEM ANTI-HACKER: O servidor agora define o preço, ignorando o celular!
+    TABELA_CUSTOS = {
+        'represa': 12000.0,
+        'chiqueiro': 8000.0,
+        'galinheiro': 5000.0
+    }
+    
+    if tipo not in TABELA_CUSTOS:
+        return jsonify({'sucesso': False, 'erro': 'Tipo de construção inválido.'})
+        
+    custo = TABELA_CUSTOS[tipo]
+    
     fazenda = Propriedade.query.filter_by(dono_id=usuario.id).first()
     
     if usuario.saldo < custo:
@@ -5882,11 +5937,25 @@ if ('scrollRestoration' in history) {
 window.PRECOS_BASE = {};
 
 document.addEventListener('DOMContentLoaded', () => {
+    // 🔥 CORREÇÃO 1: Força a tela a acender imediatamente (Desbuga a tela preta)
+    document.body.style.opacity = '1';
+    document.body.style.transition = 'opacity 0.3s ease';
+
     // 1. Restaura o scroll instantaneamente (sem pular na frente do jogador)
     const scrollPos = localStorage.getItem('scroll_pos_fazenda');
     if (scrollPos) {
         window.scrollTo(0, parseInt(scrollPos));
     }
+
+    // 🔥 CORREÇÃO 2: Processa o tempo offline em segundo plano sem travar a tela
+    fetch('/api/tempo/sincronizar_offline', { method: 'POST' })
+    .then(r => r.json())
+    .then(d => {
+        // Se aconteceu algo offline, acende a caixa de correio na hora
+        if(d.sucesso && d.horas > 0 && typeof window.checarNotificacoes === 'function') {
+            window.checarNotificacoes();
+        }
+    }).catch(e => console.log("Aviso: Sincronização offline rodando no fundo."));
 
     fetch('/api/mercado/precos')
         .then(r => r.json())
@@ -8618,7 +8687,7 @@ window.abrirModalRH = async function() {
         const catalogoRH = [
             { id: 'peoes', nome: 'Peão', custo: 500, salario: 4, icone: 'fa-shield-alt', benef: 'Protege Animais' },
             { id: 'tratoristas', nome: 'Tratorista', custo: 1200, salario: 7, icone: 'fa-tractor', benef: '+15% Colheita' },
-            { id: 'capatazes', nome: 'Capataz', custo: 2500, salario: 12, icone: 'fa-dollar-sign', benef: '+10% Venda' },
+            { id: 'capatazes', nome: 'Capataz', custo: 8000, salario: 50, icone: 'fa-dollar-sign', benef: '+2% Venda' },
             { id: 'veterinarios', nome: 'Veterinário', custo: 3000, salario: 18, icone: 'fa-notes-medical', benef: 'Reduz Doenças' },
             { id: 'agronomos', nome: 'Agrônomo', custo: 3500, salario: 22, icone: 'fa-seedling', benef: 'Safra Rápida' }
         ];
@@ -9947,6 +10016,13 @@ ARQUIVO: ./templates/cemiterio.html
     </style>
 </head>
 <body>
+        <!-- BARRA DO TOPO COM BOTÃO DE VOLTAR -->
+    <div style="background: #1a1a1a; padding: 15px; text-align: left; border-bottom: 2px solid #333; position: sticky; top: 0; z-index: 100; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+        <a href="/fazenda/{{ fazenda.id }}" style="color: #fff; text-decoration: none; font-size: 14px; font-weight: bold; background: #2e7d32; padding: 8px 15px; border-radius: 6px; transition: 0.2s;">
+            <i class="fas fa-arrow-left"></i> Voltar para a Sede
+        </a>
+    </div>
+
 
     <div class="container">
         <div class="cabecalho">
@@ -10001,17 +10077,12 @@ ARQUIVO: ./templates/ajuda.html
         
         /* Estilo Sanfona (Accordion) */
         details { background: #1e1e1e; border: 1px solid #333; border-radius: 8px; margin-bottom: 12px; overflow: hidden; }
-        summary { padding: 15px; font-weight: bold; font-size: 16px; cursor: pointer; color: #4caf50; display: flex; align-items: center; gap: 10px; outline: none; }
+        summary { padding: 15px; font-weight: bold; font-size: 15px; cursor: pointer; color: #4caf50; display: flex; align-items: center; gap: 10px; outline: none; }
         summary::-webkit-details-marker { display: none; }
         
-        .conteudo { padding: 15px; border-top: 1px solid #333; font-size: 14px; line-height: 1.6; color: #ddd; background: #181818; }
+        .conteudo { padding: 15px; border-top: 1px solid #333; font-size: 13px; line-height: 1.6; color: #ddd; background: #181818; }
         .conteudo strong { color: #fff; }
         .destaque { color: #ffb300; font-weight: bold; }
-        
-        /* Tabela simples */
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
-        th, td { border: 1px solid #444; padding: 8px; text-align: left; }
-        th { background: #2e7d32; color: white; }
         
         .btn-voltar { display: block; width: calc(100% - 40px); margin: 20px auto; background: #e53935; color: white; text-align: center; padding: 15px; border-radius: 8px; text-decoration: none; font-weight: bold; }
     </style>
@@ -10025,117 +10096,105 @@ ARQUIVO: ./templates/ajuda.html
 
     <div class="container">
 
-        <!-- 1. AGRICULTURA -->
+        <!-- 1. AGRICULTURA E SOLO -->
         <details>
-            <summary><i class="fas fa-seedling"></i> 1. Agricultura e Tipos de Plantas</summary>
+            <summary><i class="fas fa-seedling"></i> 1. Agricultura, Solo e Irrigação</summary>
             <div class="conteudo">
-                Existem 3 categorias principais de plantio na sua fazenda:<br><br>
-                <strong>🌱 Culturas Anuais (Soja, Milho, Arroz, etc):</strong> Plantou, cresceu, colheu. A planta morre após a colheita e a terra fica limpa para o próximo ciclo.<br><br>
-                <strong>🌳 Culturas Perenes (Banana, Cacau, etc):</strong> São árvores frutíferas. Após a primeira colheita, entram em descanso temporário e voltam a produzir sozinhas. Atenção: com o tempo elas envelhecem e o rendimento diminui.<br><br>
-                <strong>🍂 Culturas Sazonais (Café):</strong> Exigentes com o clima, produzem frutos apenas na estação correta (Outono e Inverno).
-                
-                <table>
-                    <tr><th>Cultura</th><th>Preparo</th><th>Tempo (Aprox.)</th></tr>
-                    <tr><td>Soja / Milho</td><td>Arado</td><td>90 a 100 dias</td></tr>
-                    <tr><td>Arroz / Feijão</td><td>Arado</td><td>80 a 110 dias</td></tr>
-                    <tr><td>Tomate / Melancia</td><td>Arado/Cova</td><td>85 a 90 dias</td></tr>
-                    <tr><td>Algodão / Mandioca</td><td>Arado</td><td>150 a 240 dias</td></tr>
-                    <tr><td>Banana / Abacaxi</td><td>Coveado</td><td>300 a 400 dias</td></tr>
-                    <tr><td>Café / Cacau</td><td>Coveado</td><td>365 a 500 dias</td></tr>
-                </table>
-            </div>
-        </details>
-
-        <!-- 2. PECUÁRIA E HABITATS -->
-        <details>
-            <summary><i class="fas fa-cow"></i> 2. Pecuária e Alimentação Automática</summary>
-            <div class="conteudo">
-                O manejo animal foi inteiramente modernizado para garantir autonomia:<br><br>
-                <strong>🐮 No Curral e Pasto:</strong> O gado exige infraestrutura completa (<span class="destaque">Cerca, Bebedouro e Cocho</span>) abastecida com <strong>Sal Mineral</strong> e ração de pasto.<br><br>
-                <strong>🐔 Galinheiro, Chiqueiro e Represa:</strong> Construa um depósito de ração em cada habitat e abasteça-o! 
+                <strong>🌱 Preparo e Rotação:</strong> Plantar a mesma cultura repetidas vezes (Monocultura) esgota a terra e trava a produtividade máxima em 80%. Faça a rotação de sementes para revitalizar o solo e garantir 100% de rendimento. O plantio consome 20% da fertilidade e a colheita 30%, exigindo Adubo para recuperar a terra (+40% por saco).<br><br>
+                <strong>🐛 Pragas e Clima:</strong> Pragas atacam de forma imprevisível e devoram 10% da sua produtividade por dia. No inverno, a falta de chuva resseca o solo, causando perdas de 3% ao dia, a menos que você invista na instalação de um <strong>Pivô de Irrigação</strong>.<br><br>
+                <strong>🌳 Tipos de Cultivo:</strong>
                 <ul>
-                    <li><strong>Galinheiro:</strong> Consome Milho armazenado no Silo.</li>
-                    <li><strong>Chiqueiro:</strong> Você escolhe se deseja alimentar com Soja ou Milho do Silo.</li>
-                    <li><strong>Represa:</strong> Consome Ração de Peixe comprada na Loja.</li>
-                </ul>
-                <strong>🤖 Automação:</strong> Enquanto houver ração no depósito do habitat, <strong>os animais se alimentam sozinhos e mantêm a fome zerada</strong>. Só se o depósito secar é que eles passarão a sentir fome e perder saúde.
-            </div>
-        </details>
-
-        <!-- 3. SAÚDE ANIMAL E TETO BIOLÓGICO -->
-        <details>
-            <summary><i class="fas fa-notes-medical"></i> 3. Saúde e Teto Biológico (Pesagem)</summary>
-            <div class="conteudo">
-                Os animais não crescem infinitamente. O jogo simula a biologia real:<br><br>
-                <strong>⚖️ Teto Biológico:</strong> Quando um animal atinge 150% do seu peso adulto ideal, ele para de engordar. Neste ponto, o pasto mostrará o status <span style="color:#ff9800;">Peso Máximo Atingido</span>, indicando que é a hora exata de mandar para o frigorífico.<br><br>
-                <strong>💉 Sanidade:</strong> Animais sem as vacinas de <strong>Aftosa</strong> e <strong>Brucelose</strong> ganham até 30% menos peso por dia. Se a saúde cair muito, o animal entra em déficit calórico e começa a emagrecer até morrer. Use o <strong>Medicamento Geral</strong> para curar animais doentes.
-            </div>
-        </details>
-
-        <!-- 4. MERCADO, COTAÇÕES E TEMPO -->
-        <details>
-            <summary><i class="fas fa-chart-line"></i> 4. Mercado, Arroba e Tempo Offline</summary>
-            <div class="conteudo">
-                A economia do jogo é viva e muda a cada dia na fazenda:<br><br>
-                <strong>📈 Fator de Mercado:</strong> Os preços de compra e venda variam até 15% para cima ou para baixo diariamente. Acompanhe a aba de Cotações para vender na alta!<br><br>
-                <strong>🥩 Arroba vs Kg:</strong> Animais de grande porte (Bovinos de Corte e Leite) são comercializados por <strong>Arroba (@)</strong>. O jogo divide o peso vivo por 30 para encontrar o rendimento de carcaça. Outros animais (Suínos, Aves, Peixes) são vendidos por peso vivo (Kg).<br><br>
-                <strong>⏳ Tempo Offline:</strong> A fazenda nunca dorme. Quando você fecha o jogo, o tempo continua passando (de forma um pouco mais lenta) para simular o crescimento das lavouras e engorda do gado enquanto você está fora.
-            </div>
-        </details>
-
-        <!-- 5. GESTÃO DE EQUIPE E CORREIO -->
-        <details>
-            <summary><i class="fas fa-envelope"></i> 5. RH e Caixa de Correio</summary>
-            <div class="conteudo">
-                Acompanhe o que acontece na fazenda e gerencie seus funcionários:<br><br>
-                <strong>👨‍🌾 Benefícios do RH:</strong> Peões protegem o gado, Tratoristas dão +15% na colheita, Capatazes +10% nas vendas, Veterinários reduzem doenças e Agrônomos aceleram a safra.<br><br>
-                <strong>💼 Pagamentos Diários:</strong> A folha de pagamento não é cobrada por hora. Os salários são debitados do caixa da fazenda <strong>1 vez ao dia</strong> (a cada 24 horas no relógio do jogo).<br><br>
-                <strong>📫 Caixa de Correio:</strong> Todas as cobranças de salário, alertas de animais mortos ou ações tomadas pelos funcionários enquanto você estava offline são registradas e enviadas para a sua Caixa de Entrada flutuante.
-            </div>
-        </details>
-
-        <!-- 6. MAQUINÁRIO E BARRACÃO -->
-        <details>
-            <summary><i class="fas fa-tractor"></i> 6. Barracão e Maquinário Agrícola</summary>
-            <div class="conteudo">
-                Investir em máquinas pesadas através da Concessionária gera grandes retornos a longo prazo. Toda máquina consome <strong>Diesel</strong> e sofre desgaste (condição), exigindo manutenção na oficina.<br><br>
-                <strong>🚛 Caminhões (Logística):</strong> Comprar um Caminhão Boiadeiro ou Caminhão Baú (Frios) <strong>zera o custo de frete</strong> ao comprar animais no mercado e leilão!<br><br>
-                <strong>🚜 Trator de Esteira (Obras):</strong> Zera a taxa de aluguel ao desmatar lotes novos e extrai a madeira com eficiência máxima, aumentando seu lucro de R$ 1.000 para <span class="destaque">R$ 2.500 por hectare limpo</span>.
-            </div>
-        </details>
-
-        <!-- 7. ESTOQUES -->
-        <details>
-            <summary><i class="fas fa-warehouse"></i> 7. Limites de Estoque e Vagas</summary>
-            <div class="conteudo">
-                Monitore de perto as capacidades da fazenda:<br><br>
-                <strong>📦 Armazém e Silo:</strong> Se lotarem, novas produções e compras são bloqueadas. Venda produtos para liberar espaço.<br><br>
-                <strong>🏡 Limites de Pasto:</strong> A quantidade máxima de animais em um único pasto depende do tamanho da sua propriedade:
-                <ul>
-                    <li>Chácara: 10 cabeças por pasto</li>
-                    <li>Sítio: 25 cabeças por pasto</li>
-                    <li>Fazenda: 50 cabeças por pasto</li>
-                    <li>Latifúndio: 100 cabeças por pasto</li>
+                    <li><strong>Anuais (Arado):</strong> Soja, Milho, Arroz, Feijão, Algodão e Mandioca. A planta morre após a colheita, liberando a terra.</li>
+                    <li><strong>Perenes (Covas):</strong> Banana, Cacau, Cupuaçu, Açaí, Pimenta. São árvores que entram em um período de descanso pós-colheita, mas voltam a dar frutos sem precisar replantar.</li>
+                    <li><strong>Sazonais:</strong> O Café Clonal é exigente. Ele só frutifica e permite colheita durante o Outono e o Inverno.</li>
                 </ul>
             </div>
         </details>
 
-        <!-- 8. MULTIPLAYER E SOCIAL -->
+        <!-- 2. PECUÁRIA E BIOLOGIA -->
         <details>
-            <summary><i class="fas fa-comments"></i> 8. Multiplayer: Chat Global e Visitas</summary>
+            <summary><i class="fas fa-cow"></i> 2. Pecuária, Reprodução e Lactação</summary>
             <div class="conteudo">
-                O campo agora está conectado em tempo real!<br><br>
-                <strong>💬 Chat Global (Comunidade):</strong> Troque ideias, negocie safras e bata papo com todos os fazendeiros do servidor através do botão de comunidade na Sede.<br><br>
-                <strong>👁️ Modo Turista:</strong> Acesse o Mapa Global, clique na terra de outros jogadores e visite a fazenda deles para inspecionar suas estruturas e estratégias de sucesso.
+                <strong>⏱️ Gestação Realista:</strong> Fêmeas e machos adultos no mesmo pasto cruzam naturalmente. O tempo de gravidez segue a biologia: Bovinos (280 dias), Equinos (340 dias), Ovinos/Caprinos (150 dias), Suínos (114 dias) e Aves (21 dias).<br><br>
+                <strong>🥛 Ciclo Leiteiro (Girolando):</strong> A produção de leite exige gestão de calendário:
+                <ul>
+                    <li><strong>Pico de Lactação:</strong> Nos primeiros 60 dias pós-parto, a vaca atinge o ápice produzindo 18 Litros/dia.</li>
+                    <li><strong>Consumo do Bezerro:</strong> Durante os primeiros 90 dias de vida, o filhote mama, consumindo 4 Litros/dia do total produzido pela mãe.</li>
+                    <li><strong>Lactação Base:</strong> Após o desmame do bezerro, a vaca estabiliza a produção em 12 Litros/dia.</li>
+                    <li><strong>Período Seco:</strong> Aos 220 dias da próxima gestação (60 dias antes de parir), a vaca "seca" para poupar energia e a produção é interrompida.</li>
+                    <li><strong>Puerpério:</strong> Vacas recém-paridas precisam de 45 dias de descanso uterino antes de conseguirem emprenhar novamente.</li>
+                </ul>
             </div>
         </details>
 
-        <!-- 9. RECEITA FEDERAL -->
+        <!-- 3. SAÚDE, SUPLEMENTAÇÃO E LIMITES -->
         <details>
-            <summary><i class="fas fa-gavel"></i> 9. Leis Fiscais e Receita Federal</summary>
+            <summary><i class="fas fa-notes-medical"></i> 3. Saúde, Suplementação e Limites</summary>
             <div class="conteudo">
-                Para manter uma economia limpa e competitiva, a <strong>Receita Federal do Jogo</strong> monitora o extrato financeiro e as transações globais do servidor.<br><br>
-                <strong>⚖️ Punições:</strong> Tentativas de fraudes, manipulações indevidas (como injetar dinheiro via navegador) ou exploits de bugs resultam em autuações imediatas e descontos de multas severas no caixa da fazenda infratora. Jogue limpo e prospere!
+                <strong>⚖️ Teto Biológico:</strong> A genética tem um limite. O peso máximo de um animal é 150% da média da raça adulta (ex: um Nelore trava em ~975kg). Ao atingir esse limite, ele para de engordar e deve ser enviado ao frigorífico.<br><br>
+                <strong>💉 Sanidade e Ganhos:</strong>
+                <ul>
+                    <li>Falta de <strong>Vacina Aftosa</strong> ou <strong>Brucelose</strong> derruba o ganho de peso diário em 30% cada.</li>
+                    <li>Não aplicar o <strong>Medicamento Geral (Vermífugo)</strong> reduz o ganho em 20%.</li>
+                    <li>Aplicar <strong>Suplemento de Engorda</strong> força o metabolismo, garantindo +1 Kg extra por dia direto na balança.</li>
+                </ul>
+                <strong>🏡 Capacidade dos Habitats:</strong>
+                Para evitar superlotação, represas suportam até 200 peixes, Galinheiros 100 aves e Chiqueiros 50 suínos. O Curral (Tronco) inicia com 10 vagas e deve ser expandido de 5 em 5.
+            </div>
+        </details>
+
+        <!-- 4. MERCADO, COTAÇÕES E LEILÃO -->
+        <details>
+            <summary><i class="fas fa-chart-line"></i> 4. Mercado, Arroba e Leilão</summary>
+            <div class="conteudo">
+                <strong>📉 Cotação e Arroba (@):</strong> O Fator de Mercado é volátil, alterando os preços de 85% a 115% diariamente. Fique de olho para vender na alta. Bovinos de corte e leite são precificados por Arroba (o peso vivo é dividido por 30 para calcular o rendimento de carcaça).<br><br>
+                <strong>⚖️ Leilão da Comunidade:</strong> Destravado no Nível 3, o Leilão permite negociar gado diretamente com outros fazendeiros. Como medida anti-fraude, a Receita Federal bloqueia ofertas que ultrapassem 3x o valor base da raça.
+            </div>
+        </details>
+
+        <!-- 5. TERRAS E EXPANSÃO -->
+        <details>
+            <summary><i class="fas fa-map-marked-alt"></i> 5. Compra de Terras e Estoques</summary>
+            <div class="conteudo">
+                <strong>🚜 Expansão de Hectares:</strong> Você pode anexar terras infinitamente à sua fazenda. Porém, a especulação imobiliária aplica uma inflação quadrática: cada novo hectare custa mais caro que o anterior.<br><br>
+                <strong>📦 Obras de Armazenamento:</strong> Quando a produção estourar, chame a construtora:
+                <ul>
+                    <li><strong>Silo (Grãos):</strong> Pacotes de +500kg até o Complexo Gigante de +500.000kg.</li>
+                    <li><strong>Armazém (Insumos):</strong> Pacotes de +300un até o Complexo Gigante de +300.000un.</li>
+                </ul>
+            </div>
+        </details>
+
+        <!-- 6. GESTÃO DE EQUIPE E RH -->
+        <details>
+            <summary><i class="fas fa-users"></i> 6. Funcionários, Automação e RH</summary>
+            <div class="conteudo">
+                Sua equipe cobra os salários a cada 24 horas no relógio do jogo. Eles são essenciais para automatizar a fazenda enquanto você está offline:<br><br>
+                <strong>👨‍🌾 Peão (R$ 4/h):</strong> Protege o gado, reduzindo em 80% o impacto da fome na saúde. Automação: Reabastece os cochos de sal e ração sozinhos se houver estoque no armazém.<br><br>
+                <strong>🚜 Tratorista (R$ 7/h):</strong> Aumenta a colheita em +15% (acumula até 5 tratoristas). Automação: Bate veneno contra pragas e joga adubo no solo se a fertilidade cair abaixo de 60%.<br><br>
+                <strong>💼 Capataz (R$ 50/h):</strong> Cargo de chefia avançada. Exige R$ 1.200 por dia, mas negocia pesado no mercado, garantindo um ágio de +2% em qualquer venda da fazenda (animais, grãos ou leite).<br><br>
+                <strong>🩺 Veterinário (R$ 18/h):</strong> Zela pelo bem-estar, reduzindo em 90% a perda de saúde por doenças e subnutrição.<br><br>
+                <strong>🌱 Agrônomo (R$ 22/h):</strong> Especialista em biotecnologia. Acelera o tempo de crescimento de todas as plantas em 25% (máximo de 2 por fazenda).
+            </div>
+        </details>
+
+        <!-- 7. MAQUINÁRIO E BARRACÃO -->
+        <details>
+            <summary><i class="fas fa-tractor"></i> 7. Frota e Maquinário</summary>
+            <div class="conteudo">
+                Máquinas agrícolas ficam no Barracão, queimam Diesel a cada uso e precisam de idas ao mecânico quando a condição se deteriora.<br><br>
+                <strong>🚛 Logística (Frete):</strong> Possuir a frota certa zera a pesada taxa de frete nas compras e vendas. O Caminhão Boiadeiro isenta o transporte de animais de grande porte; o Baú (Frios) isenta os peixes; e Caminhonetes servem para aves, suínos e ovinos.<br><br>
+                <strong>🚜 Trator de Esteira:</strong> Máquina definitiva de desmatamento. Ter um desses zera o custo de aluguel ao abrir novas terras e extrai madeira nobre, elevando o ganho de R$ 1.500 para <span class="destaque">R$ 2.500</span> por hectare limpo.
+            </div>
+        </details>
+
+        <!-- 8. IMOBILIÁRIA E RECEITA FEDERAL -->
+        <details>
+            <summary><i class="fas fa-building"></i> 8. Mercado Imobiliário e Falência</summary>
+            <div class="conteudo">
+                Cansou de uma região? Venda a fazenda inteira e mude de ares:<br><br>
+                <strong>🤝 Venda na Corretora (Jogadores):</strong> Anuncie de "porteira fechada" (o comprador leva as terras, o gado e os tratores). O estado retém 10% de ITBI (Imposto) sobre a transação.<br><br>
+                <strong>🏦 Venda Imediata ao Banco:</strong> A saída de emergência para evitar a falência. O Banco paga apenas 70% do valor venal da terra e executa uma limpeza extrema: o gado e as lavouras são destruídos, as máquinas leiloadas e as melhorias resetadas para que a propriedade volte nua para o mapa global.
             </div>
         </details>
 

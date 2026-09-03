@@ -52,7 +52,7 @@ class CulturaPerene(Cultura):
         self.tipo_biologia = 'perene'
         self.tempo_descanso = tempo_descanso
         self.max_ciclos = max_ciclos
-
+        
     def processar_pos_colheita(self, lote):
         lote.ciclos_colhidos = getattr(lote, 'ciclos_colhidos', 0) + 1
         if lote.ciclos_colhidos >= self.max_ciclos:
@@ -60,9 +60,11 @@ class CulturaPerene(Cultura):
         else:
             lote.produtividade_atual = 100
         lote.status = 'plantado'
+        
+        # 🔥 AQUI ESTÁ O FIX DO BUG: Atribui os dias de descanso corretamente
         lote.dias_plantado = float(self.tempo_colheita - self.tempo_descanso)
-        lote.dias_descanso = 0.0
-
+        lote.dias_descanso = float(self.tempo_descanso)
+        
     def obter_estagio_e_progresso(self, dias_plantado, dias_descanso=0, estacao_atual='primavera'):
         if dias_descanso > 0:
             progresso_pct = min(100, int(((self.tempo_descanso - dias_descanso) / self.tempo_descanso) * 100))
