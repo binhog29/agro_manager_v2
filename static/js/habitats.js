@@ -57,23 +57,24 @@ window.carregarAnimaisHabitat = function(habitat) {
         }
         
         let html = htmlCabecalho;
-        d.animais.forEach(a => {
+        
+        // 🔥 O SEGREDO DA ORGANIZAÇÃO: Separa as listas antes de desenhar na tela!
+        let animaisPrenhos = d.animais.filter(a => a.prenha);
+        let animaisLivres = d.animais.filter(a => !a.prenha);
+        
+        // Função interna inteligente para não repetir código de desenho
+        const desenharCard = (a) => {
             const corSaude = a.saude > 70 ? '#4caf50' : (a.saude > 30 ? '#ff9800' : '#f44336');
             const corFome = a.fome < 30 ? '#4caf50' : (a.fome < 70 ? '#ff9800' : '#f44336');
             
-            // 🔥 AJUSTE VISUAL: Tag menor, inquebrável (nowrap) e perfeitamente alinhada!
             let tagReproducao = '';
             if (a.prenha) {
                 let estiloTag = "background:#e91e63; color:white; font-size:9px; padding:2px 5px; border-radius:4px; font-weight:bold; white-space:nowrap; display:inline-block;";
-                
-                if (habitat === 'galinheiro') {
-                    tagReproducao = `<span style="${estiloTag}"><i class="fas fa-egg"></i> CHOCANDO (${a.dias_prenhez || 0}d)</span>`;
-                } else if (habitat === 'chiqueiro') {
-                    tagReproducao = `<span style="${estiloTag}"><i class="fas fa-heart"></i> PRENHA (${a.dias_prenhez || 0}d)</span>`;
-                }
+                if (habitat === 'galinheiro') tagReproducao = `<span style="${estiloTag}"><i class="fas fa-egg"></i> CHOCANDO (${a.dias_prenhez || 0}d)</span>`;
+                else if (habitat === 'chiqueiro') tagReproducao = `<span style="${estiloTag}"><i class="fas fa-heart"></i> PRENHA (${a.dias_prenhez || 0}d)</span>`;
             }
             
-            html += `
+            return `
                 <div style="background:#2a2a2a; border:1px solid #444; border-radius:8px; padding:12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
                     <div>
                         <div style="font-weight:bold; color:#fff; font-size:14px; text-transform: capitalize; display:flex; align-items:center; flex-wrap:wrap; gap:6px;">
@@ -87,7 +88,27 @@ window.carregarAnimaisHabitat = function(habitat) {
                     </div>
                 </div>
             `;
-        });
+        };
+
+        // 1. Desenha o Bloco da Maternidade (Se tiver alguém prenha)
+        if (animaisPrenhos.length > 0) {
+            let tituloMaternidade = habitat === 'galinheiro' ? '🥚 Ninhos (Chocando)' : '💕 Maternidade (Prenhas)';
+            html += `<div style="background: rgba(233, 30, 99, 0.1); border-left: 4px solid #e91e63; color: #e91e63; padding: 6px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">
+                        ${tituloMaternidade} (${animaisPrenhos.length})
+                     </div>`;
+            animaisPrenhos.forEach(a => { html += desenharCard(a); });
+        }
+
+        // 2. Desenha o Bloco Normal
+        if (animaisLivres.length > 0) {
+            let tituloGeral = habitat === 'galinheiro' ? '🐔 Aves Normais' : '🐖 Matrizes Livres e Engorda';
+            let margemTopo = animaisPrenhos.length > 0 ? '15px' : '0';
+            html += `<div style="background: #222; border-left: 4px solid #555; color: #aaa; padding: 6px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-top: ${margemTopo}; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">
+                        ${tituloGeral} (${animaisLivres.length})
+                     </div>`;
+            animaisLivres.forEach(a => { html += desenharCard(a); });
+        }
+
         divLista.innerHTML = html;
     });
 };
