@@ -77,11 +77,12 @@ class GerenciadorTempo:
         
         if dias_passados > 0:
             from logica.funcionarios import cobrar_folha_pagamento
-            horas_cobradas = dias_passados * 24
+            # Jornada realista: 8 horas de trabalho cobradas por dia
+            horas_cobradas = dias_passados * 8
             custo_rh = cobrar_folha_pagamento(jogador, horas_cobradas)
             if custo_rh > 0:
                 texto_dia = "dia" if dias_passados == 1 else "dias"
-                avisos.append(f"💼 Folha de Pagamento: R$ {custo_rh:,.2f} descontados (Ref: Diária de {dias_passados} {texto_dia}).")
+                avisos.append(f"💼 Folha de Pagamento: R$ {custo_rh:,.2f} descontados (Ref: Jornada de 8h/dia por {dias_passados} {texto_dia}).")
 
         # 🔥 SOLUÇÃO INTELIGENTE: Adapta-se ao Banco de Dados automaticamente!
         if avisos:
