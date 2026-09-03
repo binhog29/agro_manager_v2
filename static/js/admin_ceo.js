@@ -5,8 +5,13 @@ window.godAction = function(url, data) {
     }).then(r => r.json()).then(d => {
         if(d.sucesso) Swal.fire('Sucesso!', d.msg, 'success').then(() => location.reload());
         else Swal.fire('Atenção', d.erro, 'warning');
+    }).catch(e => {
+        // 🔥 CORREÇÃO: Impede a tela de congelar caso o servidor trave
+        console.error(e);
+        Swal.fire('Erro Fatal', 'O servidor encontrou um problema interno e abortou a ação.', 'error');
     });
 };
+
 
 window.injetarSaldo = function(id, nome) {
     Swal.fire({

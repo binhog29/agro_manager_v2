@@ -61,11 +61,21 @@ def deletar_conta():
     if not alvo: return jsonify({'sucesso': False, 'erro': 'Jogador não encontrado.'})
     if getattr(alvo, 'is_admin', False): return jsonify({'sucesso': False, 'erro': 'Você não pode deletar a conta do CEO!'})
     
+    # 1. Devolve as propriedades ao Estado
     propriedades = Propriedade.query.filter_by(dono_id=alvo.id).all()
     for p in propriedades: p.dono_id = None
         
+    # 2. Deleta dependências que travam o Banco de Dados
     Transacao.query.filter_by(jogador_id=alvo.id).delete()
     MensagemChat.query.filter_by(jogador_id=alvo.id).delete()
+    
+    try:
+        # 🔥 CORREÇÃO: Limpando a caixa de correio e contratos antes de banir
+        from database import Notificacao, Emprestimo, Contrato
+        Notificacao.query.filter_by(jogador_id=alvo.id).delete()
+        Emprestimo.query.filter_by(jogador_id=alvo.id).delete()
+        Contrato.query.filter_by(jogador_id=alvo.id).delete()
+    except Exception: pass
     
     try:
         from database import AnuncioImovel, Anuncio
