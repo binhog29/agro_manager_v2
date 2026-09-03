@@ -4,7 +4,8 @@ from flask import Flask, render_template, request, redirect, url_for, flash, ses
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from flask_migrate import Migrate 
+from flask_migrate import Migrate
+from datetime import timedelta
 
 from database import db, Jogador, Propriedade, Animal, HistoricoMorte, Transacao
 
@@ -35,6 +36,7 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(BASE_DIR, "banco_dados.db")}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.secret_key = 'chave_super_secreta_para_sessoes' 
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30) # 🔥 SESSÃO DURA 30 DIAS
 
 db.init_app(app)
 migrate = Migrate(app, db) 
@@ -113,36 +115,24 @@ def ratelimit_handler(e):
 
 # 🔥 ROTA DE AUTENTICAÇÃO BLINDADA (Máximo de 5 tentativas por minuto por IP)
 @app.route('/autenticar', methods=['POST'])
-@limiter.limit("5 per minute")
+@limiter.limit("10 per minute")
 def autenticar():
     acao = request.form.get('acao')
     username = request.form.get('usuario').strip()
     senha = request.form.get('senha')
+    lembrar = request.form.get('lembrar') # 🔥 PEGA O CHECKBOX DO HTML
     
     if not re.match("^[a-zA-Z0-9]{3,15}$", username):
         flash("O usuário deve ter entre 3 e 15 caracteres, sem espaços ou símbolos.")
         return redirect(url_for('login'))
 
     if acao == 'criar':
-        email = request.form.get('email', '').strip()
-        
-        # 🔒 SEGURANÇA: Validação estrita de formato de E-mail
-        if not re.match(r"^[\w\.-]+@[\w\.-]+\.\w+$", email):
-            flash("Segurança: Por favor, insira um endereço de e-mail válido!")
-            return redirect(url_for('login'))
+        dificuldade = request.form.get('dificuldade')
         
         usuario_existe = Jogador.query.filter_by(username=username).first()
-        email_existe = Jogador.query.filter_by(email=email).first()
-        
         if usuario_existe:
             flash("Esse nome de usuário já está em uso!")
             return redirect(url_for('login'))
-            
-        if email_existe:
-            flash("Segurança: Esse e-mail já está cadastrado em outra conta!")
-            return redirect(url_for('login'))
-        
-        dificuldade = request.form.get('dificuldade')
         
         is_admin = False
         if username.lower() == 'ceo':
@@ -157,9 +147,7 @@ def autenticar():
                 saldo_inicial = 150000.0 
             
         senha_segura = generate_password_hash(senha)
-        
-        # Salva o email obrigatório no banco
-        novo_jogador = Jogador(username=username, email=email, senha_hash=senha_segura, saldo=saldo_inicial, is_admin=is_admin)
+        novo_jogador = Jogador(username=username, senha_hash=senha_segura, saldo=saldo_inicial, is_admin=is_admin)
         db.session.add(novo_jogador)
         db.session.commit()
         
@@ -171,6 +159,13 @@ def autenticar():
         
         if usuario and check_password_hash(usuario.senha_hash, senha):
             session['usuario'] = username
+            
+            # 🔥 SE MARCOU A CAIXA, MANTÉM LOGADO NO APLICATIVO
+            if lembrar:
+                session.permanent = True
+            else:
+                session.permanent = False
+                
             return redirect(url_for('mapa'))
         else:
             flash("Usuário ou senha incorretos!")
