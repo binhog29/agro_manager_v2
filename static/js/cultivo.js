@@ -130,6 +130,10 @@ window.abrirGerenciamentoCultivo = async function(loteId, status, tipoCultivo, t
                     </button>
 
                     ${botaoIrrigacao}
+
+                    <button class="swal2-styled" style="background: #c62828; color: #fff; margin: 0; margin-top: 5px; grid-column: span 2; font-weight: bold;" onclick="destruirLavoura(${loteId})">
+                        <i class="fas fa-tractor"></i> Passar Trator (Destruir - R$ 300)
+                    </button>
                 </div>
             `,
             background: '#2a2a2a', color: '#fff',
