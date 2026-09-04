@@ -92,30 +92,39 @@ window.verificarCaminhaoDestino = async function() {
     const imgCaminhao = document.getElementById('img-veiculo');
 
     try {
-        const res = await fetch(`/api/barracao/listar?fazenda_id=${destino}`);
+        // 🔥 A MÁGICA: O "?t=..." envia a hora exata em milissegundos. 
+        // Isso obriga o celular a buscar o diesel REAL no servidor e ignorar a memória!
+        const res = await fetch(`/api/barracao/listar?fazenda_id=${destino}&t=${new Date().getTime()}`);
         const data = await res.json();
 
         if (data.sucesso) {
-            // Filtra se a fazenda tem algum dos veículos válidos para aquela carga
             const veiculosPossuidos = data.maquinas.filter(m => modelosAceitos.includes(m.modelo));
+            
+            // Filtra os que têm combustível e saúde suficientes
+            const veiculosProntos = veiculosPossuidos.filter(m => m.combustivel >= 15 && m.saude >= 5);
 
-            if (veiculosPossuidos.length > 0) {
-                // Ordena para que a caminhonete tenha prioridade visual se o animal for pequeno
-                veiculosPossuidos.sort((a, b) => modelosAceitos.indexOf(a.modelo) - modelosAceitos.indexOf(b.modelo));
-                const veiculoEscolhido = veiculosPossuidos[0];
+            if (veiculosProntos.length > 0) {
+                veiculosProntos.sort((a, b) => modelosAceitos.indexOf(a.modelo) - modelosAceitos.indexOf(b.modelo));
+                const veiculoEscolhido = veiculosProntos[0];
 
                 checkbox.disabled = false;
                 checkbox.checked = true;
                 aviso.innerText = `✅ Você usará o ${veiculoEscolhido.modelo}! Frete Grátis.`;
                 aviso.style.color = '#4caf50';
 
-                // 🔥 TROCA A FOTO EXATAMENTE PARA O VEÍCULO QUE O JOGADOR TEM!
                 if(veiculoEscolhido.imagem) {
                     imgCaminhao.src = '/static/img/' + veiculoEscolhido.imagem;
                 }
 
+            } else if (veiculosPossuidos.length > 0) {
+                // Tem a máquina, mas está quebrada ou sem diesel
+                checkbox.disabled = true;
+                checkbox.checked = false;
+                aviso.innerText = `❌ Seu ${veiculosPossuidos[0].modelo} está sem diesel (<15%) ou quebrado.`;
+                aviso.style.color = '#f44336';
+                definirCaminhaoPadrao(racaLower); 
             } else {
-                // Jogador não tem veículo para o frete
+                // Não tem a máquina
                 checkbox.disabled = true;
                 checkbox.checked = false;
                 aviso.innerText = `❌ Sem ${nomeVeiculoMsg} nesta fazenda. Frete será cobrado.`;

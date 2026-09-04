@@ -23,37 +23,52 @@
     </h3>
 
     <div style="display: grid; grid-template-columns: 1fr; gap: 15px; margin-bottom: 40px;">
+        
         {% if not anuncios %}
             <div style="background: #1a1a1a; padding: 20px; border-radius: 12px; text-align: center; border: 1px dashed #444;">
                 <p style="color:#777; font-style: italic; margin: 0;">Nenhum jogador anunciando agora.</p>
             </div>
         {% else %}
-            {% for anuncio in anuncios %}
+                    {% for anuncio in anuncios %}
             <div style="background: #111; padding: 15px; border-radius: 12px; border: 1px solid #333; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
                 
                 <div style="display: flex; align-items: center; gap: 15px;">
-                    <img src="/static/img/{{ anuncio.animal.raca|lower }}.png" style="width: 60px; height: 60px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));">
+                    <img src="/static/img/{{ anuncio.raca|lower }}.png" style="width: 60px; height: 60px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));">
                     <div>
-                        <b style="color: #fff; text-transform: capitalize; font-size: 16px;">{{ anuncio.animal.raca }}</b>
+                        <b style="color: #fff; text-transform: capitalize; font-size: 16px;">
+                            {% if anuncio.quantidade > 1 %}
+                                <span style="color: #ff9800;">{{ anuncio.quantidade }}x</span> 
+                            {% endif %}
+                            {{ anuncio.raca }}
+                        </b>
                         <div style="color: #aaa; font-size: 12px; margin-top: 3px;">
-                            ⚖️ {{ anuncio.animal.peso }} @ | {{ anuncio.animal.fase }}<br>
-                            👤 Vendedor: <b style="color: #4caf50;">{{ anuncio.vendedor.username }}</b>
+                            {% if anuncio.raca|lower in ['nelore', 'angus', 'guzera', 'brahman', 'girolando'] %}
+                                ⚖️ Peso Médio: {{ "%.1f"|format(anuncio.peso_medio / 30.0) }} @ | {{ anuncio.fase }}<br>
+                            {% else %}
+                                ⚖️ Peso Médio: {{ "%.1f"|format(anuncio.peso_medio) }} Kg | {{ anuncio.fase }}<br>
+                            {% endif %}
+                            
+                            👤 Vendedor: <b style="color: #4caf50;">{{ anuncio.vendedor_nome }}</b>
                         </div>
                     </div>
                 </div>
 
                 <div style="text-align: right;">
-                    <div style="color: #4caf50; font-size: 18px; font-weight: 900; margin-bottom: 8px;">R$ {{ anuncio.valor }}</div>
+                    <div style="color: #4caf50; font-size: 18px; font-weight: 900; margin-bottom: 8px;">
+                        R$ {{ "{:,.2f}".format(anuncio.valor).replace(',','v').replace('.',',').replace('v','.') }}
+                        <span style="font-size: 10px; color: #aaa; display: block; margin-top: -3px;">por unidade</span>
+                    </div>
                     
                     {% if anuncio.vendedor_id == user.id %}
-                        <button onclick="cancelar('{{ anuncio.id }}')" style="background: #f44336; color: white; border: none; padding: 8px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #b71c1c;">CANCELAR</button>
+                        <button onclick="cancelar('{{ anuncio.id }}')" style="background: #f44336; color: white; border: none; padding: 8px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #b71c1c; font-size: 11px;">CANCELAR 1</button>
                     {% else %}
-                        <button onclick="prepararCompraComunidade('{{ anuncio.id }}', '{{ anuncio.animal.raca }}', {{ anuncio.valor }})" style="background: #2e7d32; color: white; border: none; padding: 8px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #1b5e20;">COMPRAR</button>
+                        <button onclick="prepararCompraComunidade('{{ anuncio.id }}', '{{ anuncio.raca }}', {{ anuncio.valor }})" style="background: #2e7d32; color: white; border: none; padding: 8px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #1b5e20; font-size: 11px;">COMPRAR 1</button>
                     {% endif %}
                 </div>
                 
             </div>
             {% endfor %}
+
         {% endif %}
     </div>
 

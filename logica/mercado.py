@@ -71,9 +71,35 @@ def ver_mercado():
     if 'usuario' not in session: return redirect(url_for('login'))
     usuario = Jogador.query.filter_by(username=session['usuario']).first()
     if not usuario: return redirect(url_for('login'))
-
+        
     minhas_terras = Propriedade.query.filter_by(dono_id=usuario.id).all()
-    anuncios = Anuncio.query.all()
+    
+    # --- NOVO BLOCO: AGRUPANDO ANÚNCIOS IGUAIS DA COMUNIDADE ---
+    anuncios_brutos = Anuncio.query.all()
+    anuncios_agrupados = {}
+    
+    for a in anuncios_brutos:
+        # A chave agrupa pelo mesmo vendedor, raça, fase e preço
+        chave = f"{a.vendedor_id}_{a.animal.raca}_{a.animal.fase}_{a.valor}"
+        if chave not in anuncios_agrupados:
+            anuncios_agrupados[chave] = {
+                'id': a.id, # Guarda o ID do primeiro animal do lote para o botão
+                'vendedor_id': a.vendedor_id,
+                'vendedor_nome': a.vendedor.username,
+                'raca': a.animal.raca,
+                'fase': a.animal.fase,
+                'peso_total': 0.0,
+                'valor': a.valor,
+                'quantidade': 0
+            }
+        anuncios_agrupados[chave]['quantidade'] += 1
+        anuncios_agrupados[chave]['peso_total'] += float(a.animal.peso or 0)
+        
+    anuncios = []
+    for k, v in anuncios_agrupados.items():
+        v['peso_medio'] = v['peso_total'] / v['quantidade']
+        anuncios.append(v)
+    # -----------------------------------------------------------
     
     fator_mercado = calcular_fator_dia(usuario.dia, usuario.mes, usuario.ano)
     vendedores_ia = []

@@ -181,7 +181,21 @@ def manutencao_maquina():
         return jsonify({'sucesso': False, 'erro': 'A máquina já está em perfeito estado!'})
         
     dano = 100 - maquina.estado_conservacao
-    custo_reparo = dano * 350.0
+    
+    # 🔥 NOVO: Custo de manutenção inteligente e proporcional ao valor da máquina!
+    preco_base = 0
+    for chave, info in Concessionaria.CATALOGO.items():
+        if info['nome'] == maquina.modelo:
+            preco_base = info['preco']
+            break
+            
+    # O conserto de 100% de dano custa 15% do valor de um veículo zero km.
+    # Exemplo: Caminhonete de 45.000 = 6.750 o conserto total. (1% = R$ 67,50)
+    # Exemplo: Colheitadeira de 850.000 = 127.500 o conserto total. (1% = R$ 1.275,00)
+    if preco_base > 0:
+        custo_reparo = dano * (preco_base * 0.0015) 
+    else:
+        custo_reparo = dano * 350.0 # Fallback de segurança
     
     if jogador.saldo < custo_reparo:
         return jsonify({'sucesso': False, 'erro': f'Faltou dinheiro pro mecânico. Custa R$ {custo_reparo:,.2f}.'})
@@ -191,7 +205,7 @@ def manutencao_maquina():
     
     registrar_transacao(jogador.id, 'saida', custo_reparo, f'Oficina: Reparo {maquina.modelo}')
     db.session.commit()
-    return jsonify({'sucesso': True, 'msg': 'Manutenção concluída! Máquina 100%.'})
+    return jsonify({'sucesso': True, 'msg': f'Manutenção concluída por R$ {custo_reparo:,.2f}! Máquina 100%.'})
 
 @barracao_bp.route('/api/barracao/abastecer', methods=['POST'])
 def abastecer_maquina():
