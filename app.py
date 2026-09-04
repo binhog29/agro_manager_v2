@@ -186,16 +186,19 @@ def mapa():
         verificar_nivel(jogador_atual)  # 🔥 Atualiza o nível ao abrir o Mapa
         
         # ==========================================
-        # 🔥 NOVO: LÓGICA DO EMBLEMA DE RANKING
+        # 🔥 NOVO: LÓGICA DO DUPLO RANKING (NÍVEL E SALDO)
         # ==========================================
         if not jogador_atual.is_admin:
-            posicao_ranking = Jogador.query.filter_by(is_admin=False).filter(Jogador.xp > jogador_atual.xp).count() + 1
+            posicao_nivel = Jogador.query.filter_by(is_admin=False).filter(Jogador.xp > jogador_atual.xp).count() + 1
+            posicao_saldo = Jogador.query.filter_by(is_admin=False).filter(Jogador.saldo > jogador_atual.saldo).count() + 1
         else:
-            posicao_ranking = 0
+            posicao_nivel = 0
+            posicao_saldo = 0
     else:
-        posicao_ranking = 0	
+        posicao_nivel = 0
+        posicao_saldo = 0	
         
-    return render_template('mapa.html', jogador=jogador_atual, posicao_ranking=posicao_ranking)
+    return render_template('mapa.html', jogador=jogador_atual, posicao_nivel=posicao_nivel, posicao_saldo=posicao_saldo)
 
 @app.route('/api/mapa_global')
 def api_mapa_global():
