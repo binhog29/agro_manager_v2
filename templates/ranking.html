@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ranking Global - Agro Manager</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Chamando o CSS isolado -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ranking.css') }}">
+</head>
+<body>
+
+    <div class="header">
+        <h2><i class="fas fa-trophy"></i> Hall da Fama</h2>
+        <!-- O botão não tem mais 'onclick' sujo no HTML -->
+        <button id="btn-voltar-mapa" class="btn-voltar"><i class="fas fa-arrow-left"></i> Voltar</button>
+    </div>
+
+    <div class="container">
+        <!-- RANKING DE NÍVEL -->
+        <div class="ranking-card" id="card-nivel">
+            <h3 class="titulo-nivel"><i class="fas fa-star"></i> Reis do Agro (Nível)</h3>
+            {% for j in top_nivel %}
+            <div class="r-item">
+                <div class="r-pos {% if loop.index == 1 %}pos-1{% elif loop.index == 2 %}pos-2{% elif loop.index == 3 %}pos-3{% else %}pos-normal{% endif %}">
+                    {% if loop.index <= 3 %}<i class="fas fa-medal"></i>{% else %}{{ loop.index }}º{% endif %}
+                </div>
+                <div class="r-nome">
+                    {{ j.username }}
+                    {% if j.username == user.username %}<span class="tag-voce">VOCÊ</span>{% endif %}
+                </div>
+                <div class="r-nivel">Nvl {{ j.nivel }} <span class="xp-detalhe">({{ j.xp }} XP)</span></div>
+            </div>
+            {% else %}
+            <p class="msg-vazio">Nenhum fazendeiro ativo.</p>
+            {% endfor %}
+        </div>
+
+        <!-- RANKING DE DINHEIRO -->
+        <div class="ranking-card" id="card-dinheiro">
+            <h3 class="titulo-dinheiro"><i class="fas fa-sack-dollar"></i> Magnatas (Saldo)</h3>
+            {% for j in top_ricos %}
+            <div class="r-item">
+                <div class="r-pos {% if loop.index == 1 %}pos-1{% elif loop.index == 2 %}pos-2{% elif loop.index == 3 %}pos-3{% else %}pos-normal{% endif %}">
+                    {% if loop.index <= 3 %}<i class="fas fa-medal"></i>{% else %}{{ loop.index }}º{% endif %}
+                </div>
+                <div class="r-nome">
+                    {{ j.username }}
+                    {% if j.username == user.username %}<span class="tag-voce">VOCÊ</span>{% endif %}
+                </div>
+                <div class="r-valor">R$ {{ "{:,.2f}".format(j.saldo).replace(',','v').replace('.',',').replace('v','.') }}</div>
+            </div>
+            {% else %}
+            <p class="msg-vazio">Nenhuma fortuna registrada.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Chamando a inteligência Orientada a Objetos -->
+    <script src="{{ url_for('static', filename='js/ranking.js') }}"></script>
+</body>
+</html>

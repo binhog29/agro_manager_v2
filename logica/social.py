@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request, session
+from flask import Blueprint, jsonify, request, session, render_template, redirect, url_for
 from database import db, Jogador, MensagemChat
 from datetime import datetime
 
@@ -47,3 +47,18 @@ def enviar_mensagem():
     
     db.session.commit()
     return jsonify({'sucesso': True})
+
+@social_bp.route('/ranking')
+def ranking():
+    if 'usuario' not in session:
+        return redirect(url_for('login'))
+        
+    usuario_atual = Jogador.query.filter_by(username=session['usuario']).first()
+    
+    # 🏆 Busca o Top 10 por Nível (Descartando o CEO para ser justo)
+    top_nivel = Jogador.query.filter_by(is_admin=False).order_by(Jogador.xp.desc()).limit(10).all()
+    
+    # 💰 Busca o Top 10 mais ricos
+    top_ricos = Jogador.query.filter_by(is_admin=False).order_by(Jogador.saldo.desc()).limit(10).all()
+    
+    return render_template('ranking.html', user=usuario_atual, top_nivel=top_nivel, top_ricos=top_ricos)

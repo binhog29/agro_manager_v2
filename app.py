@@ -185,7 +185,17 @@ def mapa():
         GerenciadorTempo.calcular_progresso_offline(jogador_atual)
         verificar_nivel(jogador_atual)  # 🔥 Atualiza o nível ao abrir o Mapa
         
-    return render_template('mapa.html', jogador=jogador_atual)
+        # ==========================================
+        # 🔥 NOVO: LÓGICA DO EMBLEMA DE RANKING
+        # ==========================================
+        if not jogador_atual.is_admin:
+            posicao_ranking = Jogador.query.filter_by(is_admin=False).filter(Jogador.xp > jogador_atual.xp).count() + 1
+        else:
+            posicao_ranking = 0
+    else:
+        posicao_ranking = 0	
+        
+    return render_template('mapa.html', jogador=jogador_atual, posicao_ranking=posicao_ranking)
 
 @app.route('/api/mapa_global')
 def api_mapa_global():

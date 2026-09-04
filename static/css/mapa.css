@@ -57,3 +57,53 @@ body { margin: 0; background: #222; font-family: 'Exo 2', sans-serif; overflow: 
 .lbl-sub { font-size: 9px; opacity: 0.8; display: block; font-weight: normal; color: #ffd54f; }
 .c-livre { color: #eee; opacity: 0.9; } .c-chacara { color: #66bb6a; } .c-sitio { color: #fbc02d; } .c-fazenda { color: #d84315; } .c-meu { color: #2979ff; animation: pulse 2s infinite; }
 @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+
+/* =========================================
+   BOTÃO DE RANKING (CENTRO DO TOPO)
+   ========================================= */
+.centro-dashboard {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex: 1; /* Faz ele empurrar o perfil e o relógio para os cantos */
+    padding: 0 10px;
+}
+
+.btn-ranking-topo {
+    background: linear-gradient(135deg, #ff9800, #f57c00);
+    color: #fff;
+    text-decoration: none;
+    font-weight: 800;
+    font-size: 13px;
+    padding: 8px 16px;
+    border-radius: 20px;
+    border: 2px solid #e65100;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: transform 0.2s, box-shadow 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.btn-ranking-topo:hover {
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 6px 12px rgba(255, 152, 0, 0.4);
+}
+
+.btn-ranking-topo i {
+    color: #fffde7; /* Tom de ouro clarinho pro troféu */
+    font-size: 15px;
+}
+
+/* Ajuste para celulares muito pequenos não quebrarem a tela */
+@media (max-width: 480px) {
+    .btn-ranking-topo {
+        padding: 6px 10px;
+        font-size: 11px;
+    }
+    .btn-ranking-topo i {
+        font-size: 12px;
+    }
+}

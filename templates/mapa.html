@@ -41,53 +41,80 @@
     
     <div class="ui-layer">
         
-        <div class="topo-ui">
-            <div class="perfil-box">
-                                <a href="/perfil" class="perfil-btn">
-                    <div class="perfil-icone">{% if jogador.is_admin %}👑{% else %}👤{% endif %}</div>
-                    <div class="perfil-textos">
-                        <div class="nome-jogador">{{ jogador.username }}</div>
-                        <div class="titulo-jogador" style="color: #ffb300; font-weight: 600;">
-                            {% if jogador.is_admin %}👑 Dono do Jogo{% else %}Fazendeiro • Nível {{ jogador.nivel }}{% endif %}
-                        </div>
-                    </div>
-                </a>
-                <div class="carteira-box">
-                    <i class="fas fa-wallet"></i> R$ {{ "{:,.2f}".format(jogador.saldo).replace(',','v').replace('.',',').replace('v','.') }}
+        <div class="topo-ui" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 5px; width: 100%;">
+    
+    <!-- 1. BLOCO PERFIL (Com "Armadura" contra esmagamento) -->
+    <div class="perfil-box" style="flex-shrink: 0; max-width: 45%;">
+        <a href="/perfil" class="perfil-btn" style="display: flex; align-items: center; gap: 6px; padding: 4px 8px;">
+            <!-- Armadura: min-width e min-height iguais garantem o círculo perfeito -->
+            <div class="perfil-icone" style="width: 32px; height: 32px; min-width: 32px; min-height: 32px; border-radius: 50%; display: flex; justify-content: center; align-items: center; flex-shrink: 0;">
+                {% if jogador.is_admin %}👑{% else %}👤{% endif %}
+            </div>
+            
+            <div class="perfil-textos" style="display: flex; flex-direction: column; overflow: hidden;">
+                <div class="nome-jogador" style="display: flex; align-items: center; gap: 4px; white-space: nowrap; font-size: 11px;">
+                    <span style="overflow: hidden; text-overflow: ellipsis; max-width: 70px;">{{ jogador.username }}</span>
+                    {% if posicao_ranking == 1 %}
+                        <i class="fas fa-crown" style="color: #FFD700; font-size: 12px;"></i>
+                    {% elif posicao_ranking == 2 %}
+                        <i class="fas fa-medal" style="color: #C0C0C0; font-size: 12px;"></i>
+                    {% elif posicao_ranking == 3 %}
+                        <i class="fas fa-medal" style="color: #CD7F32; font-size: 12px;"></i>
+                    {% elif posicao_ranking > 3 and posicao_ranking <= 10 %}
+                        <i class="fas fa-award" style="color: #4CAF50; font-size: 12px;"></i>
+                    {% endif %}
+                </div>
+                <div class="titulo-jogador" style="color: #ffb300; font-weight: 600; white-space: nowrap; font-size: 9px;">
+                    {% if jogador.is_admin %}👑 Dono do Jogo{% else %}Fazendeiro • Nível {{ jogador.nivel }}{% endif %}
                 </div>
             </div>
-
-            <a href="/mercado" class="leilao-btn">
-                <span>🔨</span> LEILÃO
-            </a>
-            
-            <a href="/imobiliaria" class="leilao-btn" style="background: linear-gradient(135deg, #1565c0, #0d47a1); margin-left: 10px;">
-                <span>🏢</span> IMÓVEIS
-            </a>
-
-            <!-- Direita: Relógio e Tempo -->
-        <div style="background: rgba(30, 30, 30, 0.95); padding: 6px 12px; border-radius: 15px; text-align: center; color: white; border: 1px solid #555; pointer-events: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.3); min-width: 90px;">
-    
-        <div id="estacao-jogo" style="font-size: 9px; color: #aaa; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px;">
-        <i class="fas fa-leaf" style="color: #4caf50;"></i> ESTAÇÃO
-    </div> 
-    
-    <div id="relogio-real" style="font-size: 14px; font-weight: 900; color: #fff; margin-bottom: 2px;">
-        {{ "%02d"|format(jogador.hora|default(6)) }}:00
-    </div>
-    
-    <div id="data-jogo" style="font-weight: bold; font-size: 10px; display: flex; align-items: center; justify-content: center; gap: 5px; color: #f9a825;">
-         {{ "%02d"|format(jogador.dia|default(1)) }}/{{ "%02d"|format(jogador.mes|default(1)) }}/{{ jogador.ano|default(2026) }}
-    </div>
-
-    <button onclick="document.getElementById('modal-tempo').style.display='flex'" style="margin-top:5px; background: #2e7d32; color: white; border: none; padding: 2px 10px; border-radius: 5px; font-size: 10px; cursor: pointer;">
-        <i class="fas fa-forward"></i> Avançar Tempo
-    </button>
-</div>
+        </a>
+        <div class="carteira-box" style="font-size: 11px; padding: 2px 6px;">
+            <i class="fas fa-wallet"></i> R$ {{ "{:,.2f}".format(jogador.saldo).replace(',','v').replace('.',',').replace('v','.') }}
         </div>
+    </div>
+
+    <!-- 2. BOTÕES CENTRAIS (Design empilhado tipo App mobile) -->
+    <div style="display: flex; gap: 5px; flex-shrink: 1; align-items: flex-start; margin-top: 2px;">
+        <a href="/mercado" class="leilao-btn" style="padding: 4px 6px; font-size: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border-radius: 8px; min-width: 50px;">
+            <span style="font-size: 14px; margin: 0;">🔨</span> LEILÃO
+        </a>
+        
+        <a href="/imobiliaria" class="leilao-btn" style="background: linear-gradient(135deg, #1565c0, #0d47a1); padding: 4px 6px; font-size: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border-radius: 8px; min-width: 50px;">
+            <span style="font-size: 14px; margin: 0;">🏢</span> IMÓVEIS
+        </a>
+    </div>
+
+    <!-- 3. RELÓGIO (Mais compacto) -->
+    <div style="background: rgba(30, 30, 30, 0.95); padding: 4px 6px; border-radius: 10px; text-align: center; color: white; border: 1px solid #555; pointer-events: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.3); min-width: 70px; flex-shrink: 0;">
+        <div id="estacao-jogo" style="font-size: 8px; color: #aaa; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px;">
+            <i class="fas fa-leaf" style="color: #4caf50;"></i> ESTAÇÃO
+        </div> 
+        
+        <div id="relogio-real" style="font-size: 12px; font-weight: 900; color: #fff; margin-bottom: 2px;">
+            {{ "%02d"|format(jogador.hora|default(6)) }}:00
+        </div>
+        
+        <div id="data-jogo" style="font-weight: bold; font-size: 9px; display: flex; align-items: center; justify-content: center; gap: 3px; color: #f9a825;">
+             {{ "%02d"|format(jogador.dia|default(1)) }}/{{ "%02d"|format(jogador.mes|default(1)) }}/{{ jogador.ano|default(2026) }}
+        </div>
+
+        <button onclick="document.getElementById('modal-tempo').style.display='flex'" style="margin-top:4px; background: #2e7d32; color: white; border: none; padding: 2px 0; border-radius: 4px; font-size: 9px; cursor: pointer; width: 100%;">
+            <i class="fas fa-forward"></i> Avançar
+        </button>
+    </div>
+</div>
+
         <div class="bottom-dock pointer-events-auto">
             <div class="dock-item" onclick="window.location.href='/perfil'"><i class="fas fa-user-cog"></i><span>Perfil</span></div>
             <div class="dock-item active"><i class="fas fa-globe-americas"></i><span>Mapa</span></div>
+            <a href="/ranking" class="menu-item" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-decoration: none; color: #ccc;">
+    
+    <!-- Ícone com efeito Ouro 3D e Sombra Brilhante -->
+    <i class="fas fa-trophy" style="color: #FFD700; font-size: 18px; text-shadow: 1px 1px 0px #b86b00, 0px 4px 8px rgba(255, 152, 0, 0.5); margin-bottom: 3px;"></i>
+    
+    <span style="font-size: 10px; font-weight: normal;">RANKING</span>
+</a>
             <div class="dock-item" onclick="window.location.href='/financeiro'"><i class="fas fa-chart-line"></i><span>Caixa</span></div>
             <div class="dock-item" onclick="window.location.href='/sair'"><i class="fas fa-power-off" style="color:#e53935"></i><span>Sair</span></div>
         </div>
