@@ -6,11 +6,12 @@ ARQUIVO: ./app.py
 
 import re
 import os
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, render_template_string
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from flask_migrate import Migrate 
+from flask_migrate import Migrate
+from datetime import timedelta
 
 from database import db, Jogador, Propriedade, Animal, HistoricoMorte, Transacao
 
@@ -41,6 +42,7 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(BASE_DIR, "banco_dados.db")}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.secret_key = 'chave_super_secreta_para_sessoes' 
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30) # 🔥 SESSÃO DURA 30 DIAS
 
 db.init_app(app)
 migrate = Migrate(app, db) 
@@ -96,19 +98,35 @@ def verificar_nivel(jogador):
         db.session.commit()
 
 # ==========================================
-# ROTAS DO SISTEMA
+# ROTAS DO SISTEMA E SEGURANÇA
 # ==========================================
 @app.route('/')
 @app.route('/login')
 def login():
     return render_template('login.html')
 
+# 🔥 TELA DE BLOQUEIO DE IP (Dispara quando o limite é excedido)
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    return render_template_string('''
+        <div style="text-align:center; margin-top:100px; font-family:'Segoe UI', sans-serif; color:white; background:#121212; padding: 40px; height: 100vh;">
+            <i class="fas fa-shield-alt" style="font-size: 80px; color: #f44336; margin-bottom: 20px;"></i>
+            <h1 style="color:#f44336;">IP BLOQUEADO TEMPORARIAMENTE</h1>
+            <p style="font-size: 18px; color: #ccc;">Detectamos muitas tentativas de login ou criação de conta vindas da sua rede.</p>
+            <p style="color: #888;">Por medidas de segurança contra robôs, aguarde alguns minutos antes de tentar novamente.</p>
+            <br>
+            <a href="/login" style="background: #2e7d32; color: white; padding: 10px 20px; text-decoration: none; border-radius: 8px; font-weight: bold;">Tentar Novamente</a>
+        </div>
+    '''), 429
+
+# 🔥 ROTA DE AUTENTICAÇÃO BLINDADA (Máximo de 5 tentativas por minuto por IP)
 @app.route('/autenticar', methods=['POST'])
 @limiter.limit("10 per minute")
 def autenticar():
     acao = request.form.get('acao')
     username = request.form.get('usuario').strip()
     senha = request.form.get('senha')
+    lembrar = request.form.get('lembrar') # 🔥 PEGA O CHECKBOX DO HTML
     
     if not re.match("^[a-zA-Z0-9]{3,15}$", username):
         flash("O usuário deve ter entre 3 e 15 caracteres, sem espaços ou símbolos.")
@@ -147,6 +165,13 @@ def autenticar():
         
         if usuario and check_password_hash(usuario.senha_hash, senha):
             session['usuario'] = username
+            
+            # 🔥 SE MARCOU A CAIXA, MANTÉM LOGADO NO APLICATIVO
+            if lembrar:
+                session.permanent = True
+            else:
+                session.permanent = False
+                
             return redirect(url_for('mapa'))
         else:
             flash("Usuário ou senha incorretos!")
@@ -166,7 +191,20 @@ def mapa():
         GerenciadorTempo.calcular_progresso_offline(jogador_atual)
         verificar_nivel(jogador_atual)  # 🔥 Atualiza o nível ao abrir o Mapa
         
-    return render_template('mapa.html', jogador=jogador_atual)
+        # ==========================================
+        # 🔥 NOVO: LÓGICA DO DUPLO RANKING (NÍVEL E SALDO)
+        # ==========================================
+        if not jogador_atual.is_admin:
+            posicao_nivel = Jogador.query.filter_by(is_admin=False).filter(Jogador.xp > jogador_atual.xp).count() + 1
+            posicao_saldo = Jogador.query.filter_by(is_admin=False).filter(Jogador.saldo > jogador_atual.saldo).count() + 1
+        else:
+            posicao_nivel = 0
+            posicao_saldo = 0
+    else:
+        posicao_nivel = 0
+        posicao_saldo = 0	
+        
+    return render_template('mapa.html', jogador=jogador_atual, posicao_nivel=posicao_nivel, posicao_saldo=posicao_saldo)
 
 @app.route('/api/mapa_global')
 def api_mapa_global():
@@ -222,8 +260,21 @@ def perfil():
     if jogador_atual:
         verificar_nivel(jogador_atual) # 🔥 Atualiza o nível ao abrir o Perfil
         
-    return render_template('perfil.html', jogador=jogador_atual)
-
+        # ==========================================
+        # 🔥 CÁLCULO DOS EMBLEMAS PARA O PERFIL
+        # ==========================================
+        if not jogador_atual.is_admin:
+            posicao_nivel = Jogador.query.filter_by(is_admin=False).filter(Jogador.xp > jogador_atual.xp).count() + 1
+            posicao_saldo = Jogador.query.filter_by(is_admin=False).filter(Jogador.saldo > jogador_atual.saldo).count() + 1
+        else:
+            posicao_nivel = 0
+            posicao_saldo = 0
+    else:
+        posicao_nivel = 0
+        posicao_saldo = 0
+        
+    return render_template('perfil.html', jogador=jogador_atual, posicao_nivel=posicao_nivel, posicao_saldo=posicao_saldo)
+    
 @app.route('/admin/receita-federal')
 def receita_federal():
     if 'usuario' not in session:
@@ -1012,7 +1063,7 @@ ARQUIVO: ./logica/mercado.py
 ============================================================
 
 from flask import Blueprint, render_template, session, redirect, url_for, request, jsonify
-from database import db, Jogador, Anuncio, Propriedade, Animal, TABELA_PRECOS, INFO_ESPECIES
+from database import db, Jogador, Anuncio, Propriedade, Animal, TABELA_PRECOS, INFO_ESPECIES, Maquinario
 from logica.economia import registrar_transacao
 import random
 
@@ -1236,14 +1287,19 @@ def comprar_ia():
             modelos_aceitos = ['Caminhão Boiadeiro']
             msg_erro = 'Sem Caminhão Boiadeiro na fazenda!'
             
-        from database import Maquinario
         tem_veiculo = Maquinario.query.filter(
             Maquinario.propriedade_id == propriedade.id, 
-            Maquinario.modelo.in_(modelos_aceitos)
+            Maquinario.modelo.in_(modelos_aceitos),
+            Maquinario.nivel_combustivel >= 15,
+            Maquinario.estado_conservacao >= 5
         ).first()
         
         if not tem_veiculo:
-            return jsonify({'sucesso': False, 'erro': f'Fraude detectada: {msg_erro}'})
+            return jsonify({'sucesso': False, 'erro': f'Veículo indisponível! Verifique se você tem o modelo correto e se ele possui pelo menos 15% de Combustível e 5% de Saúde.'})
+            
+        # 🔥 APLICA O DESGASTE DA VIAGEM
+        tem_veiculo.nivel_combustivel -= 15
+        tem_veiculo.estado_conservacao -= 5
         custo_frete = 0.0
     else:
         custo_frete = quantidade * frete_cabeca
@@ -1336,6 +1392,9 @@ class GerenciadorTempo:
         dias_passados = jogador.hora // 24
         jogador.hora = jogador.hora % 24
 
+        # Inicializa a variável para evitar erros caso não passe nenhum dia
+        meses_passados = 0 
+
         if dias_passados > 0:
             jogador.dia += dias_passados
             meses_passados = jogador.dia // 30
@@ -1356,13 +1415,15 @@ class GerenciadorTempo:
         motor = MotorBiologico(clima_atual=getattr(jogador, 'clima_atual', 'sol'), jogador=jogador)
         avisos = motor.processar_turno(horas)
         
-        if dias_passados > 0:
+        # 🔥 NOVA FOLHA DE PAGAMENTO MENSAL BLINDADA
+        if meses_passados > 0:
             from logica.funcionarios import cobrar_folha_pagamento
-            horas_cobradas = dias_passados * 24
+            # 30 dias trabalhados x 8h diárias = 240 horas por mês
+            horas_cobradas = meses_passados * 240
             custo_rh = cobrar_folha_pagamento(jogador, horas_cobradas)
             if custo_rh > 0:
-                texto_dia = "dia" if dias_passados == 1 else "dias"
-                avisos.append(f"💼 Folha de Pagamento: R$ {custo_rh:,.2f} descontados (Ref: Diária de {dias_passados} {texto_dia}).")
+                texto_mes = "mês" if meses_passados == 1 else "meses"
+                avisos.append(f"💼 Folha de Pagamento: R$ {custo_rh:,.2f} descontados (Ref: Salário mensal por {meses_passados} {texto_mes}).")
 
         # 🔥 SOLUÇÃO INTELIGENTE: Adapta-se ao Banco de Dados automaticamente!
         if avisos:
@@ -1521,8 +1582,8 @@ ARQUIVO: ./logica/terras.py
 ============================================================
 
 from flask import Blueprint, request, jsonify, session
-from database import db, Jogador, Lote, Animal, Propriedade
-from logica.economia import registrar_transacao 
+from database import db, Jogador, Lote, Animal, Propriedade, Maquinario
+from logica.economia import registrar_transacao
 
 terras_bp = Blueprint('terras', __name__)
 
@@ -1551,18 +1612,27 @@ def obras_terra():
         # 🔥 BLINDAGEM 3: O pulo do gato! Só paga a madeira se a terra for MATO!
         if lote.status != 'mato':
             return jsonify({'sucesso': False, 'erro': '🚨 FRAUDE DETECTADA: Este lote já está limpo ou em uso!'})
-            
-        from database import Maquinario
-        tem_esteira = Maquinario.query.filter_by(propriedade_id=lote.fazenda_id, modelo='Trator de Esteira').first()
+                
+        # Exige pelo menos 10% de tanque e 5% de saúde para ligar a máquina
+        tem_esteira = Maquinario.query.filter(
+            Maquinario.propriedade_id==lote.fazenda_id, 
+            Maquinario.modelo=='Trator de Esteira',
+            Maquinario.nivel_combustivel >= 10,
+            Maquinario.estado_conservacao >= 5
+        ).first()
 
         if tem_esteira:
+            # 🔥 APLICA O DESGASTE DA MÁQUINA
+            tem_esteira.nivel_combustivel -= 10
+            tem_esteira.estado_conservacao -= 5
+            
             venda_madeira = 2500
             usuario.saldo += venda_madeira
             lote.status = 'limpo'
             registrar_transacao(usuario.id, 'entrada', venda_madeira, f'Venda de Madeira Pesada ({lote.nome})')
             if getattr(usuario, 'xp', None) is None: usuario.xp = 0
             usuario.xp += 15
-            mensagem = f'Limpeza pesada concluída! O Trator de Esteira zerou o custo operacional e extraiu R$ 2.500 em madeira!'
+            mensagem = f'Limpeza concluída! O Trator de Esteira gastou Diesel e extraiu R$ 2.500 em madeira!'        
         else:
             custo_trator = 500
             venda_madeira = 1500
@@ -1852,7 +1922,7 @@ class CulturaPerene(Cultura):
         self.tipo_biologia = 'perene'
         self.tempo_descanso = tempo_descanso
         self.max_ciclos = max_ciclos
-
+        
     def processar_pos_colheita(self, lote):
         lote.ciclos_colhidos = getattr(lote, 'ciclos_colhidos', 0) + 1
         if lote.ciclos_colhidos >= self.max_ciclos:
@@ -1860,9 +1930,11 @@ class CulturaPerene(Cultura):
         else:
             lote.produtividade_atual = 100
         lote.status = 'plantado'
+        
+        # 🔥 AQUI ESTÁ O FIX DO BUG: Atribui os dias de descanso corretamente
         lote.dias_plantado = float(self.tempo_colheita - self.tempo_descanso)
-        lote.dias_descanso = 0.0
-
+        lote.dias_descanso = float(self.tempo_descanso)
+        
     def obter_estagio_e_progresso(self, dias_plantado, dias_descanso=0, estacao_atual='primavera'):
         if dias_descanso > 0:
             progresso_pct = min(100, int(((self.tempo_descanso - dias_descanso) / self.tempo_descanso) * 100))
@@ -2400,7 +2472,9 @@ def vender_grao():
     jogador.saldo += valor_total
 
     if multiplicador_venda > 1.0:
-        texto_venda = f"Venda de {local_venda}: {quantidade_venda}x {item_chave.capitalize()} (+10% Capataz)"
+        # Descobre a porcentagem real (ex: 1.15 - 1.0 = 0.15 * 100 = 15%)
+        porcentagem_real = int(round((multiplicador_venda - 1.0) * 100))
+        texto_venda = f"Venda de {local_venda}: {quantidade_venda}x {item_chave.capitalize()} (+{porcentagem_real}% Capataz)"
     else:
         texto_venda = f"Venda de {local_venda}: {quantidade_venda}x {item_chave.capitalize()}"
 
@@ -3034,21 +3108,22 @@ class MotorAgricultura:
     # ⚙️ PAINEL DE CONFIGURAÇÃO - CULTURAS (TEMPO E ÁGUA)
     # ==========================================
     CONFIG_CULTIVOS = {
-        'feijao':   {'dias_semente': 3,  'dias_broto': 8,   'dias_colheita': 20,   'agua_necessaria': 30},
-        'melancia': {'dias_semente': 3,  'dias_broto': 10,  'dias_colheita': 25,   'agua_necessaria': 30},
-        'milho':    {'dias_semente': 4,  'dias_broto': 10,  'dias_colheita': 25,   'agua_necessaria': 40},
-        'soja':     {'dias_semente': 5,  'dias_broto': 12,  'dias_colheita': 30,   'agua_necessaria': 50},
-        'arroz':    {'dias_semente': 5,  'dias_broto': 15,  'dias_colheita': 35,   'agua_necessaria': 80},
-        'pimenta':  {'dias_semente': 5,  'dias_broto': 15,  'dias_colheita': 40,   'agua_necessaria': 40},
-        'algodao':  {'dias_semente': 6,  'dias_broto': 20,  'dias_colheita': 45,   'agua_necessaria': 60},
-        'mandioca': {'dias_semente': 8,  'dias_broto': 25,  'dias_colheita': 60,   'agua_necessaria': 20},
-        'banana':   {'dias_semente': 10, 'dias_broto': 30,  'dias_colheita': 80,   'agua_necessaria': 50},
-        'cana':     {'dias_semente': 10, 'dias_broto': 30,  'dias_colheita': 90,   'agua_necessaria': 50},
-        'cafe':     {'dias_semente': 15, 'dias_broto': 45,  'dias_colheita': 120,  'agua_necessaria': 40},
-        'cupuacu':  {'dias_semente': 20, 'dias_broto': 60,  'dias_colheita': 150,  'agua_necessaria': 60},
-        'cacau':    {'dias_semente': 20, 'dias_broto': 60,  'dias_colheita': 150,  'agua_necessaria': 60},
-        'acai':     {'dias_semente': 25, 'dias_broto': 70,  'dias_colheita': 180,  'agua_necessaria': 70},
-        'tomate':   {'dias_semente': 3,  'dias_broto': 10,  'dias_colheita': 25,   'agua_necessaria': 40}
+        'feijao':   {'dias_semente': 10, 'dias_broto': 30,  'dias_colheita': 80,   'agua_necessaria': 30},
+        'melancia': {'dias_semente': 10, 'dias_broto': 30,  'dias_colheita': 85,   'agua_necessaria': 30},
+        'milho':    {'dias_semente': 10, 'dias_broto': 30,  'dias_colheita': 90,   'agua_necessaria': 40},
+        'tomate':   {'dias_semente': 10, 'dias_broto': 30,  'dias_colheita': 90,   'agua_necessaria': 40},
+        'soja':     {'dias_semente': 15, 'dias_broto': 40,  'dias_colheita': 100,  'agua_necessaria': 50},
+        'arroz':    {'dias_semente': 15, 'dias_broto': 40,  'dias_colheita': 110,  'agua_necessaria': 80},
+        'pimenta':  {'dias_semente': 15, 'dias_broto': 40,  'dias_colheita': 120,  'agua_necessaria': 40},
+        'algodao':  {'dias_semente': 20, 'dias_broto': 50,  'dias_colheita': 150,  'agua_necessaria': 60},
+        'mandioca': {'dias_semente': 30, 'dias_broto': 80,  'dias_colheita': 240,  'agua_necessaria': 20},
+        'banana':   {'dias_semente': 30, 'dias_broto': 100, 'dias_colheita': 300,  'agua_necessaria': 50},
+        'cana':     {'dias_semente': 30, 'dias_broto': 120, 'dias_colheita': 360,  'agua_necessaria': 50},
+        'cafe':     {'dias_semente': 45, 'dias_broto': 150, 'dias_colheita': 365,  'agua_necessaria': 40},
+        'abacaxi':  {'dias_semente': 45, 'dias_broto': 150, 'dias_colheita': 400,  'agua_necessaria': 40},
+        'cacau':    {'dias_semente': 60, 'dias_broto': 200, 'dias_colheita': 500,  'agua_necessaria': 60},
+        'cupuacu':  {'dias_semente': 90, 'dias_broto': 250, 'dias_colheita': 730,  'agua_necessaria': 60},
+        'acai':     {'dias_semente': 90, 'dias_broto': 250, 'dias_colheita': 730,  'agua_necessaria': 70}
     }
 
 
@@ -3119,6 +3194,7 @@ class MotorAgricultura:
                         cache_fazendas[lote.fazenda_id] = {
                             'obj': f,
                             'equipe': eq,
+                            'maquinas_obj': mqs, # Adiciona os objetos das máquinas aqui
                             'tipos_maq': [m.tipo for m in mqs],
                             'modelos_maq': [m.modelo for m in mqs]
                         }
@@ -3175,23 +3251,30 @@ class MotorAgricultura:
 
                     # 🚜 Defesa contra Pragas (Veneno)
                     if getattr(lote, 'nivel_pragas', 0) > 0:
-                        if tem_tratorista and 'Pulverizador' in dados_faz['modelos_maq'] and getattr(fazenda, 'est_veneno', 0) >= area_lote:
+                        pulverizador = next((m for m in dados_faz['maquinas_obj'] if m.modelo == 'Pulverizador' and m.nivel_combustivel >= 2 and m.estado_conservacao >= 1), None)
+                        if tem_tratorista and pulverizador and getattr(fazenda, 'est_veneno', 0) >= area_lote:
                             fazenda.est_veneno -= area_lote
                             lote.nivel_pragas = 0
-                            teve_ataque = False # Tratorista resolveu silenciosamente!
+                            pulverizador.nivel_combustivel -= 2
+                            pulverizador.estado_conservacao -= 1
+                            teve_ataque = False 
                             msg_veneno = f"🚜 Um Tratorista usou o Pulverizador e defendeu o {lote.nome} contra pragas."
                             if msg_veneno not in avisos_turno: avisos_turno.append(msg_veneno)
                             
                     if teve_ataque and getattr(lote, 'nivel_pragas', 0) > 0:
-                        avisos_turno.append(f"⚠️ Pragas atacaram {lote.nome}! Sem tratorista ou defensivos.")
+                        avisos_turno.append(f"⚠️ Pragas atacaram {lote.nome}! Sem tratorista, defensivos ou máquina abastecida.")
 
                     # 🚜 Recuperação de Solo (Adubo)
                     if getattr(lote, 'fertilidade_solo', 100) <= 60:
-                        if tem_tratorista and 'Trator' in dados_faz['tipos_maq'] and getattr(fazenda, 'est_adubo', 0) >= area_lote:
+                        trator = next((m for m in dados_faz['maquinas_obj'] if m.tipo == 'Trator' and m.nivel_combustivel >= 2 and m.estado_conservacao >= 1), None)
+                        if tem_tratorista and trator and getattr(fazenda, 'est_adubo', 0) >= area_lote:
                             fazenda.est_adubo -= area_lote
                             lote.fertilidade_solo = min(100, getattr(lote, 'fertilidade_solo', 100) + 40)
-                            msg_adubo = f"🚜 O Tratorista aplicou Adubo no {lote.nome} e revitalizou a terra."
+                            trator.nivel_combustivel -= 2
+                            trator.estado_conservacao -= 1
+                            msg_adubo = f"🚜 O Tratorista usou o {trator.modelo} para aplicar Adubo no {lote.nome}."
                             if msg_adubo not in avisos_turno: avisos_turno.append(msg_adubo)
+
 
                     # 📉 Punições se a automação não tiver agido
                     prod_atual = float(getattr(lote, 'produtividade_atual', 100))
@@ -3238,13 +3321,13 @@ class Cargo:
 class GerenciadorRH:
     """Catálogo central de profissões da fazenda."""
     CATALOGO = {
-        'peoes': Cargo('peoes', 'Peão', 500.0, 4.0, 'Proteção animal básica'),
-        'tratoristas': Cargo('tratoristas', 'Tratorista', 1200.0, 7.0, '+15% Colheita (Máx 5)'),
-        'capatazes': Cargo('capatazes', 'Capataz', 8000.0, 50.0, '+2% Venda (Máx 5)'),
-        'veterinarios': Cargo('veterinarios', 'Veterinário', 3000.0, 18.0, 'Reduz doenças'),
-        'agronomos': Cargo('agronomos', 'Agrônomo', 3500.0, 22.0, '-20% Safra (Máx 2)')
+        'peoes': Cargo('peoes', 'Peão', 500.0, 8.0, 'Proteção animal básica'),
+        'tratoristas': Cargo('tratoristas', 'Tratorista', 1200.0, 12.0, '+15% Colheita (Máx 5)'),
+        'capatazes': Cargo('capatazes', 'Capataz', 8000.0, 20.0, '+5% Venda (Máx 5)'),
+        'veterinarios': Cargo('veterinarios', 'Veterinário', 3000.0, 25.0, 'Reduz doenças'),
+        'agronomos': Cargo('agronomos', 'Agrônomo', 3500.0, 30.0, '-20% Safra (Máx 2)')
     }
-
+    
     @classmethod
     def obter_cargo(cls, id_cargo):
         return cls.CATALOGO.get(id_cargo)
@@ -3333,7 +3416,10 @@ def obter_bonus_equipe(propriedade_id):
         return {'bonus_colheita': 1.0, 'protecao_animal': False, 'bonus_venda': 1.0, 'reduz_doencas': False, 'acelera_safra': 1.0}
 
     bonus_trator = min(0.75, getattr(equipe, 'tratoristas', 0) * 0.15) 
-    bonus_venda = min(0.10, getattr(equipe, 'capatazes', 0) * 0.02)    
+    
+    # 🔥 A MÁGICA DOS 5% ACONTECE AQUI:
+    # 0.05 é 5% por funcionário. 0.25 é a trava máxima de 25% (5 capatazes).
+    bonus_venda = min(0.25, getattr(equipe, 'capatazes', 0) * 0.05)    
 
     return {
         'bonus_colheita': 1.0 + bonus_trator,
@@ -3342,6 +3428,7 @@ def obter_bonus_equipe(propriedade_id):
         'reduz_doencas': getattr(equipe, 'veterinarios', 0) > 0,
         'acelera_safra': max(0.5, 1.0 - (getattr(equipe, 'agronomos', 0) * 0.20))
     }
+
 
 @funcionarios_bp.route('/api/rh/listar/<int:propriedade_id>', methods=['GET'])
 def listar_equipe(propriedade_id):
@@ -3406,7 +3493,7 @@ def demitir_funcionario():
 ARQUIVO: ./logica/social.py
 ============================================================
 
-from flask import Blueprint, jsonify, request, session
+from flask import Blueprint, jsonify, request, session, render_template, redirect, url_for
 from database import db, Jogador, MensagemChat
 from datetime import datetime
 
@@ -3456,6 +3543,21 @@ def enviar_mensagem():
     db.session.commit()
     return jsonify({'sucesso': True})
 
+@social_bp.route('/ranking')
+def ranking():
+    if 'usuario' not in session:
+        return redirect(url_for('login'))
+        
+    usuario_atual = Jogador.query.filter_by(username=session['usuario']).first()
+    
+    # 🏆 Busca o Top 10 por Nível (Descartando o CEO para ser justo)
+    top_nivel = Jogador.query.filter_by(is_admin=False).order_by(Jogador.xp.desc()).limit(10).all()
+    
+    # 💰 Busca o Top 10 mais ricos
+    top_ricos = Jogador.query.filter_by(is_admin=False).order_by(Jogador.saldo.desc()).limit(10).all()
+    
+    return render_template('ranking.html', user=usuario_atual, top_nivel=top_nivel, top_ricos=top_ricos)
+
 
 ============================================================
 ARQUIVO: ./logica/motor_suinocultura.py
@@ -3480,7 +3582,7 @@ class MotorSuinocultura:
     RECUPERACAO_SAUDE_DIA = 10.0
     CHANCE_PRENHEZ_DIA = 0.10 # 10% de chance ao dia
     # ==========================================
-
+    
     @staticmethod
     def processar_animais(animais_chiqueiro, dias, avisos_turno):
         if not animais_chiqueiro:
@@ -3501,11 +3603,30 @@ class MotorSuinocultura:
             consumo_total += config['consumo'] * dias
 
         qtd_comedouro = getattr(fazenda, 'chiqueiro_qtd_racao', 0.0)
+        
+        # 🔥 MÁGICA DO PEÃO: Se a ração faltar, ele busca no Silo!
+        from logica.funcionarios import obter_bonus_equipe
+        bonus_rh_geral = obter_bonus_equipe(fazenda.id)
+        
+        if qtd_comedouro < consumo_total and bonus_rh_geral.get('protecao_animal', False):
+            if getattr(fazenda, 'est_milho', 0) >= 100:
+                fazenda.est_milho -= 100
+                qtd_comedouro += 100.0
+                fazenda.chiqueiro_qtd_racao = qtd_comedouro
+                msg = f"👨‍🌾 Um Peão buscou 100 un. de Milho no Silo para os Porcos."
+                if msg not in avisos_turno: avisos_turno.append(msg)
+            elif getattr(fazenda, 'est_soja', 0) >= 100:
+                fazenda.est_soja -= 100
+                qtd_comedouro += 100.0
+                fazenda.chiqueiro_qtd_racao = qtd_comedouro
+                msg = f"👨‍🌾 Um Peão buscou 100 un. de Soja no Silo para os Porcos."
+                if msg not in avisos_turno: avisos_turno.append(msg)
+
         tem_racao_geral = False
         
         if qtd_comedouro >= consumo_total:
             tem_racao_geral = True
-            fazenda.chiqueiro_qtd_racao -= consumo_total
+            fazenda.chiqueiro_qtd_racao = qtd_comedouro - consumo_total
         else:
             if qtd_comedouro > 0:
                 fazenda.chiqueiro_qtd_racao = 0.0
@@ -4027,11 +4148,24 @@ class MotorAvicultura:
             consumo_total += config['consumo'] * dias
 
         qtd_comedouro = getattr(fazenda, 'galinheiro_qtd_racao', 0.0)
+        
+        # 🔥 MÁGICA DO PEÃO: Ele salva as galinhas buscando Milho
+        from logica.funcionarios import obter_bonus_equipe
+        bonus_rh_geral = obter_bonus_equipe(fazenda.id)
+        
+        if qtd_comedouro < consumo_total and bonus_rh_geral.get('protecao_animal', False):
+            if getattr(fazenda, 'est_milho', 0) >= 100:
+                fazenda.est_milho -= 100
+                qtd_comedouro += 100.0
+                fazenda.galinheiro_qtd_racao = qtd_comedouro
+                msg = f"👨‍🌾 Um Peão buscou 100 un. de Milho no Silo para o Galinheiro."
+                if msg not in avisos_turno: avisos_turno.append(msg)
+
         tem_racao_geral = False
         
         if qtd_comedouro >= consumo_total:
             tem_racao_geral = True
-            fazenda.galinheiro_qtd_racao -= consumo_total
+            fazenda.galinheiro_qtd_racao = qtd_comedouro - consumo_total
         else:
             if qtd_comedouro > 0:
                 fazenda.galinheiro_qtd_racao = 0.0
@@ -4118,7 +4252,7 @@ ARQUIVO: ./logica/leilao.py
 
 from flask import Blueprint, session, request, jsonify
 from sqlalchemy import func
-from database import db, Jogador, Anuncio, Propriedade, Animal
+from database import db, Jogador, Anuncio, Propriedade, Animal, Maquinario
 from logica.economia import registrar_transacao
 from logica.constantes import TABELA_PRECOS # 🔥 Importando os preços reais para a Malha Fina
 
@@ -4253,10 +4387,19 @@ def comprar_leilao():
 
     if usa_caminhao:
         modelo_necessario = 'Caminhão Baú (Frios)' if habitat == 'represa' else 'Caminhão Boiadeiro'
-        from database import Maquinario
-        tem_caminhao = Maquinario.query.filter_by(propriedade_id=propriedade.id, modelo=modelo_necessario).first()
+        tem_caminhao = Maquinario.query.filter(
+            Maquinario.propriedade_id == propriedade.id, 
+            Maquinario.modelo == modelo_necessario,
+            Maquinario.nivel_combustivel >= 15,
+            Maquinario.estado_conservacao >= 5
+        ).first()
+        
         if not tem_caminhao:
-            return jsonify({'sucesso': False, 'erro': f'Fraude detectada: Sem {modelo_necessario} na fazenda!'})
+            return jsonify({'sucesso': False, 'erro': f'Veículo indisponível! Sem combustível ou quebrado no Barracão.'})
+            
+        # 🔥 APLICA O DESGASTE DA VIAGEM
+        tem_caminhao.nivel_combustivel -= 15
+        tem_caminhao.estado_conservacao -= 5
     else:
         custo_frete = 50.0  
 
@@ -4756,7 +4899,7 @@ def ver_habitat(habitat):
         tem_comedouro = getattr(fazenda, 'galinheiro_tem_comedouro', False)
         qtd_racao = float(getattr(fazenda, 'galinheiro_qtd_racao', 0.0) or 0.0)
         capacidade = getattr(fazenda, 'cap_galinheiro', 100)
-
+    
     lista = [{
         'id': a.id, 
         'raca': a.raca.capitalize(), 
@@ -4764,7 +4907,10 @@ def ver_habitat(habitat):
         'sexo': getattr(a, 'sexo', 'M'),
         'peso': float(getattr(a, 'peso', 0.0)),
         'saude': float(getattr(a, 'saude', 100.0)),
-        'fome': float(getattr(a, 'fome', 0.0))
+        'fome': float(getattr(a, 'fome', 0.0)),
+        # 🔥 A CORREÇÃO: Enviando as variáveis de reprodução para o Javascript ler!
+        'prenha': getattr(a, 'prenha', False),
+        'dias_prenhez': int(getattr(a, 'dias_gestacao', 0))
     } for a in animais]
     
     return jsonify({
@@ -4882,20 +5028,42 @@ def reabastecer_comedouro_habitat():
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': f'{quantidade} unidades de {nome_insumo} despejadas no comedouro!'})
 
+@habitats_bp.route('/api/habitat/expandir', methods=['POST'])
+def expandir_habitat():
+    if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
+    
+    dados = request.get_json()
+    fazenda_id = dados.get('fazenda_id')
+    habitat = dados.get('habitat')
+    
+    jogador = Jogador.query.filter_by(username=session['usuario']).first()
+    fazenda = Propriedade.query.get(fazenda_id)
+    
+    if not fazenda or fazenda.dono_id != jogador.id: 
+        return jsonify({'sucesso': False, 'erro': 'Esta fazenda não é sua.'})
+    
+    custo = 25000 if habitat == 'chiqueiro' else 8000
+    incremento = 50 if habitat == 'chiqueiro' else 100
+    
+    if jogador.saldo < custo: 
+        return jsonify({'sucesso': False, 'erro': 'Saldo insuficiente no caixa da fazenda!'})
+    
+    jogador.saldo -= custo
+    
+    # Adiciona a capacidade dinamicamente na Propriedade
+    if habitat == 'chiqueiro':
+        fazenda.cap_chiqueiro = getattr(fazenda, 'cap_chiqueiro', 50) + incremento
+    elif habitat == 'galinheiro':
+        fazenda.cap_galinheiro = getattr(fazenda, 'cap_galinheiro', 100) + incremento
+        
+    registrar_transacao(jogador.id, 'saida', custo, f'Engenharia: Expansão do {habitat.capitalize()} (+{incremento} vagas)')    
+    db.session.commit()
+    return jsonify({'sucesso': True, 'msg': f'Capacidade aumentada com sucesso em +{incremento} vagas!'})
+
 
 ============================================================
 ARQUIVO: ./logica/infraestrutura.py
 ============================================================
-
-from flask import Blueprint, jsonify, request, session
-from database import db, Jogador, Propriedade
-from logica.economia import registrar_transacao
-
-infra_bp = Blueprint('infra', __name__)
-
-# Mova para cá as funções:
-# @infra_bp.route('/api/fazenda/construir', ...)
-# @infra_bp.route('/api/fazenda/expandir_curral', ...)
 
 from flask import Blueprint, jsonify, request, session
 from database import db, Jogador, Propriedade
@@ -4910,8 +5078,8 @@ def construir_estrutura():
     dados = request.get_json()
     
     tipo = dados.get('tipo') 
+    fazenda_id = dados.get('fazenda_id')
     
-    # 🔥 BLINDAGEM ANTI-HACKER: O servidor agora define o preço, ignorando o celular!
     TABELA_CUSTOS = {
         'represa': 12000.0,
         'chiqueiro': 8000.0,
@@ -4923,7 +5091,10 @@ def construir_estrutura():
         
     custo = TABELA_CUSTOS[tipo]
     
-    fazenda = Propriedade.query.filter_by(dono_id=usuario.id).first()
+    # Busca a fazenda correta
+    fazenda = Propriedade.query.filter_by(id=fazenda_id, dono_id=usuario.id).first()
+    if not fazenda:
+        fazenda = Propriedade.query.filter_by(dono_id=usuario.id).first() # Fallback
     
     if usuario.saldo < custo:
         return jsonify({'sucesso': False, 'erro': 'Saldo insuficiente para a obra.'})
@@ -4948,20 +5119,33 @@ def construir_estrutura():
 @infra_bp.route('/api/fazenda/expandir_curral', methods=['POST'])
 def expandir_curral():
     if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
+    
     jogador = Jogador.query.filter_by(username=session.get('usuario')).first()
-    fazenda = Propriedade.query.filter_by(dono_id=jogador.id).first()
+    dados = request.get_json()
+    fazenda_id = dados.get('fazenda_id')
     
-    if jogador.saldo < 6000: return jsonify({'sucesso': False, 'erro': 'Saldo insuficiente.'})
+    # 🔥 CORREÇÃO 1: Pega a fazenda exata onde o jogador está
+    fazenda = Propriedade.query.filter_by(id=fazenda_id, dono_id=jogador.id).first()
+    if not fazenda:
+        return jsonify({'sucesso': False, 'erro': 'Fazenda não encontrada.'})
     
-    jogador.saldo -= 6000
+    custo_expansao = 6000.0
+    
+    if jogador.saldo < custo_expansao: 
+        return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente. Custa R$ {custo_expansao:,.2f}.'})
+    
+    jogador.saldo -= custo_expansao
     fazenda.cap_curral = getattr(fazenda, 'cap_curral', 10) + 5
+    
+    # 🔥 CORREÇÃO 2: Registra a saída no extrato para não parecer "de graça"
+    registrar_transacao(jogador.id, 'saida', custo_expansao, 'Engenharia: Expansão do Tronco/Curral (+5 vagas)')
     
     if getattr(jogador, 'xp', None) is None:
         jogador.xp = 0
     jogador.xp += 10
     
     db.session.commit()
-    return jsonify({'sucesso': True, 'msg': 'Curral expandido!'})
+    return jsonify({'sucesso': True, 'msg': 'Obras concluídas! Curral expandido em +5 vagas.'})
 
 
 ============================================================
@@ -5439,11 +5623,21 @@ def deletar_conta():
     if not alvo: return jsonify({'sucesso': False, 'erro': 'Jogador não encontrado.'})
     if getattr(alvo, 'is_admin', False): return jsonify({'sucesso': False, 'erro': 'Você não pode deletar a conta do CEO!'})
     
+    # 1. Devolve as propriedades ao Estado
     propriedades = Propriedade.query.filter_by(dono_id=alvo.id).all()
     for p in propriedades: p.dono_id = None
         
+    # 2. Deleta dependências que travam o Banco de Dados
     Transacao.query.filter_by(jogador_id=alvo.id).delete()
     MensagemChat.query.filter_by(jogador_id=alvo.id).delete()
+    
+    try:
+        # 🔥 CORREÇÃO: Limpando a caixa de correio e contratos antes de banir
+        from database import Notificacao, Emprestimo, Contrato
+        Notificacao.query.filter_by(jogador_id=alvo.id).delete()
+        Emprestimo.query.filter_by(jogador_id=alvo.id).delete()
+        Contrato.query.filter_by(jogador_id=alvo.id).delete()
+    except Exception: pass
     
     try:
         from database import AnuncioImovel, Anuncio
@@ -5535,6 +5729,25 @@ def confiscar_terras():
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': f'Todas as terras de {alvo.username} foram confiscadas pelo Estado!'})
 
+@admin_bp.route('/api/admin/avancar_tempo_jogador', methods=['POST'])
+def avancar_tempo_jogador():
+    if not verificar_admin(): return jsonify({'sucesso': False, 'erro': 'Acesso negado.'})
+    
+    dados = request.get_json()
+    jogador_id = dados.get('jogador_id')
+    horas = int(dados.get('horas', 0))
+    
+    alvo = Jogador.query.get(jogador_id)
+    if not alvo: return jsonify({'sucesso': False, 'erro': 'Jogador não encontrado.'})
+    if horas <= 0: return jsonify({'sucesso': False, 'erro': 'Quantidade de horas inválida.'})
+    
+    # Chama o motor do tempo para agir apenas na fazenda deste jogador
+    from logica.tempo import GerenciadorTempo
+    GerenciadorTempo.avancar_tempo(alvo, horas)
+    
+    db.session.commit()
+    return jsonify({'sucesso': True, 'msg': f'O tempo de {alvo.username} avançou em {horas} horas!'})
+
 
 ============================================================
 ARQUIVO: ./static/js/login.js
@@ -5545,6 +5758,28 @@ document.addEventListener('DOMContentLoaded', function() {
     const tabRegistro = document.getElementById('tab-registro');
     const formLogin = document.getElementById('form-login');
     const formRegistro = document.getElementById('form-registro');
+
+    // 🔥 NOVIDADE: Lembrar Usuário na memória do celular
+    const inputUsuario = document.querySelector('#form-login input[name="usuario"]');
+    const checkLembrar = document.getElementById('lembrar-conta');
+
+    if (inputUsuario && checkLembrar) {
+        // Carrega o usuário salvo ao abrir a tela
+        const usuarioSalvo = localStorage.getItem('agro_usuario_salvo');
+        if (usuarioSalvo) {
+            inputUsuario.value = usuarioSalvo;
+            checkLembrar.checked = true;
+        }
+
+        // Salva o usuário ao enviar o formulário
+        formLogin.addEventListener('submit', function() {
+            if (checkLembrar.checked) {
+                localStorage.setItem('agro_usuario_salvo', inputUsuario.value);
+            } else {
+                localStorage.removeItem('agro_usuario_salvo');
+            }
+        });
+    }
 
     tabLogin.addEventListener('click', function() {
         tabLogin.classList.add('active');
@@ -7377,6 +7612,10 @@ window.abrirGerenciamentoCultivo = async function(loteId, status, tipoCultivo, t
                     </button>
 
                     ${botaoIrrigacao}
+
+                    <button class="swal2-styled" style="background: #c62828; color: #fff; margin: 0; margin-top: 5px; grid-column: span 2; font-weight: bold;" onclick="destruirLavoura(${loteId})">
+                        <i class="fas fa-tractor"></i> Passar Trator (Destruir - R$ 300)
+                    </button>
                 </div>
             `,
             background: '#2a2a2a', color: '#fff',
@@ -7463,6 +7702,31 @@ window.carregarStatusDinamico = async function() {
     }
 };
 setTimeout(carregarStatusDinamico, 300);
+
+window.destruirLavoura = function(loteId) {
+    Swal.fire({
+        title: 'Passar o Trator?',
+        text: "Isso vai destruir toda a plantação atual e devolver a terra limpa. Custa R$ 300 de aluguel da máquina.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonText: 'Cancelar',
+        confirmButtonText: 'Sim, destruir!',
+        background: '#2a2a2a', color: '#fff'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            Swal.fire({ title: 'Limpando terra...', didOpen: () => Swal.showLoading() });
+            fetch('/api/fazenda/reverter_cultivo', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ lote_id: loteId })
+            })
+            .then(r => r.json()).then(d => {
+                if(d.sucesso) Swal.fire('Sucesso!', d.msg, 'success').then(() => location.reload());
+                else Swal.fire('Atenção', d.erro, 'warning');
+            });
+        }
+    });
+};
 
 
 ============================================================
@@ -8253,7 +8517,7 @@ ARQUIVO: ./static/js/habitats.js
 // ==========================================
 
 window.construir = function(tipo, custo) {
-    const fazendaId = window.location.pathname.split('/').pop(); // 🔥 GPS Adicionado
+    const fazendaId = window.location.pathname.split('/').pop(); 
     Swal.fire({
         title: `Construir ${tipo.toUpperCase()}`,
         text: `Esta obra vai custar R$ ${custo.toLocaleString('pt-BR')}. Confirma?`,
@@ -8262,17 +8526,12 @@ window.construir = function(tipo, custo) {
     }).then((result) => {
         if (result.isConfirmed) {
             Swal.fire({ title: 'Construindo...', didOpen: () => Swal.showLoading() });
-            
             fetch('/api/fazenda/construir', {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ tipo: tipo, custo: custo, fazenda_id: fazendaId }) // 🔥 Blindagem
-            })
-            .then(r => r.json()).then(d => {
-                if(d.sucesso) {
-                    Swal.fire('Pronto!', d.msg, 'success').then(() => location.reload());
-                } else {
-                    Swal.fire('Erro', d.erro, 'error');
-                }
+                body: JSON.stringify({ tipo: tipo, custo: custo, fazenda_id: fazendaId }) 
+            }).then(r => r.json()).then(d => {
+                if(d.sucesso) Swal.fire('Pronto!', d.msg, 'success').then(() => location.reload());
+                else Swal.fire('Erro', d.erro, 'error');
             });
         }
     });
@@ -8284,26 +8543,25 @@ window.abrirModalHabitat = function(nomeHabitat) {
         modal.style.display = 'flex';
         carregarAnimaisHabitat(nomeHabitat);
         carregarPainelComedouroHabitat(nomeHabitat);
-    } else {
-        console.error(`Modal modal-${nomeHabitat} não encontrado!`);
     }
 };
 
 window.carregarAnimaisHabitat = function(habitat) {
     const divLista = document.getElementById(`lista-${habitat}`);
     if (!divLista) return;
-
     const fazendaId = window.location.pathname.split('/').pop(); 
-
     divLista.innerHTML = `<div style="text-align:center; padding: 20px; color:#888;"><i class="fas fa-spinner fa-spin"></i> Buscando animais...</div>`;
     
     fetch(`/api/pecuaria/habitat/${habitat}?fazenda_id=${fazendaId}`) 
     .then(r => r.json())
     .then(d => {
         let corLotacao = d.qtd_atual >= d.capacidade ? '#f44336' : '#4caf50';
+        let custoExpansao = habitat === 'chiqueiro' ? 25000 : 8000;
+        
         let htmlCabecalho = `
-            <div style="text-align:center; padding: 10px; color:#aaa; font-size:13px; margin-bottom:10px; background:#222; border-radius:6px; border:1px solid #444;">
-                Capacidade do ${habitat.charAt(0).toUpperCase() + habitat.slice(1)}: <b style="color:${corLotacao}; font-size: 15px;">${d.qtd_atual} / ${d.capacidade}</b>
+            <div style="padding: 10px; color:#aaa; font-size:13px; margin-bottom:10px; background:#222; border-radius:6px; border:1px solid #444; display: flex; justify-content: space-between; align-items: center;">
+                <div>Capacidade: <b style="color:${corLotacao}; font-size: 15px;">${d.qtd_atual} / ${d.capacidade}</b></div>
+                <button onclick="expandirHabitat('${habitat}', ${custoExpansao})" style="background: #1565c0; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold;"><i class="fas fa-plus"></i> Expandir (R$ ${custoExpansao})</button>
             </div>
         `;
 
@@ -8313,15 +8571,30 @@ window.carregarAnimaisHabitat = function(habitat) {
         }
         
         let html = htmlCabecalho;
-        d.animais.forEach(a => {
+        
+        // 🔥 O SEGREDO DA ORGANIZAÇÃO: Separa as listas antes de desenhar na tela!
+        let animaisPrenhos = d.animais.filter(a => a.prenha);
+        let animaisLivres = d.animais.filter(a => !a.prenha);
+        
+        // Função interna inteligente para não repetir código de desenho
+        const desenharCard = (a) => {
             const corSaude = a.saude > 70 ? '#4caf50' : (a.saude > 30 ? '#ff9800' : '#f44336');
             const corFome = a.fome < 30 ? '#4caf50' : (a.fome < 70 ? '#ff9800' : '#f44336');
             
-            html += `
+            let tagReproducao = '';
+            if (a.prenha) {
+                let estiloTag = "background:#e91e63; color:white; font-size:9px; padding:2px 5px; border-radius:4px; font-weight:bold; white-space:nowrap; display:inline-block;";
+                if (habitat === 'galinheiro') tagReproducao = `<span style="${estiloTag}"><i class="fas fa-egg"></i> CHOCANDO (${a.dias_prenhez || 0}d)</span>`;
+                else if (habitat === 'chiqueiro') tagReproducao = `<span style="${estiloTag}"><i class="fas fa-heart"></i> PRENHA (${a.dias_prenhez || 0}d)</span>`;
+            }
+            
+            return `
                 <div style="background:#2a2a2a; border:1px solid #444; border-radius:8px; padding:12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
                     <div>
-                        <div style="font-weight:bold; color:#fff; font-size:14px; text-transform: capitalize;">${a.raca} (${a.fase})</div>
-                        <div style="font-size:11px; color:#aaa;">ID: #${a.id} | Sexo: <b>${a.sexo}</b> | Peso: ${a.peso.toFixed(1)} Kg</div>
+                        <div style="font-weight:bold; color:#fff; font-size:14px; text-transform: capitalize; display:flex; align-items:center; flex-wrap:wrap; gap:6px;">
+                            <span>${a.raca} (${a.fase})</span> ${tagReproducao}
+                        </div>
+                        <div style="font-size:11px; color:#aaa; margin-top:2px;">ID: #${a.id} | Sexo: <b>${a.sexo}</b> | Peso: ${a.peso.toFixed(1)} Kg</div>
                     </div>
                     <div style="text-align: right; font-size: 11px; color: #ccc;">
                         <div><i class="fas fa-heart" style="color:${corSaude};"></i> Saúde: ${a.saude.toFixed(1)}%</div>
@@ -8329,15 +8602,56 @@ window.carregarAnimaisHabitat = function(habitat) {
                     </div>
                 </div>
             `;
-        });
+        };
+
+        // 1. Desenha o Bloco da Maternidade (Se tiver alguém prenha)
+        if (animaisPrenhos.length > 0) {
+            let tituloMaternidade = habitat === 'galinheiro' ? '🥚 Ninhos (Chocando)' : '💕 Maternidade (Prenhas)';
+            html += `<div style="background: rgba(233, 30, 99, 0.1); border-left: 4px solid #e91e63; color: #e91e63; padding: 6px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">
+                        ${tituloMaternidade} (${animaisPrenhos.length})
+                     </div>`;
+            animaisPrenhos.forEach(a => { html += desenharCard(a); });
+        }
+
+        // 2. Desenha o Bloco Normal
+        if (animaisLivres.length > 0) {
+            let tituloGeral = habitat === 'galinheiro' ? '🐔 Aves Normais' : '🐖 Matrizes Livres e Engorda';
+            let margemTopo = animaisPrenhos.length > 0 ? '15px' : '0';
+            html += `<div style="background: #222; border-left: 4px solid #555; color: #aaa; padding: 6px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-top: ${margemTopo}; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">
+                        ${tituloGeral} (${animaisLivres.length})
+                     </div>`;
+            animaisLivres.forEach(a => { html += desenharCard(a); });
+        }
+
         divLista.innerHTML = html;
     });
 };
 
+window.expandirHabitat = function(habitat, custo) {
+    const fazendaId = window.location.pathname.split('/').pop();
+    const aumento = habitat === 'chiqueiro' ? 50 : 100;
+    Swal.fire({
+        title: `Ampliar ${habitat.toUpperCase()}`,
+        text: `Aumentar a capacidade em +${aumento} vagas vai custar R$ ${custo.toLocaleString('pt-BR')}. Confirma?`,
+        icon: 'question', background: '#2a2a2a', color: '#fff',
+        showCancelButton: true, confirmButtonColor: '#1565c0', confirmButtonText: 'Expandir'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            Swal.fire({ title: 'Ampliando obras...', didOpen: () => Swal.showLoading() });
+            fetch('/api/habitat/expandir', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ habitat: habitat, fazenda_id: fazendaId })
+            }).then(r => r.json()).then(d => {
+                if (d.sucesso) Swal.fire('Pronto!', d.msg, 'success').then(() => carregarAnimaisHabitat(habitat));
+                else Swal.fire('Atenção', d.erro, 'warning');
+            });
+        }
+    });
+};
+
 window.carregarPainelComedouroHabitat = function(habitat) {
-    const fazendaId = window.location.pathname.split('/').pop(); // 🔥 GPS Adicionado
-    
-    fetch(`/api/pecuaria/habitat/${habitat}?fazenda_id=${fazendaId}`) // 🔥 Blindagem
+    const fazendaId = window.location.pathname.split('/').pop(); 
+    fetch(`/api/pecuaria/habitat/${habitat}?fazenda_id=${fazendaId}`)
     .then(r => r.json())
     .then(d => {
         const painel = document.getElementById(`painel-comedouro-${habitat}`);
@@ -8364,25 +8678,20 @@ window.carregarPainelComedouroHabitat = function(habitat) {
 };
 
 window.construirComedouroHabitat = function(habitat) {
-    const fazendaId = window.location.pathname.split('/').pop(); // 🔥 GPS Adicionado
+    const fazendaId = window.location.pathname.split('/').pop();
     Swal.fire({ title: 'Construindo depósito...', didOpen: () => Swal.showLoading() });
-    
     fetch('/api/habitat/construir_comedouro', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ habitat: habitat, fazenda_id: fazendaId }) // 🔥 Blindagem
-    })
-    .then(r => r.json()).then(d => {
-        if (d.sucesso) {
-            Swal.fire('Sucesso!', d.msg, 'success').then(() => carregarPainelComedouroHabitat(habitat));
-        } else {
-            Swal.fire('Atenção', d.erro, 'warning');
-        }
+        body: JSON.stringify({ habitat: habitat, fazenda_id: fazendaId }) 
+    }).then(r => r.json()).then(d => {
+        if (d.sucesso) Swal.fire('Sucesso!', d.msg, 'success').then(() => carregarPainelComedouroHabitat(habitat));
+        else Swal.fire('Atenção', d.erro, 'warning');
     });
 };
 
 window.reabastecerComedouroHabitat = async function(habitat) {
     let tipoInsumoEscolhido = 'soja'; 
-    const fazendaId = window.location.pathname.split('/').pop(); // 🔥 GPS Adicionado
+    const fazendaId = window.location.pathname.split('/').pop(); 
     
     if (habitat === 'chiqueiro') {
         const { value: insumo } = await Swal.fire({
@@ -8404,44 +8713,34 @@ window.reabastecerComedouroHabitat = async function(habitat) {
         input: 'number',
         inputLabel: 'Quantas unidades deseja colocar? (Máx: 200)',
         inputAttributes: { min: 1, max: 200, step: 1 },
-        showCancelButton: true, confirmButtonText: 'Despejar', cancelButtonText: 'Cancelar',
-        background: '#2a2a2a', color: '#fff'
+        showCancelButton: true, confirmButtonText: 'Despejar', cancelButtonText: 'Cancelar', background: '#2a2a2a', color: '#fff'
     });
 
     if (qtd) {
         Swal.fire({ title: 'Abastecendo...', didOpen: () => Swal.showLoading() });
-        
         fetch('/api/habitat/reabastecer', {
             method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ habitat: habitat, quantidade: parseInt(qtd), tipo_grao: tipoInsumoEscolhido, fazenda_id: fazendaId }) // 🔥 Blindagem
-        })
-        .then(r => r.json()).then(d => {
-            if (d.sucesso) {
-                Swal.fire('Sucesso!', d.msg, 'success').then(() => carregarPainelComedouroHabitat(habitat));
-            } else {
-                Swal.fire('Atenção', d.erro, 'warning');
-            }
-        }).catch(err => Swal.fire('Erro', 'Falha na comunicação com o servidor.', 'error'));
+            body: JSON.stringify({ habitat: habitat, quantidade: parseInt(qtd), tipo_grao: tipoInsumoEscolhido, fazenda_id: fazendaId })
+        }).then(r => r.json()).then(d => {
+            if (d.sucesso) Swal.fire('Sucesso!', d.msg, 'success').then(() => carregarPainelComedouroHabitat(habitat));
+            else Swal.fire('Atenção', d.erro, 'warning');
+        });
     }
 };
 
 window.alimentarHabitat = function(habitat) {
-    const fazendaId = window.location.pathname.split('/').pop(); // 🔥 GPS Adicionado
+    const fazendaId = window.location.pathname.split('/').pop(); 
     Swal.fire({ title: 'Jogando ração...', didOpen: () => Swal.showLoading() });
-    
     fetch('/api/pecuaria/alimentar_habitat', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ habitat: habitat, fazenda_id: fazendaId }) // 🔥 Blindagem
-    })
-    .then(r => r.json()).then(d => {
+        body: JSON.stringify({ habitat: habitat, fazenda_id: fazendaId }) 
+    }).then(r => r.json()).then(d => {
         if(d.sucesso) {
             Swal.fire('Alimentados!', d.msg, 'success');
             carregarAnimaisHabitat(habitat); 
             carregarPainelComedouroHabitat(habitat);
-        } else {
-            Swal.fire('Atenção', d.erro, 'warning');
-        }
-    }).catch(err => Swal.fire('Erro', 'Falha na comunicação com o servidor.', 'error'));
+        } else Swal.fire('Atenção', d.erro, 'warning');
+    });
 };
 
 window.abrirModalRepresaVenda = function() {
@@ -8452,9 +8751,7 @@ window.atualizarTotalVendaHabitat = function() {
     const checkboxes = document.querySelectorAll('.chk-habitat-item:checked');
     const ids = Array.from(checkboxes).map(chk => parseInt(chk.value));
     const txtTotal = document.getElementById('txt-total-venda-habitat');
-    
     if (!txtTotal) return;
-
     if (ids.length === 0) { txtTotal.innerText = "R$ 0,00"; return; }
     
     txtTotal.innerText = "Calculando...";
@@ -8463,11 +8760,10 @@ window.atualizarTotalVendaHabitat = function() {
     fetch('/api/animal/estimar_frigorifico', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ animal_ids: ids, fazenda_id: fazendaId }) 
-    })
-    .then(r => r.json()).then(d => {
+    }).then(r => r.json()).then(d => {
         if(d.sucesso) txtTotal.innerHTML = '<span style="color:#4caf50;">' + d.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) + '</span>';
         else txtTotal.innerText = "R$ 0,00";
-    }).catch(() => { txtTotal.innerText = "Erro ao calcular"; });
+    });
 };
 
 window.toggleSelecionarTodosHabitat = function(masterCheckbox, habitat) {
@@ -8476,8 +8772,8 @@ window.toggleSelecionarTodosHabitat = function(masterCheckbox, habitat) {
 };
 
 window.abrirModalHabitatVenda = async function(habitat, nomeTipo) {
-    const fazendaId = window.location.pathname.split('/').pop(); // 🔥 GPS Adicionado
-    const resposta = await fetch(`/api/pecuaria/habitat/${habitat}?fazenda_id=${fazendaId}`); // 🔥 Blindagem
+    const fazendaId = window.location.pathname.split('/').pop(); 
+    const resposta = await fetch(`/api/pecuaria/habitat/${habitat}?fazenda_id=${fazendaId}`); 
     const dados = await resposta.json();
 
     if (!dados.animais || dados.animais.length === 0) {
@@ -8496,12 +8792,19 @@ window.abrirModalHabitatVenda = async function(habitat, nomeTipo) {
     `;
 
     dados.animais.forEach(a => {
+        // 🔥 CORREÇÃO TELA DE VENDA: Usa a.prenha direto
+        let tagReproducao = '';
+        if (a.prenha) {
+            if (habitat === 'galinheiro') tagReproducao = `<span style="background:#e91e63; color:white; font-size:10px; padding:2px 6px; border-radius:4px; margin-left:8px; font-weight:bold;"><i class="fas fa-egg"></i> CHOCANDO</span>`;
+            else if (habitat === 'chiqueiro') tagReproducao = `<span style="background:#e91e63; color:white; font-size:10px; padding:2px 6px; border-radius:4px; margin-left:8px; font-weight:bold;"><i class="fas fa-heart"></i> PRENHA</span>`;
+        }
+
         htmlCheckboxes += `
             <label style="display: flex; align-items: center; justify-content: space-between; background: #222; padding: 10px; margin-bottom: 6px; border-radius: 6px; cursor: pointer; border: 1px solid #444;">
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <input type="checkbox" class="chk-habitat-item chk-${habitat}" value="${a.id}" onchange="atualizarTotalVendaHabitat()" style="width: 18px; height: 18px; cursor: pointer; flex-shrink: 0; margin-right: 5px;">
                     <div>
-                        <div style="font-weight: bold; font-size: 14px; color: #fff; text-transform: capitalize;">${a.raca} (${a.fase})</div>
+                        <div style="font-weight: bold; font-size: 14px; color: #fff; text-transform: capitalize;">${a.raca} (${a.fase}) ${tagReproducao}</div>
                         <span style="font-size: 11px; color: #888;">ID: #${a.id} | Sexo: <b>${a.sexo}</b> | Peso: ${a.peso.toFixed(1)} Kg | Fome: ${a.fome.toFixed(1)}%</span>
                     </div>
                 </div>
@@ -8518,9 +8821,7 @@ window.abrirModalHabitatVenda = async function(habitat, nomeTipo) {
     `;
 
     Swal.fire({
-        title: `Comercializar ${nomeTipo}`,
-        html: htmlCheckboxes,
-        background: '#2a2a2a', color: '#fff',
+        title: `Comercializar ${nomeTipo}`, html: htmlCheckboxes, background: '#2a2a2a', color: '#fff',
         showCancelButton: true, confirmButtonText: 'Vender Lote', cancelButtonText: 'Cancelar', confirmButtonColor: '#b91c1c',
         preConfirm: () => {
             const checkboxes = document.querySelectorAll('.chk-habitat-item:checked');
@@ -8530,20 +8831,13 @@ window.abrirModalHabitatVenda = async function(habitat, nomeTipo) {
         }
     }).then((result) => {
         if (result.isConfirmed) {
-            const fazendaId = window.location.pathname.split('/').pop();
-            
             Swal.fire({ title: 'Processando venda...', didOpen: () => { Swal.showLoading(); } });
-            
             fetch('/api/animal/vender_lote_curral', {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ animal_ids: result.value, fazenda_id: fazendaId }) // Já estava blindado aqui!
-            })
-            .then(r => r.json()).then(d => {
-                if(d.sucesso) {
-                    Swal.fire('Vendido! 💰', d.msg, 'success').then(() => location.reload());
-                } else {
-                    Swal.fire('Erro', d.erro, 'error');
-                }
+                body: JSON.stringify({ animal_ids: result.value, fazenda_id: window.location.pathname.split('/').pop() })
+            }).then(r => r.json()).then(d => {
+                if(d.sucesso) Swal.fire('Vendido! 💰', d.msg, 'success').then(() => location.reload());
+                else Swal.fire('Erro', d.erro, 'error');
             });
         }
     });
@@ -8554,18 +8848,21 @@ window.abrirModalHabitatVenda = async function(habitat, nomeTipo) {
 ARQUIVO: ./static/js/camara_fria.js
 ============================================================
 
-window.venderDerivados = function(produto, nomeProduto, qtdMax) {
+window.venderDerivados = function(produto, nomeProduto, qtdMaxRaw) {
+    // 🔥 CORREÇÃO: Limpa o número quebrado. Leite com 1 casa decimal, Ovos como inteiro.
+    const qtdMaxFormatada = produto === 'leite' ? parseFloat(qtdMaxRaw).toFixed(1) : Math.floor(qtdMaxRaw);
+
     Swal.fire({
         title: `Vender ${nomeProduto}`,
-        text: `Você possui ${qtdMax} em estoque.`,
+        text: `Você possui ${qtdMaxFormatada} em estoque.`,
         input: 'number',
-                inputAttributes: { 
+        inputAttributes: { 
             min: produto === 'leite' ? 0.1 : 1, 
-            max: qtdMax, 
-            step: produto === 'leite' ? 'any' : '1',
+            max: qtdMaxFormatada, 
+            step: produto === 'leite' ? '0.1' : '1',
             type: 'number'
         },
-        inputValue: qtdMax, 
+        inputValue: qtdMaxFormatada, 
         showCancelButton: true,
         confirmButtonText: 'Confirmar Venda',
         cancelButtonText: 'Cancelar',
@@ -8573,7 +8870,7 @@ window.venderDerivados = function(produto, nomeProduto, qtdMax) {
         background: '#2a2a2a', 
         color: '#fff',
         preConfirm: (qtd) => {
-            if (!qtd || qtd <= 0 || qtd > qtdMax) {
+            if (!qtd || qtd <= 0 || qtd > parseFloat(qtdMaxFormatada)) {
                 Swal.showValidationMessage('Quantidade inválida!');
             }
             return qtd;
@@ -8685,12 +8982,14 @@ window.abrirModalRH = async function() {
 
         const equipeAtual = data.equipe;
         const catalogoRH = [
-            { id: 'peoes', nome: 'Peão', custo: 500, salario: 4, icone: 'fa-shield-alt', benef: 'Protege Animais' },
-            { id: 'tratoristas', nome: 'Tratorista', custo: 1200, salario: 7, icone: 'fa-tractor', benef: '+15% Colheita' },
-            { id: 'capatazes', nome: 'Capataz', custo: 8000, salario: 50, icone: 'fa-dollar-sign', benef: '+2% Venda' },
-            { id: 'veterinarios', nome: 'Veterinário', custo: 3000, salario: 18, icone: 'fa-notes-medical', benef: 'Reduz Doenças' },
-            { id: 'agronomos', nome: 'Agrônomo', custo: 3500, salario: 22, icone: 'fa-seedling', benef: 'Safra Rápida' }
+            { id: 'peoes', nome: 'Peão', custo: 500, salario: 8, icone: 'fa-shield-alt', benef: 'Cuida de TODO o rebanho' },
+            { id: 'tratoristas', nome: 'Tratorista', custo: 1200, salario: 12, icone: 'fa-tractor', benef: '+15% Colheita' },
+            { id: 'capatazes', nome: 'Capataz', custo: 8000, salario: 20, icone: 'fa-dollar-sign', benef: '+5% Venda' },
+            { id: 'veterinarios', nome: 'Veterinário', custo: 3000, salario: 25, icone: 'fa-notes-medical', benef: 'Reduz Doenças' },
+            { id: 'agronomos', nome: 'Agrônomo', custo: 3500, salario: 30, icone: 'fa-seedling', benef: 'Safra Rápida' }
         ];
+
+
 
         let equipeHtml = '';
         let totalFolha = 0;
@@ -9021,6 +9320,127 @@ window.repararMaquina = function(maquinaId) {
 
 
 ============================================================
+ARQUIVO: ./static/js/admin_ceo.js
+============================================================
+
+window.godAction = function(url, data) {
+    Swal.fire({ title: 'Aguarde...', didOpen: () => Swal.showLoading() });
+    fetch(url, {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
+    }).then(r => r.json()).then(d => {
+        if(d.sucesso) Swal.fire('Sucesso!', d.msg, 'success').then(() => location.reload());
+        else Swal.fire('Atenção', d.erro, 'warning');
+    }).catch(e => {
+        // 🔥 CORREÇÃO: Impede a tela de congelar caso o servidor trave
+        console.error(e);
+        Swal.fire('Erro Fatal', 'O servidor encontrou um problema interno e abortou a ação.', 'error');
+    });
+};
+
+
+window.injetarSaldo = function(id, nome) {
+    Swal.fire({
+        title: `Saldo de ${nome}`, text: "Digite o valor (Use o sinal de - para remover)", input: 'number', background: '#2a2a2a', color: '#fff', showCancelButton: true, confirmButtonText: 'Aplicar'
+    }).then(r => { if(r.isConfirmed && r.value) godAction('/api/admin/injetar_saldo', {jogador_id: id, valor: parseFloat(r.value)}); });
+};
+
+window.injetarXP = function(id, nome) {
+    Swal.fire({
+        title: `XP de ${nome}`, text: "Digite o XP (Use o sinal de - para remover)", input: 'number', background: '#2a2a2a', color: '#fff', showCancelButton: true, confirmButtonText: 'Aplicar'
+    }).then(r => { if(r.isConfirmed && r.value) godAction('/api/admin/injetar_xp', {jogador_id: id, valor: parseInt(r.value)}); });
+};
+
+window.milagreVida = function(id, nome) {
+    Swal.fire({ title: 'Milagre da Vida', text: `Zerar a fome e curar TODOS os animais de ${nome}?`, icon: 'question', background: '#2a2a2a', color: '#fff', showCancelButton: true, confirmButtonColor: '#e91e63', confirmButtonText: 'Fazer Milagre'
+    }).then(r => { if(r.isConfirmed) godAction('/api/admin/milagre_vida', {jogador_id: id}); });
+};
+
+window.bencaoColheita = function(id, nome) {
+    Swal.fire({ title: 'Bênção da Colheita', text: `Forçar crescimento de todas as lavouras de ${nome}?`, icon: 'question', background: '#2a2a2a', color: '#fff', showCancelButton: true, confirmButtonColor: '#8bc34a', confirmButtonText: 'Crescer Tudo'
+    }).then(r => { if(r.isConfirmed) godAction('/api/admin/bencao_colheita', {jogador_id: id}); });
+};
+
+window.confiscarTerras = function(id, nome) {
+    Swal.fire({ title: 'Confiscar Terras', text: `Tomar todas as fazendas de ${nome} e devolver ao Estado?`, icon: 'warning', background: '#2a2a2a', color: '#fff', showCancelButton: true, confirmButtonColor: '#ff9800', confirmButtonText: 'Confiscar'
+    }).then(r => { if(r.isConfirmed) godAction('/api/admin/confiscar_terras', {jogador_id: id}); });
+};
+
+window.deletarConta = function(id, nome) {
+    Swal.fire({ title: 'Banir Jogador', text: `Tem certeza que deseja deletar a conta de ${nome}?`, icon: 'error', background: '#2a2a2a', color: '#fff', showCancelButton: true, confirmButtonColor: '#d32f2f', confirmButtonText: 'DELETAR'
+    }).then(r => { if(r.isConfirmed) godAction('/api/admin/deletar_conta', {jogador_id: id}); });
+};
+
+window.injetarInsumo = async function(id, nome) {
+    const { value: formValues } = await Swal.fire({
+        title: `Spawnar Insumos para ${nome}`,
+        html: `
+            <select id="swal-item" class="swal2-input" style="background:#111; color:#fff; border:1px solid #444; width:85%;">
+                <option value="soja">Soja</option><option value="milho">Milho</option>
+                <option value="racao">Ração</option><option value="sal">Sal Mineral</option>
+                <option value="adubo">Adubo</option><option value="veneno">Veneno</option>
+                <option value="vacina_aftosa">Vacina Aftosa</option><option value="combustivel">Combustível</option>
+            </select>
+            <input id="swal-qtd" type="number" class="swal2-input" placeholder="Quantidade" style="width:85%;">
+        `,
+        background: '#2a2a2a', color: '#fff', focusConfirm: false, showCancelButton: true, confirmButtonColor: '#9c27b0', confirmButtonText: 'Injetar',
+        preConfirm: () => { return { item: document.getElementById('swal-item').value, qtd: document.getElementById('swal-qtd').value } }
+    });
+
+    if (formValues && formValues.qtd) {
+        godAction('/api/admin/injetar_insumo', { jogador_id: id, item: formValues.item, quantidade: formValues.qtd });
+    }
+};
+
+window.avancarTempoJogador = function(jogadorId, nomeJogador) {
+    Swal.fire({
+        title: 'Avançar Tempo',
+        text: `Quantas horas você quer avançar na fazenda de ${nomeJogador}?`,
+        input: 'number',
+        inputAttributes: { min: 1, step: 1 },
+        showCancelButton: true,
+        confirmButtonText: '<i class="fas fa-forward"></i> Avançar',
+        cancelButtonText: 'Cancelar',
+        background: '#2a2a2a', color: '#fff',
+        confirmButtonColor: '#00acc1'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            let horas = parseInt(result.value);
+            if (!horas || horas <= 0) return Swal.showValidationMessage('Digite um valor válido.');
+
+            godAction('/api/admin/avancar_tempo_jogador', { jogador_id: jogadorId, horas: horas });
+        }
+    });
+};
+
+
+============================================================
+ARQUIVO: ./static/js/ranking.js
+============================================================
+
+class RankingManager {
+    constructor() {
+        this.btnVoltar = document.getElementById('btn-voltar-mapa');
+        this.inicializarEventos();
+    }
+
+    inicializarEventos() {
+        if (this.btnVoltar) {
+            this.btnVoltar.addEventListener('click', () => this.voltarParaMapa());
+        }
+    }
+
+    voltarParaMapa() {
+        window.location.href = '/mapa';
+    }
+}
+
+// Inicia a classe assim que a tela terminar de carregar
+document.addEventListener('DOMContentLoaded', () => {
+    const geradorRanking = new RankingManager();
+});
+
+
+============================================================
 ARQUIVO: ./templates/login.html
 ============================================================
 
@@ -9056,13 +9476,23 @@ ARQUIVO: ./templates/login.html
             <input type="hidden" name="acao" value="entrar">
             <input type="text" name="usuario" placeholder="Usuário" required>
             <input type="password" name="senha" placeholder="Senha" required>
+            
+            <!-- 🔥 CAIXA DE LEMBRAR CONTA INSERIDA AQUI -->
+            <div style="margin-bottom: 15px; text-align: left;">
+                <label style="color: #ccc; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" name="lembrar" id="lembrar-conta" style="width: 16px; height: 16px; cursor: pointer;">
+                    Lembrar minha conta neste celular
+                </label>
+            </div>
+
             <button type="submit">ACESSAR</button>
         </form>
 
         <form id="form-registro" action="/autenticar" method="POST" class="hidden">
             <input type="hidden" name="acao" value="criar">
             <input type="text" name="usuario" placeholder="Criar Usuário" required>
-            <input type="email" name="email" placeholder="E-mail">
+            <!-- 🔥 CORREÇÃO: E-mail agora é exigido pelo navegador e verificado no servidor -->
+            <input type="email" name="email" placeholder="Seu E-mail (Obrigatório)" required>
             <input type="password" name="senha" placeholder="Criar Senha" required>
             
             <label class="label-dificuldade">Dificuldade</label>
@@ -9073,7 +9503,7 @@ ARQUIVO: ./templates/login.html
             </select>
             <button type="submit">CADASTRAR</button>
         </form>
-                <div class="copyright">
+        <div class="copyright">
             &copy; 2026 DualCore Solutions. Todos os direitos reservados.
         </div>
     </div>
@@ -9113,73 +9543,91 @@ ARQUIVO: ./templates/mapa.html
 
     <div id="map"></div>
     
-    <!-- PAINEL DE NAVEGAÇÃO DA CIDADE (Oculto por padrão) -->
-    <div id="painel-cidade-topo" style="display: none; position: absolute; top: 80px; left: 50%; transform: translateX(-50%); z-index: 1000; flex-direction: column; align-items: center; gap: 8px;">
-        
-        <!-- Placa com o nome da cidade -->
-        <div id="nome-cidade-atual" style="background: rgba(15, 15, 15, 0.9); color: #ffeb3b; padding: 6px 20px; border-radius: 20px; border: 1px solid #ffeb3b; font-weight: 900; font-size: 16px; text-shadow: 0 2px 4px rgba(0,0,0,1); letter-spacing: 1px; text-transform: uppercase; box-shadow: 0 4px 10px rgba(0,0,0,0.6);">
+    <!-- PAINEL DE NAVEGAÇÃO DA CIDADE (Movido para cima: top: 65px) -->
+    <div id="painel-cidade-topo" style="display: none; position: absolute; top: 65px; left: 50%; transform: translateX(-50%); z-index: 1000; flex-direction: column; align-items: center; gap: 6px;">
+        <div id="nome-cidade-atual" style="background: rgba(15, 15, 15, 0.9); color: #ffeb3b; padding: 6px 18px; border-radius: 20px; border: 1px solid #ffeb3b; font-weight: 900; font-size: 14px; text-shadow: 0 2px 4px rgba(0,0,0,1); letter-spacing: 1px; text-transform: uppercase; box-shadow: 0 4px 10px rgba(0,0,0,0.6); white-space: nowrap;">
             <i class="fas fa-map-marker-alt"></i> NOME DA CIDADE
         </div>
-
-        <!-- Botão Voltar -->
-        <button onclick="voltarMapaGlobal()" style="background: #2e7d32; color: white; border: 2px solid #fff; padding: 8px 20px; border-radius: 20px; font-weight: bold; font-family: 'Exo 2', sans-serif; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5);">
+        <button onclick="voltarMapaGlobal()" style="background: #2e7d32; color: white; border: 2px solid #fff; padding: 6px 16px; border-radius: 20px; font-weight: bold; font-family: 'Exo 2', sans-serif; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5); font-size: 11px; white-space: nowrap;">
             <i class="fas fa-globe-americas"></i> Voltar ao Mapa Global
         </button>
-        
     </div>
     
     <div class="ui-layer">
         
-        <div class="topo-ui">
-            <div class="perfil-box">
-                                <a href="/perfil" class="perfil-btn">
-                    <div class="perfil-icone">{% if jogador.is_admin %}👑{% else %}👤{% endif %}</div>
-                    <div class="perfil-textos">
-                        <div class="nome-jogador">{{ jogador.username }}</div>
-                        <div class="titulo-jogador" style="color: #ffb300; font-weight: 600;">
-                            {% if jogador.is_admin %}👑 Dono do Jogo{% else %}Fazendeiro • Nível {{ jogador.nivel }}{% endif %}
+        <!-- TOPO UI: DIVIDIDO EM DUAS COLUNAS LATERAIS -->
+        <div class="topo-ui" style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%; pointer-events: none;">
+            
+            <!-- COLUNA ESQUERDA: PERFIL E CAIXA -->
+            <div style="display: flex; flex-direction: column; gap: 8px; max-width: 50%;">
+                
+                <a href="/perfil" style="pointer-events: auto; background: rgba(20, 20, 20, 0.9); border: 1px solid #444; border-radius: 30px; padding: 4px 10px 4px 4px; display: flex; align-items: center; gap: 8px; text-decoration: none; box-shadow: 0 4px 8px rgba(0,0,0,0.5);">
+                    <div style="width: 34px; height: 34px; border-radius: 50%; background: #333; display: flex; justify-content: center; align-items: center; border: 2px solid #555; flex-shrink: 0;">
+                        {% if jogador.is_admin %}👑{% else %}👤{% endif %}
+                    </div>
+                    <div style="display: flex; flex-direction: column; overflow: hidden;">
+                        <div style="display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: bold; color: white;">
+                            <span style="max-width: 75px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ jogador.username }}</span>
+                            <!-- Emblemas -->
+                            {% if posicao_nivel == 1 %}<i class="fas fa-crown" style="color: #FFD700; font-size: 11px;"></i>
+                            {% elif posicao_nivel == 2 %}<i class="fas fa-medal" style="color: #E0E0E0; font-size: 11px;"></i>
+                            {% elif posicao_nivel == 3 %}<i class="fas fa-award" style="color: #CD7F32; font-size: 11px;"></i>{% endif %}
+                            
+                            {% if posicao_saldo == 1 %}<i class="fas fa-trophy" style="color: #FFD700; font-size: 11px;"></i>
+                            {% elif posicao_saldo == 2 %}<i class="fas fa-sack-dollar" style="color: #E0E0E0; font-size: 11px;"></i>
+                            {% elif posicao_saldo == 3 %}<i class="fas fa-coins" style="color: #CD7F32; font-size: 11px;"></i>{% endif %}
+                        </div>
+                        <div style="font-size: 9px; color: #ffb300; font-weight: 600;">
+                            {% if jogador.is_admin %}Dono do Jogo{% else %}Nível {{ jogador.nivel }}{% endif %}
                         </div>
                     </div>
                 </a>
-                <div class="carteira-box">
-                    <i class="fas fa-wallet"></i> R$ {{ "{:,.2f}".format(jogador.saldo).replace(',','v').replace('.',',').replace('v','.') }}
+
+                <div style="pointer-events: auto; background: rgba(46, 125, 50, 0.95); border: 1px solid #66bb6a; border-radius: 20px; padding: 5px 12px; color: white; font-weight: bold; font-size: 11px; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 8px rgba(0,0,0,0.5); width: fit-content; max-width: 100%;">
+                    <i class="fas fa-wallet" style="color: #c8e6c9; flex-shrink: 0;"></i> 
+                    <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">R$ {{ "{:,.2f}".format(jogador.saldo).replace(',','v').replace('.',',').replace('v','.') }}</span>
                 </div>
             </div>
 
-            <a href="/mercado" class="leilao-btn">
-                <span>🔨</span> LEILÃO
-            </a>
+            <!-- COLUNA DIREITA: RELÓGIO, LEILÃO E IMÓVEIS -->
+            <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
+                
+                <div style="pointer-events: auto; background: rgba(20, 20, 20, 0.9); border: 1px solid #444; border-radius: 20px; padding: 4px 6px 4px 10px; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.5);">
+                    <div style="display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2;">
+                        <div style="font-size: 13px; font-weight: 900; color: #fff;">{{ "%02d"|format(jogador.hora|default(6)) }}:00</div>
+                        <div style="font-size: 8px; color: #f9a825; font-weight: bold;">
+                            <i class="fas fa-leaf" style="color: #4caf50;"></i> {{ "%02d"|format(jogador.dia|default(1)) }}/{{ "%02d"|format(jogador.mes|default(1)) }}
+                        </div>
+                    </div>
+                    <button onclick="document.getElementById('modal-tempo').style.display='flex'" style="background: #2e7d32; color: white; border: none; width: 28px; height: 28px; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.4);">
+                        <i class="fas fa-forward" style="font-size: 10px;"></i>
+                    </button>
+                </div>
+
+                <!-- Botões empilhados em formato de menu rápido (largura fixa) -->
+                <a href="/mercado" style="pointer-events: auto; background: linear-gradient(135deg, #f57c00, #e65100); border-radius: 20px; padding: 5px 0; color: white; text-decoration: none; font-size: 10px; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 8px rgba(0,0,0,0.5); border: 1px solid #ff9800; width: 85px;">
+                    <i class="fas fa-gavel"></i> Leilão
+                </a>
+                
+                <a href="/imobiliaria" style="pointer-events: auto; background: linear-gradient(135deg, #1565c0, #0d47a1); border-radius: 20px; padding: 5px 0; color: white; text-decoration: none; font-size: 10px; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 8px rgba(0,0,0,0.5); border: 1px solid #42a5f5; width: 85px;">
+                    <i class="fas fa-building"></i> Imóveis
+                </a>
+            </div>
             
-            <a href="/imobiliaria" class="leilao-btn" style="background: linear-gradient(135deg, #1565c0, #0d47a1); margin-left: 10px;">
-                <span>🏢</span> IMÓVEIS
-            </a>
-
-            <!-- Direita: Relógio e Tempo -->
-        <div style="background: rgba(30, 30, 30, 0.95); padding: 6px 12px; border-radius: 15px; text-align: center; color: white; border: 1px solid #555; pointer-events: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.3); min-width: 90px;">
-    
-        <div id="estacao-jogo" style="font-size: 9px; color: #aaa; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px;">
-        <i class="fas fa-leaf" style="color: #4caf50;"></i> ESTAÇÃO
-    </div> 
-    
-    <div id="relogio-real" style="font-size: 14px; font-weight: 900; color: #fff; margin-bottom: 2px;">
-        {{ "%02d"|format(jogador.hora|default(6)) }}:00
-    </div>
-    
-    <div id="data-jogo" style="font-weight: bold; font-size: 10px; display: flex; align-items: center; justify-content: center; gap: 5px; color: #f9a825;">
-         {{ "%02d"|format(jogador.dia|default(1)) }}/{{ "%02d"|format(jogador.mes|default(1)) }}/{{ jogador.ano|default(2026) }}
-    </div>
-
-    <button onclick="document.getElementById('modal-tempo').style.display='flex'" style="margin-top:5px; background: #2e7d32; color: white; border: none; padding: 2px 10px; border-radius: 5px; font-size: 10px; cursor: pointer;">
-        <i class="fas fa-forward"></i> Avançar Tempo
-    </button>
-</div>
         </div>
+
+        <!-- DOCK INFERIOR -->
         <div class="bottom-dock pointer-events-auto">
             <div class="dock-item" onclick="window.location.href='/perfil'"><i class="fas fa-user-cog"></i><span>Perfil</span></div>
             <div class="dock-item active"><i class="fas fa-globe-americas"></i><span>Mapa</span></div>
+            <a href="/ranking" class="menu-item" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-decoration: none; color: #ccc;">
+                <i class="fas fa-trophy" style="color: #FFD700; font-size: 18px; text-shadow: 1px 1px 0px #b86b00, 0px 4px 8px rgba(255, 152, 0, 0.5); margin-bottom: 3px;"></i>
+                <span style="font-size: 10px; font-weight: normal;">RANKING</span>
+            </a>
             <div class="dock-item" onclick="window.location.href='/financeiro'"><i class="fas fa-chart-line"></i><span>Caixa</span></div>
             <div class="dock-item" onclick="window.location.href='/sair'"><i class="fas fa-power-off" style="color:#e53935"></i><span>Sair</span></div>
         </div>
+        
     </div>
     
     <!-- BOTÃO FLUTUANTE DE AJUDA -->
@@ -9187,6 +9635,7 @@ ARQUIVO: ./templates/mapa.html
         <i class="fas fa-question"></i>
     </a>
 
+    <!-- MODAL DE ALERTAS -->
     <div id="sweet-modal">
         <div class="sweet-box">
             <i class="fas fa-times close-sweet" onclick="closeModal()"></i>
@@ -9217,196 +9666,75 @@ ARQUIVO: ./templates/perfil.html
     <title>Perfil - Agro Manager</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: 'Poppins', sans-serif;
-            background-color: #2e7d32;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-        }
-        .perfil-container {
-            background: #fff;
-            width: 90%;
-            max-width: 400px;
-            border-radius: 15px;
-            padding: 30px 20px;
-            box-sizing: border-box;
-            text-align: center;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
-            position: relative;
-        }
-        .btn-voltar {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            color: #999;
-            font-size: 20px;
-            text-decoration: none;
-        }
-        .avatar {
-            width: 80px;
-            height: 80px;
-            background: #e8f5e9;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 15px;
-            font-size: 40px;
-            color: #4caf50;
-            border: 4px solid #fff;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-        }
-        .nome {
-            font-size: 24px;
-            font-weight: 800;
-            color: #333;
-            margin: 0;
-        }
-        .cargo {
-            font-size: 14px;
-            color: #666;
-            margin-bottom: 20px;
-            font-weight: 600;
-        }
-        .barra-xp-container {
-            background: #e0e0e0;
-            border-radius: 20px;
-            height: 24px;
-            position: relative;
-            overflow: hidden;
-            margin-bottom: 30px;
-            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .barra-xp-fill {
-            background: #4caf50;
-            height: 100%;
-            transition: width 0.5s ease;
-        }
-        .barra-xp-texto {
-            position: absolute;
-            width: 100%;
-            left: 0;
-            top: 0;
-            line-height: 24px;
-            font-weight: bold;
-            color: #333;
-            font-size: 12px;
-        }
-        .input-group {
-            margin-bottom: 15px;
-        }
-        .input-group input {
-            width: 100%;
-            padding: 12px 15px;
-            border-radius: 8px;
-            border: 1px solid #ddd;
-            outline: none;
-            font-family: 'Poppins', sans-serif;
-            box-sizing: border-box;
-            font-size: 14px;
-        }
-        .btn-salvar {
-            background: #558b2f;
-            color: white;
-            border: none;
-            width: 100%;
-            padding: 15px;
-            border-radius: 8px;
-            font-weight: bold;
-            font-size: 16px;
-            cursor: pointer;
-            margin-top: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        .btn-admin {
-            display: block;
-            background: #333;
-            color: white;
-            padding: 12px;
-            border-radius: 8px;
-            text-decoration: none;
-            font-weight: bold;
-            margin-bottom: 10px;
-            font-size: 14px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-        }
-        .btn-receita {
-            background: #b71c1c;
-        }
-        .footer {
-            margin-top: 30px;
-            font-size: 10px;
-            color: #fff;
-            font-weight: bold;
-        }
-        #alerta-box { margin-bottom: 15px; }
-        .msg-sucesso { color: #2e7d32; font-weight: bold; font-size: 13px; }
-        .msg-erro { color: #d32f2f; font-weight: bold; font-size: 13px; }
-    </style>
+    
+    <!-- Puxando o seu arquivo CSS original -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/perfil.css') }}">
 </head>
 <body>
-    <div style="display:flex; flex-direction:column; align-items:center; width:100%;">
-        <div class="perfil-container">
-            <a href="{{ url_for('mapa') }}" class="btn-voltar"><i class="fas fa-arrow-left"></i></a>
-            
-            <div class="avatar">
-                <i class="fas fa-user"></i>
-            </div>
-            
-            <h2 class="nome">{{ jogador.username }}</h2>
-            <div class="cargo">Fazendeiro - Nível {{ jogador.nivel }}</div>
-            
-            <!-- 🔥 LÓGICA DO XP E TEXTO ALINHADOS 🔥 -->
-            {% set xp_prox_nivel = jogador.nivel * 1000 %}
-            {% set xp_base = (jogador.nivel - 1) * 1000 %}
-            {% set xp_bruto = jogador.xp - xp_base %}
-            {% set xp_do_nivel = xp_bruto if xp_bruto > 0 else 0 %}
-            {% set porcentagem = (xp_do_nivel / 1000) * 100 %}
-            
-            <div class="barra-xp-container">
-                <div class="barra-xp-fill" style="width: {{ porcentagem }}%;"></div>
-                <div class="barra-xp-texto">{{ jogador.xp }} / {{ xp_prox_nivel }} XP</div>
-            </div>
-
-            <div id="alerta-box"></div>
-
-            <div class="input-group">
-                <input type="text" id="nome" value="{{ jogador.username }}" placeholder="Nome">
-            </div>
-            <div class="input-group">
-                <input type="email" id="email" value="{{ jogador.email or '' }}" placeholder="E-mail">
-            </div>
-            <div class="input-group">
-                <input type="password" id="senha" placeholder="Nova Senha (deixe em branco para manter)">
-            </div>
-
-            <button class="btn-salvar" onclick="salvarPerfil()">SALVAR DADOS</button>
-
-            <!-- 🔥 BOTÕES DO PAINEL ADMIN RESTAURADOS 🔥 -->
-            {% if jogador.is_admin %}
-            <div style="margin-top: 25px; padding-top: 20px; border-top: 1px dashed #ccc;">
-                <h3 style="font-size: 13px; color: #d32f2f; margin: 0 0 15px 0;"><i class="fas fa-crown"></i> ADMINISTRAÇÃO DO JOGO</h3>
-                
-                <a href="/admin/painel-ceo" class="btn-admin">
-                    <i class="fas fa-users-cog"></i> Painel do CEO (Jogadores)
-                </a>
-                
-                <a href="/admin/receita-federal" class="btn-admin btn-receita">
-                    <i class="fas fa-balance-scale"></i> Receita Federal (Auditoria)
-                </a>
-            </div>
-            {% endif %}
-
+    
+    <div class="card">
+        <a href="{{ url_for('mapa') }}" class="btn-back"><i class="fas fa-arrow-left"></i></a>
+        
+        <div class="avatar">
+            <i class="fas fa-user"></i>
         </div>
         
-        <div class="footer">
-            © 2026 DUALCORE SOLUTIONS
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 5px; margin-bottom: 5px;">
+            <h2>{{ jogador.username }}</h2>
+            
+            <!-- 🔥 EMBLEMAS DE RANKING 3D 🔥 -->
+            <div style="display: flex; justify-content: center; gap: 4px;">
+                {% if posicao_nivel == 1 %}<i class="fas fa-crown" style="color: #FFD700; font-size: 20px; text-shadow: 1px 2px 0px #b86b00;"></i>
+                {% elif posicao_nivel == 2 %}<i class="fas fa-medal" style="color: #E0E0E0; font-size: 20px; text-shadow: 1px 2px 0px #9e9e9e;"></i>
+                {% elif posicao_nivel == 3 %}<i class="fas fa-award" style="color: #CD7F32; font-size: 20px; text-shadow: 1px 2px 0px #8d5520;"></i>{% endif %}
+                
+                {% if posicao_saldo == 1 %}<i class="fas fa-trophy" style="color: #FFD700; font-size: 20px; text-shadow: 1px 2px 0px #b86b00;"></i>
+                {% elif posicao_saldo == 2 %}<i class="fas fa-sack-dollar" style="color: #E0E0E0; font-size: 20px; text-shadow: 1px 2px 0px #9e9e9e;"></i>
+                {% elif posicao_saldo == 3 %}<i class="fas fa-coins" style="color: #CD7F32; font-size: 20px; text-shadow: 1px 2px 0px #8d5520;"></i>{% endif %}
+            </div>
         </div>
+
+        <div class="titulo-jogador">Fazendeiro - Nível {{ jogador.nivel }}</div>
+        
+        <!-- 🔥 BARRA DE XP 🔥 -->
+        {% set xp_prox_nivel = jogador.nivel * 1000 %}
+        {% set xp_base = (jogador.nivel - 1) * 1000 %}
+        {% set xp_bruto = jogador.xp - xp_base %}
+        {% set xp_do_nivel = xp_bruto if xp_bruto > 0 else 0 %}
+        {% set porcentagem = (xp_do_nivel / 1000) * 100 %}
+        
+        <div style="background: #e0e0e0; border-radius: 20px; height: 24px; position: relative; overflow: hidden; margin-bottom: 25px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);">
+            <div style="background: #4caf50; height: 100%; width: {{ porcentagem }}%; transition: width 0.5s ease;"></div>
+            <div style="position: absolute; width: 100%; left: 0; top: 0; line-height: 24px; font-weight: bold; color: #333; font-size: 12px;">
+                {{ jogador.xp }} / {{ xp_prox_nivel }} XP
+            </div>
+        </div>
+
+        <div id="alerta-box"></div>
+
+        <input type="text" id="nome" value="{{ jogador.username }}" placeholder="Nome">
+        <input type="email" id="email" value="{{ jogador.email or '' }}" placeholder="E-mail">
+        <input type="password" id="senha" placeholder="Nova Senha (deixe em branco para manter)">
+
+        <button onclick="salvarPerfil()">SALVAR DADOS</button>
+
+        <!-- 🔥 PAINEL ADMIN 🔥 -->
+        {% if jogador.is_admin %}
+        <div style="margin-top: 25px; padding-top: 20px; border-top: 1px dashed #ccc;">
+            <h3 style="font-size: 13px; color: #d32f2f; margin: 0 0 15px 0;"><i class="fas fa-crown"></i> ADMINISTRAÇÃO DO JOGO</h3>
+            <a href="/admin/painel-ceo" style="display: block; background: #333; color: white; padding: 12px; border-radius: 8px; text-decoration: none; font-weight: bold; margin-bottom: 10px; font-size: 14px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
+                <i class="fas fa-users-cog"></i> Painel do CEO (Jogadores)
+            </a>
+            <a href="/admin/receita-federal" style="display: block; background: #b71c1c; color: white; padding: 12px; border-radius: 8px; text-decoration: none; font-weight: bold; margin-bottom: 10px; font-size: 14px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
+                <i class="fas fa-balance-scale"></i> Receita Federal (Auditoria)
+            </a>
+        </div>
+        {% endif %}
+
+    </div>
+    
+    <div class="copyright-perfil">
+        © 2026 DUALCORE SOLUTIONS
     </div>
 
     <script src="{{ url_for('static', filename='js/perfil.js') }}"></script>
@@ -10169,13 +10497,14 @@ ARQUIVO: ./templates/ajuda.html
         <details>
             <summary><i class="fas fa-users"></i> 6. Funcionários, Automação e RH</summary>
             <div class="conteudo">
-                Sua equipe cobra os salários a cada 24 horas no relógio do jogo. Eles são essenciais para automatizar a fazenda enquanto você está offline:<br><br>
-                <strong>👨‍🌾 Peão (R$ 4/h):</strong> Protege o gado, reduzindo em 80% o impacto da fome na saúde. Automação: Reabastece os cochos de sal e ração sozinhos se houver estoque no armazém.<br><br>
-                <strong>🚜 Tratorista (R$ 7/h):</strong> Aumenta a colheita em +15% (acumula até 5 tratoristas). Automação: Bate veneno contra pragas e joga adubo no solo se a fertilidade cair abaixo de 60%.<br><br>
-                <strong>💼 Capataz (R$ 50/h):</strong> Cargo de chefia avançada. Exige R$ 1.200 por dia, mas negocia pesado no mercado, garantindo um ágio de +2% em qualquer venda da fazenda (animais, grãos ou leite).<br><br>
-                <strong>🩺 Veterinário (R$ 18/h):</strong> Zela pelo bem-estar, reduzindo em 90% a perda de saúde por doenças e subnutrição.<br><br>
-                <strong>🌱 Agrônomo (R$ 22/h):</strong> Especialista em biotecnologia. Acelera o tempo de crescimento de todas as plantas em 25% (máximo de 2 por fazenda).
+                Sua equipe trabalha em <strong>turno comercial de 8 horas por dia</strong> e os salários são cobrados <strong>mensalmente</strong>.<br><br>
+                <strong>👨‍🌾 Peão (R$ 8/h):</strong> Cuida de todo o seu rebanho (Gado, Porcos e Galinhas). Reduz em 80% o impacto da fome e automatiza o reabastecimento de cochos e depósitos. (Custo Mensal: R$ 1.920)<br><br>
+                <strong>🚜 Tratorista (R$ 12/h):</strong> Aumenta a colheita em +15%. Automação: Pulveriza veneno e aduba o solo automaticamente. (Custo Mensal: R$ 2.880)<br><br>
+                <strong>💼 Capataz (R$ 20/h):</strong> Negocia pesado no mercado, garantindo um ágio de +5% em qualquer venda. (Custo Mensal: R$ 4.800)<br><br>
+                <strong>🩺 Veterinário (R$ 25/h):</strong> Reduz em 90% a perda de saúde por doenças. (Custo Mensal: R$ 6.000)<br><br>
+                <strong>🌱 Agrônomo (R$ 30/h):</strong> Acelera o tempo de crescimento das plantas em 20%. (Custo Mensal: R$ 7.200)
             </div>
+
         </details>
 
         <!-- 7. MAQUINÁRIO E BARRACÃO -->
@@ -10536,6 +10865,7 @@ ARQUIVO: ./templates/admin_ceo.html
         .bg-harvest { background: #8bc34a; color: #000; }
         .bg-box { background: #9c27b0; }
         .bg-gavel { background: #ff9800; }
+        .bg-time { background: #00acc1; } /* Cor nova para avançar o tempo */
         .bg-trash { background: #d32f2f; }
     </style>
 </head>
@@ -10568,79 +10898,91 @@ ARQUIVO: ./templates/admin_ceo.html
                 <button class="btn-god bg-harvest" onclick="bencaoColheita({{ j.id }}, '{{ j.username }}')" title="Colheita Instantânea"><i class="fas fa-seedling"></i></button>
                 <button class="btn-god bg-box" onclick="injetarInsumo({{ j.id }}, '{{ j.username }}')" title="Spawnar Insumos"><i class="fas fa-box-open"></i></button>
                 <button class="btn-god bg-gavel" onclick="confiscarTerras({{ j.id }}, '{{ j.username }}')" title="Confiscar Fazendas"><i class="fas fa-gavel"></i></button>
+                <button class="btn-god bg-time" onclick="avancarTempoJogador({{ j.id }}, '{{ j.username }}')" title="Avançar Tempo"><i class="fas fa-clock"></i></button>
                 
                 {% if not j.is_admin %}
-                    <button class="btn-god bg-trash" onclick="deletarConta({{ j.id }}, '{{ j.username }}')" title="Banir Jogador" style="grid-column: span 2;"><i class="fas fa-trash"></i> Banir</button>
+                    <button class="btn-god bg-trash" onclick="deletarConta({{ j.id }}, '{{ j.username }}')" title="Banir Jogador"><i class="fas fa-trash"></i></button>
+                {% else %}
+                    <!-- Botão fantasma apenas para manter o alinhamento do grid caso seja o CEO (que não pode ser banido) -->
+                    <div style="visibility: hidden;"></div>
                 {% endif %}
             </div>
         </div>
         {% endfor %}
     </div>
 
-    <script>
-        function godAction(url, data) {
-            Swal.fire({ title: 'Aguarde...', didOpen: () => Swal.showLoading() });
-            fetch(url, {
-                method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
-            }).then(r => r.json()).then(d => {
-                if(d.sucesso) Swal.fire('Sucesso!', d.msg, 'success').then(() => location.reload());
-                else Swal.fire('Atenção', d.erro, 'warning');
-            });
-        }
+    <!-- Importa o novo arquivo JS com todas as funções de CEO -->
+    <script src="/static/js/admin_ceo.js"></script>
+</body>
+</html>
 
-        function injetarSaldo(id, nome) {
-            Swal.fire({
-                title: `Saldo de ${nome}`, text: "Digite o valor (Use o sinal de - para remover)", input: 'number', background: '#2a2a2a', color: '#fff', showCancelButton: true, confirmButtonText: 'Aplicar'
-            }).then(r => { if(r.isConfirmed && r.value) godAction('/api/admin/injetar_saldo', {jogador_id: id, valor: parseFloat(r.value)}); });
-        }
 
-        function injetarXP(id, nome) {
-            Swal.fire({
-                title: `XP de ${nome}`, text: "Digite o XP (Use o sinal de - para remover)", input: 'number', background: '#2a2a2a', color: '#fff', showCancelButton: true, confirmButtonText: 'Aplicar'
-            }).then(r => { if(r.isConfirmed && r.value) godAction('/api/admin/injetar_xp', {jogador_id: id, valor: parseInt(r.value)}); });
-        }
+============================================================
+ARQUIVO: ./templates/ranking.html
+============================================================
 
-        function milagreVida(id, nome) {
-            Swal.fire({ title: 'Milagre da Vida', text: `Zerar a fome e curar TODOS os animais de ${nome}?`, icon: 'question', background: '#2a2a2a', color: '#fff', showCancelButton: true, confirmButtonColor: '#e91e63', confirmButtonText: 'Fazer Milagre'
-            }).then(r => { if(r.isConfirmed) godAction('/api/admin/milagre_vida', {jogador_id: id}); });
-        }
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ranking Global - Agro Manager</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Chamando o CSS isolado -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ranking.css') }}">
+</head>
+<body>
 
-        function bencaoColheita(id, nome) {
-            Swal.fire({ title: 'Bênção da Colheita', text: `Forçar crescimento de todas as lavouras de ${nome}?`, icon: 'question', background: '#2a2a2a', color: '#fff', showCancelButton: true, confirmButtonColor: '#8bc34a', confirmButtonText: 'Crescer Tudo'
-            }).then(r => { if(r.isConfirmed) godAction('/api/admin/bencao_colheita', {jogador_id: id}); });
-        }
+    <div class="header">
+        <h2><i class="fas fa-trophy"></i> Hall da Fama</h2>
+        <!-- O botão não tem mais 'onclick' sujo no HTML -->
+        <button id="btn-voltar-mapa" class="btn-voltar"><i class="fas fa-arrow-left"></i> Voltar</button>
+    </div>
 
-        function confiscarTerras(id, nome) {
-            Swal.fire({ title: 'Confiscar Terras', text: `Tomar todas as fazendas de ${nome} e devolver ao Estado?`, icon: 'warning', background: '#2a2a2a', color: '#fff', showCancelButton: true, confirmButtonColor: '#ff9800', confirmButtonText: 'Confiscar'
-            }).then(r => { if(r.isConfirmed) godAction('/api/admin/confiscar_terras', {jogador_id: id}); });
-        }
+    <div class="container">
+        <!-- RANKING DE NÍVEL -->
+        <div class="ranking-card" id="card-nivel">
+            <h3 class="titulo-nivel"><i class="fas fa-star"></i> Reis do Agro (Nível)</h3>
+            {% for j in top_nivel %}
+            <div class="r-item">
+                <div class="r-pos {% if loop.index == 1 %}pos-1{% elif loop.index == 2 %}pos-2{% elif loop.index == 3 %}pos-3{% else %}pos-normal{% endif %}">
+                    {% if loop.index <= 3 %}<i class="fas fa-medal"></i>{% else %}{{ loop.index }}º{% endif %}
+                </div>
+                <div class="r-nome">
+                    {{ j.username }}
+                    {% if j.username == user.username %}<span class="tag-voce">VOCÊ</span>{% endif %}
+                </div>
+                <div class="r-nivel">Nvl {{ j.nivel }} <span class="xp-detalhe">({{ j.xp }} XP)</span></div>
+            </div>
+            {% else %}
+            <p class="msg-vazio">Nenhum fazendeiro ativo.</p>
+            {% endfor %}
+        </div>
 
-        function deletarConta(id, nome) {
-            Swal.fire({ title: 'Banir Jogador', text: `Tem certeza que deseja deletar a conta de ${nome}?`, icon: 'error', background: '#2a2a2a', color: '#fff', showCancelButton: true, confirmButtonColor: '#d32f2f', confirmButtonText: 'DELETAR'
-            }).then(r => { if(r.isConfirmed) godAction('/api/admin/deletar_conta', {jogador_id: id}); });
-        }
+        <!-- RANKING DE DINHEIRO -->
+        <div class="ranking-card" id="card-dinheiro">
+            <h3 class="titulo-dinheiro"><i class="fas fa-sack-dollar"></i> Magnatas (Saldo)</h3>
+            {% for j in top_ricos %}
+            <div class="r-item">
+                <div class="r-pos {% if loop.index == 1 %}pos-1{% elif loop.index == 2 %}pos-2{% elif loop.index == 3 %}pos-3{% else %}pos-normal{% endif %}">
+                    {% if loop.index <= 3 %}<i class="fas fa-medal"></i>{% else %}{{ loop.index }}º{% endif %}
+                </div>
+                <div class="r-nome">
+                    {{ j.username }}
+                    {% if j.username == user.username %}<span class="tag-voce">VOCÊ</span>{% endif %}
+                </div>
+                <div class="r-valor">R$ {{ "{:,.2f}".format(j.saldo).replace(',','v').replace('.',',').replace('v','.') }}</div>
+            </div>
+            {% else %}
+            <p class="msg-vazio">Nenhuma fortuna registrada.</p>
+            {% endfor %}
+        </div>
+    </div>
 
-        async function injetarInsumo(id, nome) {
-            const { value: formValues } = await Swal.fire({
-                title: `Spawnar Insumos para ${nome}`,
-                html: `
-                    <select id="swal-item" class="swal2-input" style="background:#111; color:#fff; border:1px solid #444; width:85%;">
-                        <option value="soja">Soja</option><option value="milho">Milho</option>
-                        <option value="racao">Ração</option><option value="sal">Sal Mineral</option>
-                        <option value="adubo">Adubo</option><option value="veneno">Veneno</option>
-                        <option value="vacina_aftosa">Vacina Aftosa</option><option value="combustivel">Combustível</option>
-                    </select>
-                    <input id="swal-qtd" type="number" class="swal2-input" placeholder="Quantidade" style="width:85%;">
-                `,
-                background: '#2a2a2a', color: '#fff', focusConfirm: false, showCancelButton: true, confirmButtonColor: '#9c27b0', confirmButtonText: 'Injetar',
-                preConfirm: () => { return { item: document.getElementById('swal-item').value, qtd: document.getElementById('swal-qtd').value } }
-            });
-
-            if (formValues && formValues.qtd) {
-                godAction('/api/admin/injetar_insumo', { jogador_id: id, item: formValues.item, quantidade: formValues.qtd });
-            }
-        }
-    </script>
+    <!-- Chamando a inteligência Orientada a Objetos -->
+    <script src="{{ url_for('static', filename='js/ranking.js') }}"></script>
 </body>
 </html>
 

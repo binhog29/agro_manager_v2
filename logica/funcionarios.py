@@ -15,7 +15,7 @@ class Cargo:
 class GerenciadorRH:
     """Catálogo central de profissões da fazenda."""
     CATALOGO = {
-        'peoes': Cargo('peoes', 'Peão', 500.0, 8.0, 'Proteção animal básica'),
+        'peoes': Cargo('peoes', 'Peão', 500.0, 2500.0 / 240.0, 'Manejo e Vacinação Auto'),
         'tratoristas': Cargo('tratoristas', 'Tratorista', 1200.0, 12.0, '+15% Colheita (Máx 5)'),
         'capatazes': Cargo('capatazes', 'Capataz', 8000.0, 20.0, '+5% Venda (Máx 5)'),
         'veterinarios': Cargo('veterinarios', 'Veterinário', 3000.0, 25.0, 'Reduz doenças'),

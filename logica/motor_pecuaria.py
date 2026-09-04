@@ -1,6 +1,6 @@
 # logica/motor_pecuaria.py
 import random
-from database import db, Lote, Animal, HistoricoMorte, Propriedade # 🔥 Propriedade adicionada para o Peão consultar o Armazém
+from database import db, Lote, Animal, HistoricoMorte, Propriedade
 from logica.funcionarios import obter_bonus_equipe
 
 class MotorPecuaria:
@@ -53,7 +53,41 @@ class MotorPecuaria:
                 cache_bonus_rh[animal.propriedade_id] = obter_bonus_equipe(animal.propriedade_id)
             
             bonus_rh = cache_bonus_rh.get(animal.propriedade_id, {})
+            
+            # ====================================================
+            # 🔥 MÁGICA DA IMUNIZAÇÃO: PEÃO APLICA VACINAS E TRATAMENTOS AUTOMATICAMENTE
+            # ====================================================
+            if bonus_rh.get('protecao_animal', False):
+                fazenda = Propriedade.query.get(animal.propriedade_id)
+                
+                # 1. Vacina Aftosa
+                if not getattr(animal, 'vacinado_aftosa', False) and getattr(fazenda, 'est_vacina_aftosa', 0) >= 1:
+                    fazenda.est_vacina_aftosa -= 1
+                    animal.vacinado_aftosa = True
+                    msg_vac = "💉 O Peão buscou Vacina contra Aftosa no Armazém e imunizou os animais."
+                    if msg_vac not in avisos_turno: avisos_turno.append(msg_vac)
+                    
+                # 2. Vacina Brucelose
+                if not getattr(animal, 'vacinado_brucelose', False) and getattr(fazenda, 'est_vacina_brucelose', 0) >= 1:
+                    fazenda.est_vacina_brucelose -= 1
+                    animal.vacinado_brucelose = True
+                    msg_vac_b = "💉 O Peão buscou Vacina contra Brucelose no Armazém e imunizou os animais."
+                    if msg_vac_b not in avisos_turno: avisos_turno.append(msg_vac_b)
 
+                # 3. Medicamento Geral (Vermífugo)
+                if not getattr(animal, 'medicado', False) and getattr(fazenda, 'est_medicamento_geral', 0) >= 1:
+                    fazenda.est_medicamento_geral -= 1
+                    animal.medicado = True
+                    msg_med = "💊 O Peão aplicou Medicamento Geral (Vermífugo) no gado desprotegido."
+                    if msg_med not in avisos_turno: avisos_turno.append(msg_med)
+
+                # 4. Suplemento de Engorda
+                if not getattr(animal, 'suplementado', False) and getattr(fazenda, 'est_suplemento_engorda', 0) >= 1:
+                    fazenda.est_suplemento_engorda -= 1
+                    animal.suplementado = True
+                    msg_sup = "💪 O Peão misturou Suplemento de Engorda na dieta do rebanho."
+                    if msg_sup not in avisos_turno: avisos_turno.append(msg_sup)
+                        
             if animal.lote_id:
                 pasto = Lote.query.get(animal.lote_id)
                 if pasto:
