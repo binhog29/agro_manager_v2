@@ -24,109 +24,91 @@
 
     <div id="map"></div>
     
-    <!-- PAINEL DE NAVEGAÇÃO DA CIDADE (Oculto por padrão) -->
-    <div id="painel-cidade-topo" style="display: none; position: absolute; top: 80px; left: 50%; transform: translateX(-50%); z-index: 1000; flex-direction: column; align-items: center; gap: 8px;">
-        
-        <!-- Placa com o nome da cidade -->
-        <div id="nome-cidade-atual" style="background: rgba(15, 15, 15, 0.9); color: #ffeb3b; padding: 6px 20px; border-radius: 20px; border: 1px solid #ffeb3b; font-weight: 900; font-size: 16px; text-shadow: 0 2px 4px rgba(0,0,0,1); letter-spacing: 1px; text-transform: uppercase; box-shadow: 0 4px 10px rgba(0,0,0,0.6);">
+    <!-- PAINEL DE NAVEGAÇÃO DA CIDADE (Movido para cima: top: 65px) -->
+    <div id="painel-cidade-topo" style="display: none; position: absolute; top: 65px; left: 50%; transform: translateX(-50%); z-index: 1000; flex-direction: column; align-items: center; gap: 6px;">
+        <div id="nome-cidade-atual" style="background: rgba(15, 15, 15, 0.9); color: #ffeb3b; padding: 6px 18px; border-radius: 20px; border: 1px solid #ffeb3b; font-weight: 900; font-size: 14px; text-shadow: 0 2px 4px rgba(0,0,0,1); letter-spacing: 1px; text-transform: uppercase; box-shadow: 0 4px 10px rgba(0,0,0,0.6); white-space: nowrap;">
             <i class="fas fa-map-marker-alt"></i> NOME DA CIDADE
         </div>
-
-        <!-- Botão Voltar -->
-        <button onclick="voltarMapaGlobal()" style="background: #2e7d32; color: white; border: 2px solid #fff; padding: 8px 20px; border-radius: 20px; font-weight: bold; font-family: 'Exo 2', sans-serif; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5);">
+        <button onclick="voltarMapaGlobal()" style="background: #2e7d32; color: white; border: 2px solid #fff; padding: 6px 16px; border-radius: 20px; font-weight: bold; font-family: 'Exo 2', sans-serif; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5); font-size: 11px; white-space: nowrap;">
             <i class="fas fa-globe-americas"></i> Voltar ao Mapa Global
         </button>
-        
     </div>
     
     <div class="ui-layer">
         
-        <div class="topo-ui" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 5px; width: 100%;">
-    
-    <!-- 1. BLOCO PERFIL (Com "Armadura" contra esmagamento) -->
-    <div class="perfil-box" style="flex-shrink: 0; max-width: 45%;">
-        <a href="/perfil" class="perfil-btn" style="display: flex; align-items: center; gap: 6px; padding: 4px 8px;">
-            <!-- Armadura: min-width e min-height iguais garantem o círculo perfeito -->
-            <div class="perfil-icone" style="width: 32px; height: 32px; min-width: 32px; min-height: 32px; border-radius: 50%; display: flex; justify-content: center; align-items: center; flex-shrink: 0;">
-                {% if jogador.is_admin %}👑{% else %}👤{% endif %}
+        <!-- TOPO UI: DIVIDIDO EM DUAS COLUNAS LATERAIS -->
+        <div class="topo-ui" style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%; pointer-events: none;">
+            
+            <!-- COLUNA ESQUERDA: PERFIL E CAIXA -->
+            <div style="display: flex; flex-direction: column; gap: 8px; max-width: 50%;">
+                
+                <a href="/perfil" style="pointer-events: auto; background: rgba(20, 20, 20, 0.9); border: 1px solid #444; border-radius: 30px; padding: 4px 10px 4px 4px; display: flex; align-items: center; gap: 8px; text-decoration: none; box-shadow: 0 4px 8px rgba(0,0,0,0.5);">
+                    <div style="width: 34px; height: 34px; border-radius: 50%; background: #333; display: flex; justify-content: center; align-items: center; border: 2px solid #555; flex-shrink: 0;">
+                        {% if jogador.is_admin %}👑{% else %}👤{% endif %}
+                    </div>
+                    <div style="display: flex; flex-direction: column; overflow: hidden;">
+                        <div style="display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: bold; color: white;">
+                            <span style="max-width: 75px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ jogador.username }}</span>
+                            <!-- Emblemas -->
+                            {% if posicao_nivel == 1 %}<i class="fas fa-crown" style="color: #FFD700; font-size: 11px;"></i>
+                            {% elif posicao_nivel == 2 %}<i class="fas fa-medal" style="color: #E0E0E0; font-size: 11px;"></i>
+                            {% elif posicao_nivel == 3 %}<i class="fas fa-award" style="color: #CD7F32; font-size: 11px;"></i>{% endif %}
+                            
+                            {% if posicao_saldo == 1 %}<i class="fas fa-trophy" style="color: #FFD700; font-size: 11px;"></i>
+                            {% elif posicao_saldo == 2 %}<i class="fas fa-sack-dollar" style="color: #E0E0E0; font-size: 11px;"></i>
+                            {% elif posicao_saldo == 3 %}<i class="fas fa-coins" style="color: #CD7F32; font-size: 11px;"></i>{% endif %}
+                        </div>
+                        <div style="font-size: 9px; color: #ffb300; font-weight: 600;">
+                            {% if jogador.is_admin %}Dono do Jogo{% else %}Nível {{ jogador.nivel }}{% endif %}
+                        </div>
+                    </div>
+                </a>
+
+                <div style="pointer-events: auto; background: rgba(46, 125, 50, 0.95); border: 1px solid #66bb6a; border-radius: 20px; padding: 5px 12px; color: white; font-weight: bold; font-size: 11px; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 8px rgba(0,0,0,0.5); width: fit-content; max-width: 100%;">
+                    <i class="fas fa-wallet" style="color: #c8e6c9; flex-shrink: 0;"></i> 
+                    <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">R$ {{ "{:,.2f}".format(jogador.saldo).replace(',','v').replace('.',',').replace('v','.') }}</span>
+                </div>
+            </div>
+
+            <!-- COLUNA DIREITA: RELÓGIO, LEILÃO E IMÓVEIS -->
+            <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
+                
+                <div style="pointer-events: auto; background: rgba(20, 20, 20, 0.9); border: 1px solid #444; border-radius: 20px; padding: 4px 6px 4px 10px; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.5);">
+                    <div style="display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2;">
+                        <div style="font-size: 13px; font-weight: 900; color: #fff;">{{ "%02d"|format(jogador.hora|default(6)) }}:00</div>
+                        <div style="font-size: 8px; color: #f9a825; font-weight: bold;">
+                            <i class="fas fa-leaf" style="color: #4caf50;"></i> {{ "%02d"|format(jogador.dia|default(1)) }}/{{ "%02d"|format(jogador.mes|default(1)) }}
+                        </div>
+                    </div>
+                    <button onclick="document.getElementById('modal-tempo').style.display='flex'" style="background: #2e7d32; color: white; border: none; width: 28px; height: 28px; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.4);">
+                        <i class="fas fa-forward" style="font-size: 10px;"></i>
+                    </button>
+                </div>
+
+                <!-- Botões empilhados em formato de menu rápido (largura fixa) -->
+                <a href="/mercado" style="pointer-events: auto; background: linear-gradient(135deg, #f57c00, #e65100); border-radius: 20px; padding: 5px 0; color: white; text-decoration: none; font-size: 10px; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 8px rgba(0,0,0,0.5); border: 1px solid #ff9800; width: 85px;">
+                    <i class="fas fa-gavel"></i> Leilão
+                </a>
+                
+                <a href="/imobiliaria" style="pointer-events: auto; background: linear-gradient(135deg, #1565c0, #0d47a1); border-radius: 20px; padding: 5px 0; color: white; text-decoration: none; font-size: 10px; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 8px rgba(0,0,0,0.5); border: 1px solid #42a5f5; width: 85px;">
+                    <i class="fas fa-building"></i> Imóveis
+                </a>
             </div>
             
-            <div class="perfil-textos" style="display: flex; flex-direction: column; overflow: hidden;">
-                <div class="nome-jogador" style="display: flex; align-items: center; gap: 5px; white-space: nowrap; font-size: 11px;">
-                    <span style="overflow: hidden; text-overflow: ellipsis; max-width: 60px;">{{ jogador.username }}</span>
-                    
-                    <!-- 🌟 EMBLEMAS DE NÍVEL (Reis do Agro) -->
-                    {% if posicao_nivel == 1 %}
-                    <i class="fas fa-crown" style="color: #FFD700; font-size: 13px; text-shadow: 1px 2px 0px #b86b00, 0px 3px 5px rgba(255, 215, 0, 0.6);" title="1º em Nível"></i>
-                    {% elif posicao_nivel == 2 %}
-                    <i class="fas fa-medal" style="color: #E0E0E0; font-size: 13px; text-shadow: 1px 2px 0px #9e9e9e, 0px 3px 5px rgba(224, 224, 224, 0.6);" title="2º em Nível"></i>
-                    {% elif posicao_nivel == 3 %}
-                    <i class="fas fa-award" style="color: #CD7F32; font-size: 13px; text-shadow: 1px 2px 0px #8d5520, 0px 3px 5px rgba(205, 127, 50, 0.6);" title="3º em Nível"></i>
-                    {% endif %}
-                    
-                    <!-- 💰 EMBLEMAS DE SALDO (Magnatas) -->
-                    {% if posicao_saldo == 1 %}
-                    <i class="fas fa-trophy" style="color: #FFD700; font-size: 13px; text-shadow: 1px 2px 0px #b86b00, 0px 3px 5px rgba(255, 215, 0, 0.6);" title="1º em Dinheiro"></i>
-                    {% elif posicao_saldo == 2 %}
-                    <i class="fas fa-sack-dollar" style="color: #E0E0E0; font-size: 13px; text-shadow: 1px 2px 0px #9e9e9e, 0px 3px 5px rgba(224, 224, 224, 0.6);" title="2º em Dinheiro"></i>
-                    {% elif posicao_saldo == 3 %}
-                    <i class="fas fa-coins" style="color: #CD7F32; font-size: 13px; text-shadow: 1px 2px 0px #8d5520, 0px 3px 5px rgba(205, 127, 50, 0.6);" title="3º em Dinheiro"></i>
-                    {% endif %}
-                </div>
-                <div class="titulo-jogador" style="color: #ffb300; font-weight: 600; white-space: nowrap; font-size: 9px;">
-                    {% if jogador.is_admin %}👑 Dono do Jogo{% else %}Fazendeiro • Nível {{ jogador.nivel }}{% endif %}
-                </div>
-            </div>
-        </a>
-        <div class="carteira-box" style="font-size: 11px; padding: 2px 6px;">
-            <i class="fas fa-wallet"></i> R$ {{ "{:,.2f}".format(jogador.saldo).replace(',','v').replace('.',',').replace('v','.') }}
-        </div>
-    </div>
-
-    <!-- 2. BOTÕES CENTRAIS (Design empilhado tipo App mobile) -->
-    <div style="display: flex; gap: 5px; flex-shrink: 1; align-items: flex-start; margin-top: 2px;">
-        <a href="/mercado" class="leilao-btn" style="padding: 4px 6px; font-size: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border-radius: 8px; min-width: 50px;">
-            <span style="font-size: 14px; margin: 0;">🔨</span> LEILÃO
-        </a>
-        
-        <a href="/imobiliaria" class="leilao-btn" style="background: linear-gradient(135deg, #1565c0, #0d47a1); padding: 4px 6px; font-size: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border-radius: 8px; min-width: 50px;">
-            <span style="font-size: 14px; margin: 0;">🏢</span> IMÓVEIS
-        </a>
-    </div>
-
-    <!-- 3. RELÓGIO (Mais compacto) -->
-    <div style="background: rgba(30, 30, 30, 0.95); padding: 4px 6px; border-radius: 10px; text-align: center; color: white; border: 1px solid #555; pointer-events: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.3); min-width: 70px; flex-shrink: 0;">
-        <div id="estacao-jogo" style="font-size: 8px; color: #aaa; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px;">
-            <i class="fas fa-leaf" style="color: #4caf50;"></i> ESTAÇÃO
-        </div> 
-        
-        <div id="relogio-real" style="font-size: 12px; font-weight: 900; color: #fff; margin-bottom: 2px;">
-            {{ "%02d"|format(jogador.hora|default(6)) }}:00
-        </div>
-        
-        <div id="data-jogo" style="font-weight: bold; font-size: 9px; display: flex; align-items: center; justify-content: center; gap: 3px; color: #f9a825;">
-             {{ "%02d"|format(jogador.dia|default(1)) }}/{{ "%02d"|format(jogador.mes|default(1)) }}/{{ jogador.ano|default(2026) }}
         </div>
 
-        <button onclick="document.getElementById('modal-tempo').style.display='flex'" style="margin-top:4px; background: #2e7d32; color: white; border: none; padding: 2px 0; border-radius: 4px; font-size: 9px; cursor: pointer; width: 100%;">
-            <i class="fas fa-forward"></i> Avançar
-        </button>
-    </div>
-</div>
-
+        <!-- DOCK INFERIOR -->
         <div class="bottom-dock pointer-events-auto">
             <div class="dock-item" onclick="window.location.href='/perfil'"><i class="fas fa-user-cog"></i><span>Perfil</span></div>
             <div class="dock-item active"><i class="fas fa-globe-americas"></i><span>Mapa</span></div>
             <a href="/ranking" class="menu-item" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-decoration: none; color: #ccc;">
-    
-    <!-- Ícone com efeito Ouro 3D e Sombra Brilhante -->
-    <i class="fas fa-trophy" style="color: #FFD700; font-size: 18px; text-shadow: 1px 1px 0px #b86b00, 0px 4px 8px rgba(255, 152, 0, 0.5); margin-bottom: 3px;"></i>
-    
-    <span style="font-size: 10px; font-weight: normal;">RANKING</span>
-</a>
+                <i class="fas fa-trophy" style="color: #FFD700; font-size: 18px; text-shadow: 1px 1px 0px #b86b00, 0px 4px 8px rgba(255, 152, 0, 0.5); margin-bottom: 3px;"></i>
+                <span style="font-size: 10px; font-weight: normal;">RANKING</span>
+            </a>
             <div class="dock-item" onclick="window.location.href='/financeiro'"><i class="fas fa-chart-line"></i><span>Caixa</span></div>
             <div class="dock-item" onclick="window.location.href='/sair'"><i class="fas fa-power-off" style="color:#e53935"></i><span>Sair</span></div>
         </div>
+        
     </div>
     
     <!-- BOTÃO FLUTUANTE DE AJUDA -->
@@ -134,6 +116,7 @@
         <i class="fas fa-question"></i>
     </a>
 
+    <!-- MODAL DE ALERTAS -->
     <div id="sweet-modal">
         <div class="sweet-box">
             <i class="fas fa-times close-sweet" onclick="closeModal()"></i>

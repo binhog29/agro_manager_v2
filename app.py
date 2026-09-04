@@ -254,8 +254,21 @@ def perfil():
     if jogador_atual:
         verificar_nivel(jogador_atual) # 🔥 Atualiza o nível ao abrir o Perfil
         
-    return render_template('perfil.html', jogador=jogador_atual)
-
+        # ==========================================
+        # 🔥 CÁLCULO DOS EMBLEMAS PARA O PERFIL
+        # ==========================================
+        if not jogador_atual.is_admin:
+            posicao_nivel = Jogador.query.filter_by(is_admin=False).filter(Jogador.xp > jogador_atual.xp).count() + 1
+            posicao_saldo = Jogador.query.filter_by(is_admin=False).filter(Jogador.saldo > jogador_atual.saldo).count() + 1
+        else:
+            posicao_nivel = 0
+            posicao_saldo = 0
+    else:
+        posicao_nivel = 0
+        posicao_saldo = 0
+        
+    return render_template('perfil.html', jogador=jogador_atual, posicao_nivel=posicao_nivel, posicao_saldo=posicao_saldo)
+    
 @app.route('/admin/receita-federal')
 def receita_federal():
     if 'usuario' not in session:
