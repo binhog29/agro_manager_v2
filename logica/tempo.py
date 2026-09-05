@@ -47,7 +47,7 @@ class GerenciadorTempo:
             db.session.commit()
 
         return horas_jogo_passadas
-
+        
     @classmethod
     def avancar_tempo(cls, jogador, horas):
         jogador.hora += horas
@@ -75,8 +75,51 @@ class GerenciadorTempo:
 
         cls._atualizar_clima_e_estacao(jogador)
 
+        # =======================================================
+        # 🔥 AUTOMAÇÃO DA FROTA (TRATORISTAS E MECÂNICOS)
+        # =======================================================
+        from database import Propriedade, Equipe, Maquinario
+        from logica.barracao import Concessionaria
+        avisos_automacao = []
+        
+        propriedades = Propriedade.query.filter_by(dono_id=jogador.id).all()
+        for prop in propriedades:
+            equipe = Equipe.query.filter_by(propriedade_id=prop.id).first()
+            
+            # Se a fazenda tem pelo menos 1 Tratorista contratado
+            if equipe and getattr(equipe, 'tratoristas', 0) > 0:
+                maquinas = Maquinario.query.filter_by(propriedade_id=prop.id).all()
+                for maq in maquinas:
+                    # 1. Abastecimento Automático (Tanque < 20%)
+                    if maq.nivel_combustivel < 20 and getattr(prop, 'est_combustivel', 0) > 0:
+                        espaco = 100 - maq.nivel_combustivel
+                        gasto = min(espaco, prop.est_combustivel)
+                        prop.est_combustivel -= gasto
+                        maq.nivel_combustivel += gasto
+                        avisos_automacao.append(f"🚜 O Tratorista abasteceu o {maq.modelo} com {gasto}L de Diesel.")
+                    
+                    # 2. Oficina Automática (Saúde < 15%)
+                    if maq.estado_conservacao < 15:
+                        dano = 100 - maq.estado_conservacao
+                        preco_base = 0
+                        for chave, info in Concessionaria.CATALOGO.items():
+                            if info['nome'] == maq.modelo:
+                                preco_base = info['preco']
+                                break
+                        
+                        # Usa a mesma regra justa: 15% do valor da máquina nova
+                        custo_reparo = dano * (preco_base * 0.0015) if preco_base > 0 else dano * 350.0
+                        
+                        if jogador.saldo >= custo_reparo:
+                            jogador.saldo -= custo_reparo
+                            maq.estado_conservacao = 100
+                            registrar_transacao(jogador.id, 'saida', custo_reparo, f'Oficina Automática: {maq.modelo}')
+                            avisos_automacao.append(f"🔧 O Tratorista levou o {maq.modelo} para a revisão. Custo: R$ {custo_reparo:,.2f}.")
+        # =======================================================
+
         motor = MotorBiologico(clima_atual=getattr(jogador, 'clima_atual', 'sol'), jogador=jogador)
-        avisos = motor.processar_turno(horas)
+        # Junta os relatórios da frota com os da natureza
+        avisos = avisos_automacao + motor.processar_turno(horas)
         
         # 🔥 NOVA FOLHA DE PAGAMENTO MENSAL BLINDADA
         if meses_passados > 0:
