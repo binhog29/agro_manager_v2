@@ -424,3 +424,111 @@ def verificar_saude_pastos():
                 if animal.peso > 10: animal.peso -= 2.0
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': 'Saúde do gado atualizada.'})
+
+@gado_bp.route('/api/animal/transferir_lote', methods=['POST'])
+def transferir_lote():
+    if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
+    
+    usuario = Jogador.query.filter_by(username=session['usuario']).with_for_update().first()
+    dados = request.get_json()
+    
+    animal_ids = dados.get('animal_ids', [])
+    fazenda_origem_id = int(dados.get('fazenda_origem_id'))
+    fazenda_destino_id = int(dados.get('fazenda_destino_id'))
+    usa_caminhao = dados.get('usa_caminhao', False)
+    
+    if not animal_ids: return jsonify({'sucesso': False, 'erro': 'Nenhum animal selecionado.'})
+    if fazenda_origem_id == fazenda_destino_id: return jsonify({'sucesso': False, 'erro': 'A origem e o destino são a mesma fazenda.'})
+    
+    prop_origem = Propriedade.query.filter_by(id=fazenda_origem_id).with_for_update().first()
+    prop_destino = Propriedade.query.filter_by(id=fazenda_destino_id).with_for_update().first()
+    
+    if not prop_origem or prop_origem.dono_id != usuario.id: return jsonify({'sucesso': False, 'erro': 'Origem inválida.'})
+    if not prop_destino or prop_destino.dono_id != usuario.id: return jsonify({'sucesso': False, 'erro': 'Destino inválido.'})
+    
+    animais = Animal.query.filter(Animal.id.in_(animal_ids), Animal.propriedade_id == prop_origem.id).all()
+    if not animais: return jsonify({'sucesso': False, 'erro': 'Animais não encontrados.'})
+    
+    quantidade = len(animais)
+    primeiro_animal = animais[0]
+    raca_lower = primeiro_animal.raca.lower()
+    
+    from logica.constantes import INFO_ESPECIES
+    from database import Maquinario
+    
+    familia_animal = 'bovino_corte'
+    for f, d in INFO_ESPECIES.items():
+        if raca_lower in [r.lower() for r in d.get('racas', [])]:
+            familia_animal = f
+            break
+            
+    # 🎯 Descobre o habitat de destino e as regras de frete
+    if familia_animal == 'ave' or any(t in raca_lower for t in ['galinha', 'pato', 'peru']):
+        habitat = 'galinheiro'
+        if not getattr(prop_destino, 'tem_galinheiro', False): return jsonify({'sucesso': False, 'erro': f'O destino "{prop_destino.nome}" não possui Galinheiro!'})
+        limite = getattr(prop_destino, 'cap_galinheiro', 100)
+        frete_cabeca = 5.0
+        modelos_aceitos = ['Caminhonete Nova', 'Caminhonete Usada', 'Caminhão Boiadeiro']
+    elif familia_animal == 'suino' or any(t in raca_lower for t in ['porco', 'leitao', 'javali']):
+        habitat = 'chiqueiro'
+        if not getattr(prop_destino, 'tem_chiqueiro', False): return jsonify({'sucesso': False, 'erro': f'O destino "{prop_destino.nome}" não possui Chiqueiro!'})
+        limite = getattr(prop_destino, 'cap_chiqueiro', 50)
+        frete_cabeca = 15.0
+        modelos_aceitos = ['Caminhonete Nova', 'Caminhonete Usada', 'Caminhão Boiadeiro']
+    elif 'peixe' in familia_animal or any(t in raca_lower for t in ['tambaqui', 'pirarucu', 'pacu', 'matrinxa']):
+        habitat = 'represa'
+        if not getattr(prop_destino, 'tem_represa_geral', False): return jsonify({'sucesso': False, 'erro': f'O destino "{prop_destino.nome}" não possui Represa!'})
+        limite = getattr(prop_destino, 'cap_represa', 200)
+        frete_cabeca = 5.0
+        modelos_aceitos = ['Caminhão Baú (Frios)']
+    else:
+        habitat = 'curral'
+        limite = getattr(prop_destino, 'cap_curral', 10)
+        frete_cabeca = 50.0
+        modelos_aceitos = ['Caminhão Boiadeiro']
+        
+    animais_no_destino = Animal.query.filter_by(propriedade_id=prop_destino.id, onde_esta=habitat).count()
+    if animais_no_destino + quantidade > limite:
+        return jsonify({'sucesso': False, 'erro': f'Lotação excedida! O {habitat.capitalize()} de destino só tem {limite - animais_no_destino} vagas.'})
+        
+    # 🚚 Lógica de Frete vs Caminhão Próprio
+    custo_frete = 0.0
+    
+    if usa_caminhao:
+        tem_veiculo = Maquinario.query.filter(
+            Maquinario.propriedade_id == prop_origem.id,
+            Maquinario.modelo.in_(modelos_aceitos),
+            Maquinario.nivel_combustivel >= 15,
+            Maquinario.estado_conservacao >= 5
+        ).first()
+        
+        if not tem_veiculo:
+            return jsonify({'sucesso': False, 'erro': 'A fazenda de ORIGEM não tem nenhum veículo livre, abastecido (>15%) e inteiro (>5%) que suporte essa carga!'})
+            
+        # O veículo desgasta com a viagem!
+        tem_veiculo.nivel_combustivel -= 15
+        tem_veiculo.estado_conservacao -= 5
+    else:
+        custo_frete = quantidade * frete_cabeca
+        
+    if usuario.saldo < custo_frete:
+        return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente para pagar a transportadora. Custa R$ {custo_frete:,.2f}.'})
+        
+    if custo_frete > 0:
+        usuario.saldo -= custo_frete
+        from logica.economia import registrar_transacao
+        registrar_transacao(usuario.id, 'saida', custo_frete, f'Logística: Frete de Transferência ({quantidade} cabeças)')
+        
+    # Desembarca os animais no destino
+    for a in animais:
+        a.propriedade_id = prop_destino.id
+        a.lote_id = None
+        a.onde_esta = habitat
+        
+    if getattr(usuario, 'xp', None) is None: usuario.xp = 0
+    usuario.xp += (quantidade * 2) 
+        
+    db.session.commit()
+    
+    meio_transporte = "com a sua frota própria" if usa_caminhao else "por transportadora"
+    return jsonify({'sucesso': True, 'msg': f'Carga despachada {meio_transporte}! {quantidade} animais chegaram na fazenda "{prop_destino.nome}".'})

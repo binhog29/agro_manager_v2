@@ -1135,9 +1135,35 @@ def ver_mercado():
     if 'usuario' not in session: return redirect(url_for('login'))
     usuario = Jogador.query.filter_by(username=session['usuario']).first()
     if not usuario: return redirect(url_for('login'))
-
+        
     minhas_terras = Propriedade.query.filter_by(dono_id=usuario.id).all()
-    anuncios = Anuncio.query.all()
+    
+    # --- NOVO BLOCO: AGRUPANDO ANÚNCIOS IGUAIS DA COMUNIDADE ---
+    anuncios_brutos = Anuncio.query.all()
+    anuncios_agrupados = {}
+    
+    for a in anuncios_brutos:
+        # A chave agrupa pelo mesmo vendedor, raça, fase e preço
+        chave = f"{a.vendedor_id}_{a.animal.raca}_{a.animal.fase}_{a.valor}"
+        if chave not in anuncios_agrupados:
+            anuncios_agrupados[chave] = {
+                'id': a.id, # Guarda o ID do primeiro animal do lote para o botão
+                'vendedor_id': a.vendedor_id,
+                'vendedor_nome': a.vendedor.username,
+                'raca': a.animal.raca,
+                'fase': a.animal.fase,
+                'peso_total': 0.0,
+                'valor': a.valor,
+                'quantidade': 0
+            }
+        anuncios_agrupados[chave]['quantidade'] += 1
+        anuncios_agrupados[chave]['peso_total'] += float(a.animal.peso or 0)
+        
+    anuncios = []
+    for k, v in anuncios_agrupados.items():
+        v['peso_medio'] = v['peso_total'] / v['quantidade']
+        anuncios.append(v)
+    # -----------------------------------------------------------
     
     fator_mercado = calcular_fator_dia(usuario.dia, usuario.mes, usuario.ano)
     vendedores_ia = []
@@ -1384,7 +1410,7 @@ class GerenciadorTempo:
             db.session.commit()
 
         return horas_jogo_passadas
-
+        
     @classmethod
     def avancar_tempo(cls, jogador, horas):
         jogador.hora += horas
@@ -1412,8 +1438,51 @@ class GerenciadorTempo:
 
         cls._atualizar_clima_e_estacao(jogador)
 
+        # =======================================================
+        # 🔥 AUTOMAÇÃO DA FROTA (TRATORISTAS E MECÂNICOS)
+        # =======================================================
+        from database import Propriedade, Equipe, Maquinario
+        from logica.barracao import Concessionaria
+        avisos_automacao = []
+        
+        propriedades = Propriedade.query.filter_by(dono_id=jogador.id).all()
+        for prop in propriedades:
+            equipe = Equipe.query.filter_by(propriedade_id=prop.id).first()
+            
+            # Se a fazenda tem pelo menos 1 Tratorista contratado
+            if equipe and getattr(equipe, 'tratoristas', 0) > 0:
+                maquinas = Maquinario.query.filter_by(propriedade_id=prop.id).all()
+                for maq in maquinas:
+                    # 1. Abastecimento Automático (Tanque < 20%)
+                    if maq.nivel_combustivel < 20 and getattr(prop, 'est_combustivel', 0) > 0:
+                        espaco = 100 - maq.nivel_combustivel
+                        gasto = min(espaco, prop.est_combustivel)
+                        prop.est_combustivel -= gasto
+                        maq.nivel_combustivel += gasto
+                        avisos_automacao.append(f"🚜 O Tratorista abasteceu o {maq.modelo} com {gasto}L de Diesel.")
+                    
+                    # 2. Oficina Automática (Saúde < 15%)
+                    if maq.estado_conservacao < 15:
+                        dano = 100 - maq.estado_conservacao
+                        preco_base = 0
+                        for chave, info in Concessionaria.CATALOGO.items():
+                            if info['nome'] == maq.modelo:
+                                preco_base = info['preco']
+                                break
+                        
+                        # Usa a mesma regra justa: 15% do valor da máquina nova
+                        custo_reparo = dano * (preco_base * 0.0015) if preco_base > 0 else dano * 350.0
+                        
+                        if jogador.saldo >= custo_reparo:
+                            jogador.saldo -= custo_reparo
+                            maq.estado_conservacao = 100
+                            registrar_transacao(jogador.id, 'saida', custo_reparo, f'Oficina Automática: {maq.modelo}')
+                            avisos_automacao.append(f"🔧 O Tratorista levou o {maq.modelo} para a revisão. Custo: R$ {custo_reparo:,.2f}.")
+        # =======================================================
+
         motor = MotorBiologico(clima_atual=getattr(jogador, 'clima_atual', 'sol'), jogador=jogador)
-        avisos = motor.processar_turno(horas)
+        # Junta os relatórios da frota com os da natureza
+        avisos = avisos_automacao + motor.processar_turno(horas)
         
         # 🔥 NOVA FOLHA DE PAGAMENTO MENSAL BLINDADA
         if meses_passados > 0:
@@ -2818,7 +2887,7 @@ ARQUIVO: ./logica/motor_pecuaria.py
 
 # logica/motor_pecuaria.py
 import random
-from database import db, Lote, Animal, HistoricoMorte, Propriedade # 🔥 Propriedade adicionada para o Peão consultar o Armazém
+from database import db, Lote, Animal, HistoricoMorte, Propriedade
 from logica.funcionarios import obter_bonus_equipe
 
 class MotorPecuaria:
@@ -2871,7 +2940,41 @@ class MotorPecuaria:
                 cache_bonus_rh[animal.propriedade_id] = obter_bonus_equipe(animal.propriedade_id)
             
             bonus_rh = cache_bonus_rh.get(animal.propriedade_id, {})
+            
+            # ====================================================
+            # 🔥 MÁGICA DA IMUNIZAÇÃO: PEÃO APLICA VACINAS E TRATAMENTOS AUTOMATICAMENTE
+            # ====================================================
+            if bonus_rh.get('protecao_animal', False):
+                fazenda = Propriedade.query.get(animal.propriedade_id)
+                
+                # 1. Vacina Aftosa
+                if not getattr(animal, 'vacinado_aftosa', False) and getattr(fazenda, 'est_vacina_aftosa', 0) >= 1:
+                    fazenda.est_vacina_aftosa -= 1
+                    animal.vacinado_aftosa = True
+                    msg_vac = "💉 O Peão buscou Vacina contra Aftosa no Armazém e imunizou os animais."
+                    if msg_vac not in avisos_turno: avisos_turno.append(msg_vac)
+                    
+                # 2. Vacina Brucelose
+                if not getattr(animal, 'vacinado_brucelose', False) and getattr(fazenda, 'est_vacina_brucelose', 0) >= 1:
+                    fazenda.est_vacina_brucelose -= 1
+                    animal.vacinado_brucelose = True
+                    msg_vac_b = "💉 O Peão buscou Vacina contra Brucelose no Armazém e imunizou os animais."
+                    if msg_vac_b not in avisos_turno: avisos_turno.append(msg_vac_b)
 
+                # 3. Medicamento Geral (Vermífugo)
+                if not getattr(animal, 'medicado', False) and getattr(fazenda, 'est_medicamento_geral', 0) >= 1:
+                    fazenda.est_medicamento_geral -= 1
+                    animal.medicado = True
+                    msg_med = "💊 O Peão aplicou Medicamento Geral (Vermífugo) no gado desprotegido."
+                    if msg_med not in avisos_turno: avisos_turno.append(msg_med)
+
+                # 4. Suplemento de Engorda
+                if not getattr(animal, 'suplementado', False) and getattr(fazenda, 'est_suplemento_engorda', 0) >= 1:
+                    fazenda.est_suplemento_engorda -= 1
+                    animal.suplementado = True
+                    msg_sup = "💪 O Peão misturou Suplemento de Engorda na dieta do rebanho."
+                    if msg_sup not in avisos_turno: avisos_turno.append(msg_sup)
+                        
             if animal.lote_id:
                 pasto = Lote.query.get(animal.lote_id)
                 if pasto:
@@ -3321,7 +3424,7 @@ class Cargo:
 class GerenciadorRH:
     """Catálogo central de profissões da fazenda."""
     CATALOGO = {
-        'peoes': Cargo('peoes', 'Peão', 500.0, 8.0, 'Proteção animal básica'),
+        'peoes': Cargo('peoes', 'Peão', 500.0, 2500.0 / 240.0, 'Manejo e Vacinação Auto'),
         'tratoristas': Cargo('tratoristas', 'Tratorista', 1200.0, 12.0, '+15% Colheita (Máx 5)'),
         'capatazes': Cargo('capatazes', 'Capataz', 8000.0, 20.0, '+5% Venda (Máx 5)'),
         'veterinarios': Cargo('veterinarios', 'Veterinário', 3000.0, 25.0, 'Reduz doenças'),
@@ -4854,6 +4957,114 @@ def verificar_saude_pastos():
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': 'Saúde do gado atualizada.'})
 
+@gado_bp.route('/api/animal/transferir_lote', methods=['POST'])
+def transferir_lote():
+    if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
+    
+    usuario = Jogador.query.filter_by(username=session['usuario']).with_for_update().first()
+    dados = request.get_json()
+    
+    animal_ids = dados.get('animal_ids', [])
+    fazenda_origem_id = int(dados.get('fazenda_origem_id'))
+    fazenda_destino_id = int(dados.get('fazenda_destino_id'))
+    usa_caminhao = dados.get('usa_caminhao', False)
+    
+    if not animal_ids: return jsonify({'sucesso': False, 'erro': 'Nenhum animal selecionado.'})
+    if fazenda_origem_id == fazenda_destino_id: return jsonify({'sucesso': False, 'erro': 'A origem e o destino são a mesma fazenda.'})
+    
+    prop_origem = Propriedade.query.filter_by(id=fazenda_origem_id).with_for_update().first()
+    prop_destino = Propriedade.query.filter_by(id=fazenda_destino_id).with_for_update().first()
+    
+    if not prop_origem or prop_origem.dono_id != usuario.id: return jsonify({'sucesso': False, 'erro': 'Origem inválida.'})
+    if not prop_destino or prop_destino.dono_id != usuario.id: return jsonify({'sucesso': False, 'erro': 'Destino inválido.'})
+    
+    animais = Animal.query.filter(Animal.id.in_(animal_ids), Animal.propriedade_id == prop_origem.id).all()
+    if not animais: return jsonify({'sucesso': False, 'erro': 'Animais não encontrados.'})
+    
+    quantidade = len(animais)
+    primeiro_animal = animais[0]
+    raca_lower = primeiro_animal.raca.lower()
+    
+    from logica.constantes import INFO_ESPECIES
+    from database import Maquinario
+    
+    familia_animal = 'bovino_corte'
+    for f, d in INFO_ESPECIES.items():
+        if raca_lower in [r.lower() for r in d.get('racas', [])]:
+            familia_animal = f
+            break
+            
+    # 🎯 Descobre o habitat de destino e as regras de frete
+    if familia_animal == 'ave' or any(t in raca_lower for t in ['galinha', 'pato', 'peru']):
+        habitat = 'galinheiro'
+        if not getattr(prop_destino, 'tem_galinheiro', False): return jsonify({'sucesso': False, 'erro': f'O destino "{prop_destino.nome}" não possui Galinheiro!'})
+        limite = getattr(prop_destino, 'cap_galinheiro', 100)
+        frete_cabeca = 5.0
+        modelos_aceitos = ['Caminhonete Nova', 'Caminhonete Usada', 'Caminhão Boiadeiro']
+    elif familia_animal == 'suino' or any(t in raca_lower for t in ['porco', 'leitao', 'javali']):
+        habitat = 'chiqueiro'
+        if not getattr(prop_destino, 'tem_chiqueiro', False): return jsonify({'sucesso': False, 'erro': f'O destino "{prop_destino.nome}" não possui Chiqueiro!'})
+        limite = getattr(prop_destino, 'cap_chiqueiro', 50)
+        frete_cabeca = 15.0
+        modelos_aceitos = ['Caminhonete Nova', 'Caminhonete Usada', 'Caminhão Boiadeiro']
+    elif 'peixe' in familia_animal or any(t in raca_lower for t in ['tambaqui', 'pirarucu', 'pacu', 'matrinxa']):
+        habitat = 'represa'
+        if not getattr(prop_destino, 'tem_represa_geral', False): return jsonify({'sucesso': False, 'erro': f'O destino "{prop_destino.nome}" não possui Represa!'})
+        limite = getattr(prop_destino, 'cap_represa', 200)
+        frete_cabeca = 5.0
+        modelos_aceitos = ['Caminhão Baú (Frios)']
+    else:
+        habitat = 'curral'
+        limite = getattr(prop_destino, 'cap_curral', 10)
+        frete_cabeca = 50.0
+        modelos_aceitos = ['Caminhão Boiadeiro']
+        
+    animais_no_destino = Animal.query.filter_by(propriedade_id=prop_destino.id, onde_esta=habitat).count()
+    if animais_no_destino + quantidade > limite:
+        return jsonify({'sucesso': False, 'erro': f'Lotação excedida! O {habitat.capitalize()} de destino só tem {limite - animais_no_destino} vagas.'})
+        
+    # 🚚 Lógica de Frete vs Caminhão Próprio
+    custo_frete = 0.0
+    
+    if usa_caminhao:
+        tem_veiculo = Maquinario.query.filter(
+            Maquinario.propriedade_id == prop_origem.id,
+            Maquinario.modelo.in_(modelos_aceitos),
+            Maquinario.nivel_combustivel >= 15,
+            Maquinario.estado_conservacao >= 5
+        ).first()
+        
+        if not tem_veiculo:
+            return jsonify({'sucesso': False, 'erro': 'A fazenda de ORIGEM não tem nenhum veículo livre, abastecido (>15%) e inteiro (>5%) que suporte essa carga!'})
+            
+        # O veículo desgasta com a viagem!
+        tem_veiculo.nivel_combustivel -= 15
+        tem_veiculo.estado_conservacao -= 5
+    else:
+        custo_frete = quantidade * frete_cabeca
+        
+    if usuario.saldo < custo_frete:
+        return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente para pagar a transportadora. Custa R$ {custo_frete:,.2f}.'})
+        
+    if custo_frete > 0:
+        usuario.saldo -= custo_frete
+        from logica.economia import registrar_transacao
+        registrar_transacao(usuario.id, 'saida', custo_frete, f'Logística: Frete de Transferência ({quantidade} cabeças)')
+        
+    # Desembarca os animais no destino
+    for a in animais:
+        a.propriedade_id = prop_destino.id
+        a.lote_id = None
+        a.onde_esta = habitat
+        
+    if getattr(usuario, 'xp', None) is None: usuario.xp = 0
+    usuario.xp += (quantidade * 2) 
+        
+    db.session.commit()
+    
+    meio_transporte = "com a sua frota própria" if usa_caminhao else "por transportadora"
+    return jsonify({'sucesso': True, 'msg': f'Carga despachada {meio_transporte}! {quantidade} animais chegaram na fazenda "{prop_destino.nome}".'})
+
 
 ============================================================
 ARQUIVO: ./logica/habitats.py
@@ -5335,7 +5546,21 @@ def manutencao_maquina():
         return jsonify({'sucesso': False, 'erro': 'A máquina já está em perfeito estado!'})
         
     dano = 100 - maquina.estado_conservacao
-    custo_reparo = dano * 350.0
+    
+    # 🔥 NOVO: Custo de manutenção inteligente e proporcional ao valor da máquina!
+    preco_base = 0
+    for chave, info in Concessionaria.CATALOGO.items():
+        if info['nome'] == maquina.modelo:
+            preco_base = info['preco']
+            break
+            
+    # O conserto de 100% de dano custa 15% do valor de um veículo zero km.
+    # Exemplo: Caminhonete de 45.000 = 6.750 o conserto total. (1% = R$ 67,50)
+    # Exemplo: Colheitadeira de 850.000 = 127.500 o conserto total. (1% = R$ 1.275,00)
+    if preco_base > 0:
+        custo_reparo = dano * (preco_base * 0.0015) 
+    else:
+        custo_reparo = dano * 350.0 # Fallback de segurança
     
     if jogador.saldo < custo_reparo:
         return jsonify({'sucesso': False, 'erro': f'Faltou dinheiro pro mecânico. Custa R$ {custo_reparo:,.2f}.'})
@@ -5345,7 +5570,7 @@ def manutencao_maquina():
     
     registrar_transacao(jogador.id, 'saida', custo_reparo, f'Oficina: Reparo {maquina.modelo}')
     db.session.commit()
-    return jsonify({'sucesso': True, 'msg': 'Manutenção concluída! Máquina 100%.'})
+    return jsonify({'sucesso': True, 'msg': f'Manutenção concluída por R$ {custo_reparo:,.2f}! Máquina 100%.'})
 
 @barracao_bp.route('/api/barracao/abastecer', methods=['POST'])
 def abastecer_maquina():
@@ -6500,30 +6725,39 @@ window.verificarCaminhaoDestino = async function() {
     const imgCaminhao = document.getElementById('img-veiculo');
 
     try {
-        const res = await fetch(`/api/barracao/listar?fazenda_id=${destino}`);
+        // 🔥 A MÁGICA: O "?t=..." envia a hora exata em milissegundos. 
+        // Isso obriga o celular a buscar o diesel REAL no servidor e ignorar a memória!
+        const res = await fetch(`/api/barracao/listar?fazenda_id=${destino}&t=${new Date().getTime()}`);
         const data = await res.json();
 
         if (data.sucesso) {
-            // Filtra se a fazenda tem algum dos veículos válidos para aquela carga
             const veiculosPossuidos = data.maquinas.filter(m => modelosAceitos.includes(m.modelo));
+            
+            // Filtra os que têm combustível e saúde suficientes
+            const veiculosProntos = veiculosPossuidos.filter(m => m.combustivel >= 15 && m.saude >= 5);
 
-            if (veiculosPossuidos.length > 0) {
-                // Ordena para que a caminhonete tenha prioridade visual se o animal for pequeno
-                veiculosPossuidos.sort((a, b) => modelosAceitos.indexOf(a.modelo) - modelosAceitos.indexOf(b.modelo));
-                const veiculoEscolhido = veiculosPossuidos[0];
+            if (veiculosProntos.length > 0) {
+                veiculosProntos.sort((a, b) => modelosAceitos.indexOf(a.modelo) - modelosAceitos.indexOf(b.modelo));
+                const veiculoEscolhido = veiculosProntos[0];
 
                 checkbox.disabled = false;
                 checkbox.checked = true;
                 aviso.innerText = `✅ Você usará o ${veiculoEscolhido.modelo}! Frete Grátis.`;
                 aviso.style.color = '#4caf50';
 
-                // 🔥 TROCA A FOTO EXATAMENTE PARA O VEÍCULO QUE O JOGADOR TEM!
                 if(veiculoEscolhido.imagem) {
                     imgCaminhao.src = '/static/img/' + veiculoEscolhido.imagem;
                 }
 
+            } else if (veiculosPossuidos.length > 0) {
+                // Tem a máquina, mas está quebrada ou sem diesel
+                checkbox.disabled = true;
+                checkbox.checked = false;
+                aviso.innerText = `❌ Seu ${veiculosPossuidos[0].modelo} está sem diesel (<15%) ou quebrado.`;
+                aviso.style.color = '#f44336';
+                definirCaminhaoPadrao(racaLower); 
             } else {
-                // Jogador não tem veículo para o frete
+                // Não tem a máquina
                 checkbox.disabled = true;
                 checkbox.checked = false;
                 aviso.innerText = `❌ Sem ${nomeVeiculoMsg} nesta fazenda. Frete será cobrado.`;
@@ -8508,6 +8742,156 @@ window.abrirModalLoteFrigorifico = async function() {
     });
 }
 
+window.prepararTransferenciaLoteCurral = async function(habitatAtual = 'curral') {
+    const fazendaId = window.location.pathname.split('/').pop();
+    
+    // Descobre se estamos puxando os animais do curral, galinheiro, chiqueiro ou represa
+    let endpoint = '';
+    if (habitatAtual === 'curral') endpoint = `/api/pecuaria/listar_curral?fazenda_id=${fazendaId}`;
+    else endpoint = `/api/pecuaria/habitat/${habitatAtual}?fazenda_id=${fazendaId}`;
+    
+    Swal.fire({ title: 'Carregando frota e animais...', didOpen: () => Swal.showLoading() });
+    
+    try {
+        const resposta = await fetch(endpoint);
+        const dados = await resposta.json();
+
+        if (!dados.animais || dados.animais.length === 0) {
+            Swal.fire('Aviso', 'Não há animais aqui para transferir.', 'info');
+            return;
+        }
+        
+        // Puxa a lista de terras do jogador para escolher o destino
+        const resFazendas = await fetch('/api/mapa_global');
+        const todasTerras = await resFazendas.json();
+        const minhasOutrasTerras = todasTerras.filter(t => t.e_minha && t.id != fazendaId);
+
+        if (minhasOutrasTerras.length === 0) {
+            Swal.fire('Aviso', 'Você precisa possuir pelo menos outra fazenda para fazer transferências!', 'info');
+            return;
+        }
+
+        let options = minhasOutrasTerras.map(t => `<option value="${t.id}">${t.nome}</option>`).join('');
+
+        let htmlCheckboxes = `
+            <div style="text-align: left; max-height: 40vh; overflow-y: auto; padding: 5px; margin-bottom: 10px;">
+                <div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                    <label style="cursor: pointer; font-size: 13px; color: #4caf50; font-weight: bold;">
+                        <input type="checkbox" id="selecionar-todos-transfer" onclick="toggleSelecionarTodosTransfer(this)"> Selecionar Todos
+                    </label>
+                    <span style="font-size: 11px; color: #aaa;">Total: ${dados.animais.length} animais</span>
+                </div>
+        `;
+
+        dados.animais.forEach(a => {
+            htmlCheckboxes += `
+                <label style="display: flex; align-items: center; justify-content: space-between; background: #222; padding: 10px; margin-bottom: 6px; border-radius: 6px; cursor: pointer; border: 1px solid #444;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" class="chk-animal-transfer" value="${a.id}" data-raca="${a.raca}" onchange="window.atualizarTotalTransferencia()" style="width: 18px; height: 18px; cursor: pointer; flex-shrink: 0; margin-right: 5px;">
+                        <div>
+                            <div style="font-weight: bold; font-size: 14px; color: #fff; text-transform: capitalize;">${a.raca} (${a.fase})</div>
+                            <span style="font-size: 11px; color: #888;">ID: #${a.id} | Sexo: ${a.sexo} | Peso: ${formatarPeso(a.peso)}</span>
+                        </div>
+                    </div>
+                </label>
+            `;
+        });
+        htmlCheckboxes += `</div>`;
+        
+        htmlCheckboxes += `
+            <div style="text-align: left; background:#1a1a1a; padding: 10px; border-radius: 8px; border: 1px dashed #555;">
+                <label style="color: #aaa; font-size: 12px;"><i class="fas fa-map-marker-alt"></i> Destino da Carga:</label>
+                <select id="modal-destino-transfer" class="swal2-select" style="width: 100%; display: block; margin: 5px 0 15px 0; font-size: 14px; padding: 8px; background: #111; color: #fff; border: 1px solid #444;">
+                    ${options}
+                </select>
+                
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; background: #222; padding: 10px; border-radius: 6px; border: 1px solid #444;">
+                    <input type="checkbox" id="check-caminhao-transfer" onchange="window.atualizarTotalTransferencia()" style="width: 18px; height: 18px;">
+                    <span style="font-size: 13px; font-weight: bold; color: #ff9800;">Usar Veículo Próprio (Frete Grátis)</span>
+                </label>
+                <div style="font-size: 11px; color: #888; margin-top: 5px; margin-left: 28px;">(O veículo será retirado da garagem <b>DESTA</b> fazenda atual)</div>
+                
+                <div style="margin-top: 15px; font-size: 16px; font-weight: bold; text-align: center; border-top: 1px solid #333; padding-top: 10px;">
+                    Custo do Frete: <span id="txt-total-transfer" style="color: #f44336;">R$ 0,00</span>
+                </div>
+            </div>
+        `;
+
+        Swal.fire({
+            title: '🚚 Transferência Intermunicipal',
+            html: htmlCheckboxes,
+            background: '#2a2a2a', color: '#fff',
+            showCancelButton: true, confirmButtonText: 'Despachar Carga', cancelButtonText: 'Cancelar', confirmButtonColor: '#0288d1',
+            preConfirm: () => {
+                const checkboxes = document.querySelectorAll('.chk-animal-transfer:checked');
+                const ids = Array.from(checkboxes).map(chk => parseInt(chk.value));
+                if (ids.length === 0) Swal.showValidationMessage('Selecione pelo menos um animal!');
+                return {
+                    animal_ids: ids,
+                    destino_id: document.getElementById('modal-destino-transfer').value,
+                    usa_caminhao: document.getElementById('check-caminhao-transfer').checked
+                };
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({ title: 'Viajando pelas rodovias...', didOpen: () => Swal.showLoading() });
+                
+                fetch('/api/animal/transferir_lote', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ 
+                        animal_ids: result.value.animal_ids, 
+                        fazenda_origem_id: fazendaId,
+                        fazenda_destino_id: result.value.destino_id,
+                        usa_caminhao: result.value.usa_caminhao
+                    })
+                })
+                .then(r => r.json()).then(d => {
+                    if(d.sucesso) Swal.fire('Chegou! 🚚', d.msg, 'success').then(()=> { location.reload(); });
+                    else Swal.fire('Atenção', d.erro, 'warning');
+                });
+            }
+        });
+    } catch (e) {
+        Swal.fire('Erro', 'Falha de comunicação', 'error');
+    }
+}
+
+window.toggleSelecionarTodosTransfer = function(masterCheckbox) {
+    document.querySelectorAll('.chk-animal-transfer').forEach(chk => chk.checked = masterCheckbox.checked);
+    window.atualizarTotalTransferencia();
+};
+
+window.atualizarTotalTransferencia = function() {
+    const checkboxes = document.querySelectorAll('.chk-animal-transfer:checked');
+    const qtd = checkboxes.length;
+    const usaCaminhao = document.getElementById('check-caminhao-transfer').checked;
+    const txtTotal = document.getElementById('txt-total-transfer');
+    
+    if (qtd === 0) {
+        txtTotal.innerText = "R$ 0,00";
+        txtTotal.style.color = "#888";
+        return;
+    }
+
+    if (usaCaminhao) {
+        txtTotal.innerText = "Grátis (Frota Própria)";
+        txtTotal.style.color = "#4caf50";
+    } else {
+        let freteCabeca = 50.0;
+        const raca = checkboxes[0].getAttribute('data-raca').toLowerCase();
+        const aves_peixes = ['galinha', 'pato', 'peru', 'tambaqui', 'pirarucu', 'pacu', 'matrinxa'];
+        const suinos_ovinos = ['porco', 'leitao', 'javali', 'ovelha', 'cabra'];
+
+        if (aves_peixes.some(v => raca.includes(v))) freteCabeca = 5.0;
+        else if (suinos_ovinos.some(v => raca.includes(v))) freteCabeca = 15.0;
+
+        const custo = qtd * freteCabeca; 
+        txtTotal.innerText = custo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        txtTotal.style.color = "#f44336";
+    }
+}
+
+
 ============================================================
 ARQUIVO: ./static/js/habitats.js
 ============================================================
@@ -8982,7 +9366,7 @@ window.abrirModalRH = async function() {
 
         const equipeAtual = data.equipe;
         const catalogoRH = [
-            { id: 'peoes', nome: 'Peão', custo: 500, salario: 8, icone: 'fa-shield-alt', benef: 'Cuida de TODO o rebanho' },
+            { id: 'peoes', nome: 'Peão', custo: 500, salario: 10.42, icone: 'fa-shield-alt', benef: 'Manejo e Vacinação Auto' },
             { id: 'tratoristas', nome: 'Tratorista', custo: 1200, salario: 12, icone: 'fa-tractor', benef: '+15% Colheita' },
             { id: 'capatazes', nome: 'Capataz', custo: 8000, salario: 20, icone: 'fa-dollar-sign', benef: '+5% Venda' },
             { id: 'veterinarios', nome: 'Veterinário', custo: 3000, salario: 25, icone: 'fa-notes-medical', benef: 'Reduz Doenças' },
@@ -9594,11 +9978,19 @@ ARQUIVO: ./templates/mapa.html
                 
                 <div style="pointer-events: auto; background: rgba(20, 20, 20, 0.9); border: 1px solid #444; border-radius: 20px; padding: 4px 6px 4px 10px; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.5);">
                     <div style="display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2;">
-                        <div style="font-size: 13px; font-weight: 900; color: #fff;">{{ "%02d"|format(jogador.hora|default(6)) }}:00</div>
-                        <div style="font-size: 8px; color: #f9a825; font-weight: bold;">
-                            <i class="fas fa-leaf" style="color: #4caf50;"></i> {{ "%02d"|format(jogador.dia|default(1)) }}/{{ "%02d"|format(jogador.mes|default(1)) }}
-                        </div>
-                    </div>
+    <!-- ID do Relógio -->
+    <div id="relogio-real" style="font-size: 13px; font-weight: 900; color: #fff;">{{ "%02d"|format(jogador.hora|default(6)) }}:00</div>
+    
+    <!-- ID da Estação (Folha) -->
+    <div id="estacao-jogo" style="font-size: 8px; color: #f9a825; font-weight: bold; margin-bottom: 2px;">
+        <i class="fas fa-leaf" style="color: #4caf50;"></i>
+    </div>
+    
+    <!-- ID da Data -->
+    <div id="data-jogo" style="font-size: 8px; color: #f9a825; font-weight: bold;">
+        {{ "%02d"|format(jogador.dia|default(1)) }}/{{ "%02d"|format(jogador.mes|default(1)) }}/{{ jogador.ano|default(2026) }}
+    </div>
+</div>
                     <button onclick="document.getElementById('modal-tempo').style.display='flex'" style="background: #2e7d32; color: white; border: none; width: 28px; height: 28px; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.4);">
                         <i class="fas fa-forward" style="font-size: 10px;"></i>
                     </button>
@@ -9683,17 +10075,17 @@ ARQUIVO: ./templates/perfil.html
             <h2>{{ jogador.username }}</h2>
             
             <!-- 🔥 EMBLEMAS DE RANKING 3D 🔥 -->
-            <div style="display: flex; justify-content: center; gap: 4px;">
-                {% if posicao_nivel == 1 %}<i class="fas fa-crown" style="color: #FFD700; font-size: 20px; text-shadow: 1px 2px 0px #b86b00;"></i>
-                {% elif posicao_nivel == 2 %}<i class="fas fa-medal" style="color: #E0E0E0; font-size: 20px; text-shadow: 1px 2px 0px #9e9e9e;"></i>
-                {% elif posicao_nivel == 3 %}<i class="fas fa-award" style="color: #CD7F32; font-size: 20px; text-shadow: 1px 2px 0px #8d5520;"></i>{% endif %}
-                
-                {% if posicao_saldo == 1 %}<i class="fas fa-trophy" style="color: #FFD700; font-size: 20px; text-shadow: 1px 2px 0px #b86b00;"></i>
-                {% elif posicao_saldo == 2 %}<i class="fas fa-sack-dollar" style="color: #E0E0E0; font-size: 20px; text-shadow: 1px 2px 0px #9e9e9e;"></i>
-                {% elif posicao_saldo == 3 %}<i class="fas fa-coins" style="color: #CD7F32; font-size: 20px; text-shadow: 1px 2px 0px #8d5520;"></i>{% endif %}
+            <div style="font-size: 22px; margin-top: 5px; display: flex; gap: 8px; justify-content: center;">
+                {% if posicao_nivel == 1 %}<span title="1º em Nível">🥇</span>
+                {% elif posicao_nivel == 2 %}<span title="2º em Nível">🥈</span>
+                {% elif posicao_nivel == 3 %}<span title="3º em Nível">🥉</span>{% endif %}
+    
+                {% if posicao_saldo == 1 %}<span title="1º em Dinheiro">🏆</span>
+                {% elif posicao_saldo == 2 %}<span title="2º em Dinheiro">💰</span>
+                {% elif posicao_saldo == 3 %}<span title="3º em Dinheiro">🪙</span>{% endif %}
             </div>
         </div>
-
+        
         <div class="titulo-jogador">Fazendeiro - Nível {{ jogador.nivel }}</div>
         
         <!-- 🔥 BARRA DE XP 🔥 -->
@@ -10076,37 +10468,52 @@ ARQUIVO: ./templates/mercado.html
     </h3>
 
     <div style="display: grid; grid-template-columns: 1fr; gap: 15px; margin-bottom: 40px;">
+        
         {% if not anuncios %}
             <div style="background: #1a1a1a; padding: 20px; border-radius: 12px; text-align: center; border: 1px dashed #444;">
                 <p style="color:#777; font-style: italic; margin: 0;">Nenhum jogador anunciando agora.</p>
             </div>
         {% else %}
-            {% for anuncio in anuncios %}
+                    {% for anuncio in anuncios %}
             <div style="background: #111; padding: 15px; border-radius: 12px; border: 1px solid #333; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
                 
                 <div style="display: flex; align-items: center; gap: 15px;">
-                    <img src="/static/img/{{ anuncio.animal.raca|lower }}.png" style="width: 60px; height: 60px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));">
+                    <img src="/static/img/{{ anuncio.raca|lower }}.png" style="width: 60px; height: 60px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));">
                     <div>
-                        <b style="color: #fff; text-transform: capitalize; font-size: 16px;">{{ anuncio.animal.raca }}</b>
+                        <b style="color: #fff; text-transform: capitalize; font-size: 16px;">
+                            {% if anuncio.quantidade > 1 %}
+                                <span style="color: #ff9800;">{{ anuncio.quantidade }}x</span> 
+                            {% endif %}
+                            {{ anuncio.raca }}
+                        </b>
                         <div style="color: #aaa; font-size: 12px; margin-top: 3px;">
-                            ⚖️ {{ anuncio.animal.peso }} @ | {{ anuncio.animal.fase }}<br>
-                            👤 Vendedor: <b style="color: #4caf50;">{{ anuncio.vendedor.username }}</b>
+                            {% if anuncio.raca|lower in ['nelore', 'angus', 'guzera', 'brahman', 'girolando'] %}
+                                ⚖️ Peso Médio: {{ "%.1f"|format(anuncio.peso_medio / 30.0) }} @ | {{ anuncio.fase }}<br>
+                            {% else %}
+                                ⚖️ Peso Médio: {{ "%.1f"|format(anuncio.peso_medio) }} Kg | {{ anuncio.fase }}<br>
+                            {% endif %}
+                            
+                            👤 Vendedor: <b style="color: #4caf50;">{{ anuncio.vendedor_nome }}</b>
                         </div>
                     </div>
                 </div>
 
                 <div style="text-align: right;">
-                    <div style="color: #4caf50; font-size: 18px; font-weight: 900; margin-bottom: 8px;">R$ {{ anuncio.valor }}</div>
+                    <div style="color: #4caf50; font-size: 18px; font-weight: 900; margin-bottom: 8px;">
+                        R$ {{ "{:,.2f}".format(anuncio.valor).replace(',','v').replace('.',',').replace('v','.') }}
+                        <span style="font-size: 10px; color: #aaa; display: block; margin-top: -3px;">por unidade</span>
+                    </div>
                     
                     {% if anuncio.vendedor_id == user.id %}
-                        <button onclick="cancelar('{{ anuncio.id }}')" style="background: #f44336; color: white; border: none; padding: 8px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #b71c1c;">CANCELAR</button>
+                        <button onclick="cancelar('{{ anuncio.id }}')" style="background: #f44336; color: white; border: none; padding: 8px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #b71c1c; font-size: 11px;">CANCELAR 1</button>
                     {% else %}
-                        <button onclick="prepararCompraComunidade('{{ anuncio.id }}', '{{ anuncio.animal.raca }}', {{ anuncio.valor }})" style="background: #2e7d32; color: white; border: none; padding: 8px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #1b5e20;">COMPRAR</button>
+                        <button onclick="prepararCompraComunidade('{{ anuncio.id }}', '{{ anuncio.raca }}', {{ anuncio.valor }})" style="background: #2e7d32; color: white; border: none; padding: 8px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #1b5e20; font-size: 11px;">COMPRAR 1</button>
                     {% endif %}
                 </div>
                 
             </div>
             {% endfor %}
+
         {% endif %}
     </div>
 
@@ -10498,7 +10905,9 @@ ARQUIVO: ./templates/ajuda.html
             <summary><i class="fas fa-users"></i> 6. Funcionários, Automação e RH</summary>
             <div class="conteudo">
                 Sua equipe trabalha em <strong>turno comercial de 8 horas por dia</strong> e os salários são cobrados <strong>mensalmente</strong>.<br><br>
-                <strong>👨‍🌾 Peão (R$ 8/h):</strong> Cuida de todo o seu rebanho (Gado, Porcos e Galinhas). Reduz em 80% o impacto da fome e automatiza o reabastecimento de cochos e depósitos. (Custo Mensal: R$ 1.920)<br><br>
+                <p>
+    👨‍🌾 <b>Peão (R$ 10,42/h):</b> Cuida de todo o seu rebanho (Gado, Porcos e Galinhas). Reduz em 80% o impacto da fome, automatiza o reabastecimento de cochos e depósitos, e <b>aplica vacinas, suplementos e medicamentos automaticamente</b>. (Custo Mensal: R$ 2.500)
+</p>
                 <strong>🚜 Tratorista (R$ 12/h):</strong> Aumenta a colheita em +15%. Automação: Pulveriza veneno e aduba o solo automaticamente. (Custo Mensal: R$ 2.880)<br><br>
                 <strong>💼 Capataz (R$ 20/h):</strong> Negocia pesado no mercado, garantindo um ágio de +5% em qualquer venda. (Custo Mensal: R$ 4.800)<br><br>
                 <strong>🩺 Veterinário (R$ 25/h):</strong> Reduz em 90% a perda de saúde por doenças. (Custo Mensal: R$ 6.000)<br><br>
@@ -10944,11 +11353,14 @@ ARQUIVO: ./templates/ranking.html
     <div class="container">
         <!-- RANKING DE NÍVEL -->
         <div class="ranking-card" id="card-nivel">
-            <h3 class="titulo-nivel"><i class="fas fa-star"></i> Reis do Agro (Nível)</h3>
+            <h3 class="titulo-nivel">⭐ Reis do Agro (Nível)</h3>
             {% for j in top_nivel %}
             <div class="r-item">
                 <div class="r-pos {% if loop.index == 1 %}pos-1{% elif loop.index == 2 %}pos-2{% elif loop.index == 3 %}pos-3{% else %}pos-normal{% endif %}">
-                    {% if loop.index <= 3 %}<i class="fas fa-medal"></i>{% else %}{{ loop.index }}º{% endif %}
+                    {% if loop.index == 1 %}🥇
+                    {% elif loop.index == 2 %}🥈
+                    {% elif loop.index == 3 %}🥉
+                    {% else %}{{ loop.index }}º{% endif %}
                 </div>
                 <div class="r-nome">
                     {{ j.username }}
@@ -10963,11 +11375,14 @@ ARQUIVO: ./templates/ranking.html
 
         <!-- RANKING DE DINHEIRO -->
         <div class="ranking-card" id="card-dinheiro">
-            <h3 class="titulo-dinheiro"><i class="fas fa-sack-dollar"></i> Magnatas (Saldo)</h3>
+            <h3 class="titulo-dinheiro">💵 Magnatas (Saldo)</h3>
             {% for j in top_ricos %}
             <div class="r-item">
                 <div class="r-pos {% if loop.index == 1 %}pos-1{% elif loop.index == 2 %}pos-2{% elif loop.index == 3 %}pos-3{% else %}pos-normal{% endif %}">
-                    {% if loop.index <= 3 %}<i class="fas fa-medal"></i>{% else %}{{ loop.index }}º{% endif %}
+                    {% if loop.index == 1 %}🏆
+                    {% elif loop.index == 2 %}💰
+                    {% elif loop.index == 3 %}🪙
+                    {% else %}{{ loop.index }}º{% endif %}
                 </div>
                 <div class="r-nome">
                     {{ j.username }}
@@ -10979,7 +11394,6 @@ ARQUIVO: ./templates/ranking.html
             <p class="msg-vazio">Nenhuma fortuna registrada.</p>
             {% endfor %}
         </div>
-    </div>
 
     <!-- Chamando a inteligência Orientada a Objetos -->
     <script src="{{ url_for('static', filename='js/ranking.js') }}"></script>
@@ -11109,6 +11523,17 @@ ARQUIVO: ./templates/partes/curral.html
                 <p style="font-size: 11px; color: #f87171; margin: 0;">Venda rápida para frigorífico</p>
             </div>
             <button onclick="prepararVendaLoteCurral()" style="background: #b91c1c; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; font-size: 12px; cursor: pointer; box-shadow: 0 3px 0 #7f1d1d;">
+                ESCOLHER
+            </button>
+        </div>
+        
+        <!-- Caixinha de Transferência Intermunicipal translúcida -->
+        <div style="background: rgba(2, 136, 209, 0.85); border: 1px solid rgba(1, 87, 155, 0.6); padding: 12px; border-radius: 12px; margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+            <div style="text-align: left;">
+                <b style="color: #81d4fa; font-size: 13px; text-shadow: 1px 1px 2px #000;">🚚 Transferir Lote</b>
+                <p style="font-size: 11px; color: #b3e5fc; margin: 0;">Mover gado para outra fazenda</p>
+            </div>
+            <button onclick="prepararTransferenciaLoteCurral('curral')" style="background: #0288d1; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; font-size: 12px; cursor: pointer; box-shadow: 0 3px 0 #01579b;">
                 ESCOLHER
             </button>
         </div>

@@ -432,3 +432,152 @@ window.abrirModalLoteFrigorifico = async function() {
         }
     });
 }
+
+window.prepararTransferenciaLoteCurral = async function(habitatAtual = 'curral') {
+    const fazendaId = window.location.pathname.split('/').pop();
+    
+    // Descobre se estamos puxando os animais do curral, galinheiro, chiqueiro ou represa
+    let endpoint = '';
+    if (habitatAtual === 'curral') endpoint = `/api/pecuaria/listar_curral?fazenda_id=${fazendaId}`;
+    else endpoint = `/api/pecuaria/habitat/${habitatAtual}?fazenda_id=${fazendaId}`;
+    
+    Swal.fire({ title: 'Carregando frota e animais...', didOpen: () => Swal.showLoading() });
+    
+    try {
+        const resposta = await fetch(endpoint);
+        const dados = await resposta.json();
+
+        if (!dados.animais || dados.animais.length === 0) {
+            Swal.fire('Aviso', 'Não há animais aqui para transferir.', 'info');
+            return;
+        }
+        
+        // Puxa a lista de terras do jogador para escolher o destino
+        const resFazendas = await fetch('/api/mapa_global');
+        const todasTerras = await resFazendas.json();
+        const minhasOutrasTerras = todasTerras.filter(t => t.e_minha && t.id != fazendaId);
+
+        if (minhasOutrasTerras.length === 0) {
+            Swal.fire('Aviso', 'Você precisa possuir pelo menos outra fazenda para fazer transferências!', 'info');
+            return;
+        }
+
+        let options = minhasOutrasTerras.map(t => `<option value="${t.id}">${t.nome}</option>`).join('');
+
+        let htmlCheckboxes = `
+            <div style="text-align: left; max-height: 40vh; overflow-y: auto; padding: 5px; margin-bottom: 10px;">
+                <div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                    <label style="cursor: pointer; font-size: 13px; color: #4caf50; font-weight: bold;">
+                        <input type="checkbox" id="selecionar-todos-transfer" onclick="toggleSelecionarTodosTransfer(this)"> Selecionar Todos
+                    </label>
+                    <span style="font-size: 11px; color: #aaa;">Total: ${dados.animais.length} animais</span>
+                </div>
+        `;
+
+        dados.animais.forEach(a => {
+            htmlCheckboxes += `
+                <label style="display: flex; align-items: center; justify-content: space-between; background: #222; padding: 10px; margin-bottom: 6px; border-radius: 6px; cursor: pointer; border: 1px solid #444;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" class="chk-animal-transfer" value="${a.id}" data-raca="${a.raca}" onchange="window.atualizarTotalTransferencia()" style="width: 18px; height: 18px; cursor: pointer; flex-shrink: 0; margin-right: 5px;">
+                        <div>
+                            <div style="font-weight: bold; font-size: 14px; color: #fff; text-transform: capitalize;">${a.raca} (${a.fase})</div>
+                            <span style="font-size: 11px; color: #888;">ID: #${a.id} | Sexo: ${a.sexo} | Peso: ${formatarPeso(a.peso)}</span>
+                        </div>
+                    </div>
+                </label>
+            `;
+        });
+        htmlCheckboxes += `</div>`;
+        
+        htmlCheckboxes += `
+            <div style="text-align: left; background:#1a1a1a; padding: 10px; border-radius: 8px; border: 1px dashed #555;">
+                <label style="color: #aaa; font-size: 12px;"><i class="fas fa-map-marker-alt"></i> Destino da Carga:</label>
+                <select id="modal-destino-transfer" class="swal2-select" style="width: 100%; display: block; margin: 5px 0 15px 0; font-size: 14px; padding: 8px; background: #111; color: #fff; border: 1px solid #444;">
+                    ${options}
+                </select>
+                
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; background: #222; padding: 10px; border-radius: 6px; border: 1px solid #444;">
+                    <input type="checkbox" id="check-caminhao-transfer" onchange="window.atualizarTotalTransferencia()" style="width: 18px; height: 18px;">
+                    <span style="font-size: 13px; font-weight: bold; color: #ff9800;">Usar Veículo Próprio (Frete Grátis)</span>
+                </label>
+                <div style="font-size: 11px; color: #888; margin-top: 5px; margin-left: 28px;">(O veículo será retirado da garagem <b>DESTA</b> fazenda atual)</div>
+                
+                <div style="margin-top: 15px; font-size: 16px; font-weight: bold; text-align: center; border-top: 1px solid #333; padding-top: 10px;">
+                    Custo do Frete: <span id="txt-total-transfer" style="color: #f44336;">R$ 0,00</span>
+                </div>
+            </div>
+        `;
+
+        Swal.fire({
+            title: '🚚 Transferência Intermunicipal',
+            html: htmlCheckboxes,
+            background: '#2a2a2a', color: '#fff',
+            showCancelButton: true, confirmButtonText: 'Despachar Carga', cancelButtonText: 'Cancelar', confirmButtonColor: '#0288d1',
+            preConfirm: () => {
+                const checkboxes = document.querySelectorAll('.chk-animal-transfer:checked');
+                const ids = Array.from(checkboxes).map(chk => parseInt(chk.value));
+                if (ids.length === 0) Swal.showValidationMessage('Selecione pelo menos um animal!');
+                return {
+                    animal_ids: ids,
+                    destino_id: document.getElementById('modal-destino-transfer').value,
+                    usa_caminhao: document.getElementById('check-caminhao-transfer').checked
+                };
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({ title: 'Viajando pelas rodovias...', didOpen: () => Swal.showLoading() });
+                
+                fetch('/api/animal/transferir_lote', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ 
+                        animal_ids: result.value.animal_ids, 
+                        fazenda_origem_id: fazendaId,
+                        fazenda_destino_id: result.value.destino_id,
+                        usa_caminhao: result.value.usa_caminhao
+                    })
+                })
+                .then(r => r.json()).then(d => {
+                    if(d.sucesso) Swal.fire('Chegou! 🚚', d.msg, 'success').then(()=> { location.reload(); });
+                    else Swal.fire('Atenção', d.erro, 'warning');
+                });
+            }
+        });
+    } catch (e) {
+        Swal.fire('Erro', 'Falha de comunicação', 'error');
+    }
+}
+
+window.toggleSelecionarTodosTransfer = function(masterCheckbox) {
+    document.querySelectorAll('.chk-animal-transfer').forEach(chk => chk.checked = masterCheckbox.checked);
+    window.atualizarTotalTransferencia();
+};
+
+window.atualizarTotalTransferencia = function() {
+    const checkboxes = document.querySelectorAll('.chk-animal-transfer:checked');
+    const qtd = checkboxes.length;
+    const usaCaminhao = document.getElementById('check-caminhao-transfer').checked;
+    const txtTotal = document.getElementById('txt-total-transfer');
+    
+    if (qtd === 0) {
+        txtTotal.innerText = "R$ 0,00";
+        txtTotal.style.color = "#888";
+        return;
+    }
+
+    if (usaCaminhao) {
+        txtTotal.innerText = "Grátis (Frota Própria)";
+        txtTotal.style.color = "#4caf50";
+    } else {
+        let freteCabeca = 50.0;
+        const raca = checkboxes[0].getAttribute('data-raca').toLowerCase();
+        const aves_peixes = ['galinha', 'pato', 'peru', 'tambaqui', 'pirarucu', 'pacu', 'matrinxa'];
+        const suinos_ovinos = ['porco', 'leitao', 'javali', 'ovelha', 'cabra'];
+
+        if (aves_peixes.some(v => raca.includes(v))) freteCabeca = 5.0;
+        else if (suinos_ovinos.some(v => raca.includes(v))) freteCabeca = 15.0;
+
+        const custo = qtd * freteCabeca; 
+        txtTotal.innerText = custo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        txtTotal.style.color = "#f44336";
+    }
+}
