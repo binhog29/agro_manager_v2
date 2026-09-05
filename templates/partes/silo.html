@@ -32,7 +32,6 @@
             {% set lista_graos = [('milho', 'Milho'), ('soja', 'Soja'), ('arroz', 'Arroz'), ('feijao', 'Feijão')] %}
             {% for tipo, nome in lista_graos %}
                 
-                <!-- 🔥 CORREÇÃO AQUI: Trocado colchetes [] pela função segura attr() -->
                 {% set nome_coluna = 'est_' ~ tipo %}
                 {% set qtd = fazenda | attr(nome_coluna) %}
                 
@@ -41,7 +40,13 @@
                     <img src="/static/img/{{ tipo }}.png" style="height:40px; margin-bottom:5px;" onerror="this.src='/static/img/milho.png'">
                     <span style="font-size: 13px; color: #aaa; font-weight: 600;">{{ nome }}</span>
                     <b style="font-size: 16px; color: #fbc02d;">{{ qtd }} kg</b>
+                    
                     <button onclick="prepararVenda('{{ tipo }}', '{{ nome }}', {{ qtd }})" style="background: #2e7d32; color: white; border: none; padding: 8px; border-radius: 6px; font-size: 11px; margin-top: 10px; width: 100%; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #1b5e20;">VENDER 💰</button>
+
+                    <!-- 🔥 BOTÃO DE LOGÍSTICA PARA O SILO 🔥 -->
+                    <button onclick="prepararTransferenciaEstoque('{{ tipo }}', '{{ nome }}', {{ qtd }})" style="background: #0288d1; color: white; border: none; padding: 8px; border-radius: 6px; font-size: 11px; margin-top: 5px; width: 100%; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #01579b;">
+                        <i class="fas fa-truck"></i> TRANSFERIR
+                    </button>
                 </div>
                 {% endif %}
             {% endfor %}

@@ -12,10 +12,14 @@
         <div style="padding: 0 20px;">
             <div id="painel-comedouro-galinheiro" style="margin-bottom: 12px;"></div>
             
-            
             <div id="lista-galinheiro" style="max-height: 180px; overflow-y: auto; background: #1a1a1a; border-radius: 8px; padding: 10px; border: 1px inset #333; margin-bottom: 15px;">
                 <!-- O JS preenche aqui -->
             </div>
+
+            <!-- 🔥 BOTÃO DE TRANSFERÊNCIA DE LOGÍSTICA 🔥 -->
+            <button onclick="prepararTransferenciaLoteCurral('galinheiro')" style="background: #0288d1; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; font-size: 13px; cursor: pointer; box-shadow: 0 3px 0 #01579b; width: 100%; margin-bottom: 10px;">
+                <i class="fas fa-truck"></i> Transferir Aves
+            </button>
 
             <button onclick="abrirModalHabitatVenda('galinheiro', 'Aves')" style="width: 100%; background: #b91c1c; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer;">
                 <i class="fas fa-sack-dollar"></i> Comercializar Aves

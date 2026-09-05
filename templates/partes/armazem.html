@@ -47,6 +47,11 @@
                             style="background: #d32f2f; color: white; border: none; padding: 8px; border-radius: 6px; font-size: 11px; margin-top: 10px; width: 100%; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #b71c1c;">
                         VENDER 💰
                     </button>
+
+                    <!-- 🔥 BOTÃO DE LOGÍSTICA PARA O ARMAZÉM 🔥 -->
+                    <button onclick="prepararTransferenciaEstoque('{{ chave }}', '{{ nome }}', {{ q }})" style="background: #0288d1; color: white; border: none; padding: 8px; border-radius: 6px; font-size: 11px; margin-top: 5px; width: 100%; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #01579b;">
+                        <i class="fas fa-truck"></i> TRANSFERIR
+                    </button>
                 </div>
                 {% endif %}
             {% endfor %}

@@ -20,6 +20,10 @@
                     <button onclick="venderDerivados('leite', 'Leite Cru', {{ fazenda.est_leite }})" style="background: #2e7d32; color: white; border: none; padding: 10px; border-radius: 8px; font-size: 12px; margin-top: 15px; width: 100%; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #1b5e20;">
                         VENDER 💰
                     </button>
+                    
+                    <button onclick="prepararTransferenciaEstoque('leite', 'Leite Cru', {{ fazenda.est_leite }})" style="background: #0288d1; color: white; border: none; padding: 8px; border-radius: 6px; font-size: 11px; margin-top: 5px; width: 100%; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #01579b;">
+                        <i class="fas fa-truck"></i> TRANSFERIR
+                    </button>
                 {% else %}
                     <button disabled style="background: #444; color: #888; border: none; padding: 10px; border-radius: 8px; font-size: 12px; margin-top: 15px; width: 100%; font-weight: bold; cursor: not-allowed;">
                         VAZIO
@@ -36,6 +40,10 @@
                 {% if fazenda.est_ovos > 0 %}
                     <button onclick="venderDerivados('ovos', 'Ovos Caipira', {{ fazenda.est_ovos }})" style="background: #2e7d32; color: white; border: none; padding: 10px; border-radius: 8px; font-size: 12px; margin-top: 15px; width: 100%; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #1b5e20;">
                         VENDER 💰
+                    </button>
+                
+                    <button onclick="prepararTransferenciaEstoque('ovos', 'Ovos Caipira', {{ fazenda.est_ovos }})" style="background: #0288d1; color: white; border: none; padding: 8px; border-radius: 6px; font-size: 11px; margin-top: 5px; width: 100%; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #01579b;">
+                        <i class="fas fa-truck"></i> TRANSFERIR
                     </button>
                 {% else %}
                     <button disabled style="background: #444; color: #888; border: none; padding: 10px; border-radius: 8px; font-size: 12px; margin-top: 15px; width: 100%; font-weight: bold; cursor: not-allowed;">

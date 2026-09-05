@@ -33,6 +33,11 @@
                         <button onclick="prepararVendaGalpao('{{ tipo }}', '{{ nome }}', {{ qtd }})" style="background: #2e7d32; color: white; border: none; padding: 8px; border-radius: 6px; font-size: 12px; margin-top: 10px; width: 100%; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #1b5e20;">
                             VENDER 💰
                         </button>
+
+                        <!-- 🔥 BOTÃO DE LOGÍSTICA PARA O GALPÃO 🔥 -->
+                        <button onclick="prepararTransferenciaEstoque('{{ tipo }}', '{{ nome }}', {{ qtd }})" style="background: #0288d1; color: white; border: none; padding: 8px; border-radius: 6px; font-size: 11px; margin-top: 5px; width: 100%; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #01579b;">
+                            <i class="fas fa-truck"></i> TRANSFERIR
+                        </button>
                     </div>
                 {% endif %}
             {% endfor %}

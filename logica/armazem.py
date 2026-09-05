@@ -193,3 +193,90 @@ def vender_derivados():
 
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': f'Venda de {produto} rendeu R$ {valor_total:,.2f}!'})
+
+@armazem_bp.route('/api/estoque/transferir', methods=['POST'])
+def transferir_estoque():
+    if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
+    usuario = Jogador.query.filter_by(username=session['usuario']).with_for_update().first()
+    dados = request.get_json()
+
+    origem_id = dados.get('origem_id')
+    destino_id = dados.get('destino_id')
+    item = dados.get('item')
+    
+    try:
+        quantidade = float(dados.get('quantidade', 0))
+    except ValueError:
+        return jsonify({'sucesso': False, 'erro': 'Quantidade corrompida.'})
+
+    usa_caminhao = dados.get('usa_caminhao', False)
+
+    if quantidade <= 0: return jsonify({'sucesso': False, 'erro': 'Quantidade inválida.'})
+    if origem_id == destino_id: return jsonify({'sucesso': False, 'erro': 'A origem e o destino são a mesma fazenda.'})
+
+    prop_origem = Propriedade.query.filter_by(id=origem_id).with_for_update().first()
+    prop_destino = Propriedade.query.filter_by(id=destino_id).with_for_update().first()
+
+    if not prop_origem or prop_origem.dono_id != usuario.id: return jsonify({'sucesso': False, 'erro': 'Origem inválida.'})
+    if not prop_destino or prop_destino.dono_id != usuario.id: return jsonify({'sucesso': False, 'erro': 'Destino inválido.'})
+
+    nome_coluna = f'est_{item}'
+    estoque_atual = float(getattr(prop_origem, nome_coluna, 0.0) or 0.0)
+
+    if estoque_atual < quantidade:
+        return jsonify({'sucesso': False, 'erro': f'Estoque insuficiente na origem! Você tem {estoque_atual}.'})
+
+    from logica.loja import ITENS_ARMAZEM, ITENS_SILO_GRAOS
+    from database import Maquinario
+    
+    # 📦 Verifica limite de espaço no destino (Armazém e Silo)
+    if item in ITENS_ARMAZEM:
+        total_armazem = sum(getattr(prop_destino, f'est_{i}', 0) for i in ITENS_ARMAZEM if hasattr(prop_destino, f'est_{i}'))
+        if total_armazem + quantidade > prop_destino.cap_armazem:
+            return jsonify({'sucesso': False, 'erro': f'Armazém de destino lotado! Espaço livre: {prop_destino.cap_armazem - total_armazem} un.'})
+    elif item in ITENS_SILO_GRAOS:
+        total_silo = sum(getattr(prop_destino, f'est_{i}', 0) for i in ITENS_SILO_GRAOS if hasattr(prop_destino, f'est_{i}'))
+        if total_silo + quantidade > prop_destino.cap_silo:
+            return jsonify({'sucesso': False, 'erro': f'Silo de destino lotado! Espaço livre: {prop_destino.cap_silo - total_silo} kg.'})
+
+    # 🚚 Custo e verificação de veículo de carga
+    custo_frete = 0.0
+    veiculos_carga = ['Caminhonete Nova', 'Caminhonete Usada', 'Caminhão Boiadeiro', 'Caminhão Baú (Frios)']
+
+    if usa_caminhao:
+        tem_veiculo = Maquinario.query.filter(
+            Maquinario.propriedade_id == prop_origem.id,
+            Maquinario.modelo.in_(veiculos_carga),
+            Maquinario.nivel_combustivel >= 15,
+            Maquinario.estado_conservacao >= 5
+        ).first()
+
+        if not tem_veiculo:
+            return jsonify({'sucesso': False, 'erro': 'A fazenda de ORIGEM não tem caminhonete ou caminhão livres, abastecidos (>15%) e inteiros (>5%)!'})
+
+        # Desgaste natural da viagem
+        tem_veiculo.nivel_combustivel -= 15
+        tem_veiculo.estado_conservacao -= 5
+    else:
+        # Frete Terceirizado: R$ 0.25 por Kg ou Unidade transferida
+        custo_frete = quantidade * 0.25
+
+    if usuario.saldo < custo_frete:
+        return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente para pagar a transportadora. Custa R$ {custo_frete:,.2f}.'})
+
+    if custo_frete > 0:
+        usuario.saldo -= custo_frete
+        from logica.economia import registrar_transacao
+        registrar_transacao(usuario.id, 'saida', custo_frete, f'Logística: Frete de {quantidade}x {item.capitalize()}')
+
+    # 📤 Tira da Origem e 📥 Coloca no Destino
+    setattr(prop_origem, nome_coluna, estoque_atual - quantidade)
+    estoque_destino = float(getattr(prop_destino, nome_coluna, 0.0) or 0.0)
+    setattr(prop_destino, nome_coluna, estoque_destino + quantidade)
+
+    if getattr(usuario, 'xp', None) is None: usuario.xp = 0
+    usuario.xp += 15
+
+    db.session.commit()
+    metodo = "com sua frota própria" if usa_caminhao else "por transportadora"
+    return jsonify({'sucesso': True, 'msg': f'Carga despachada {metodo}! {quantidade}x {item.capitalize()} chegaram no destino.'})
