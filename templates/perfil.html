@@ -23,14 +23,14 @@
             <h2>{{ jogador.username }}</h2>
             
             <!-- 🔥 EMBLEMAS DE RANKING 3D 🔥 -->
-            <div style="font-size: 16px; margin-top: 5px;">
-                {% if posicao_nivel == 1 %}<i class="fas fa-crown" style="color: #FFD700;" title="1º em Nível"></i>
-                {% elif posicao_nivel == 2 %}<i class="fas fa-medal" style="color: #E0E0E0;" title="2º em Nível"></i>
-                {% elif posicao_nivel == 3 %}<i class="fas fa-award" style="color: #CD7F32;" title="3º em Nível"></i>{% endif %}
+            <div style="font-size: 22px; margin-top: 5px; display: flex; gap: 8px; justify-content: center;">
+                {% if posicao_nivel == 1 %}<span title="1º em Nível">🥇</span>
+                {% elif posicao_nivel == 2 %}<span title="2º em Nível">🥈</span>
+                {% elif posicao_nivel == 3 %}<span title="3º em Nível">🥉</span>{% endif %}
     
-                {% if posicao_saldo == 1 %}<i class="fas fa-trophy" style="color: #FFD700; margin-left: 5px;" title="1º em Dinheiro"></i>
-                {% elif posicao_saldo == 2 %}<i class="fas fa-sack-dollar" style="color: #E0E0E0; margin-left: 5px;" title="2º em Dinheiro"></i>
-                {% elif posicao_saldo == 3 %}<i class="fas fa-coins" style="color: #CD7F32; margin-left: 5px;" title="3º em Dinheiro"></i>{% endif %}
+                {% if posicao_saldo == 1 %}<span title="1º em Dinheiro">🏆</span>
+                {% elif posicao_saldo == 2 %}<span title="2º em Dinheiro">💰</span>
+                {% elif posicao_saldo == 3 %}<span title="3º em Dinheiro">🪙</span>{% endif %}
             </div>
         </div>
         
