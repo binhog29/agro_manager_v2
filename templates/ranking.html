@@ -19,13 +19,16 @@
     </div>
 
     <div class="container">
-        <!-- RANKING DE NÍVEL -->
+                <!-- RANKING DE NÍVEL -->
         <div class="ranking-card" id="card-nivel">
             <h3 class="titulo-nivel"><i class="fas fa-star"></i> Reis do Agro (Nível)</h3>
             {% for j in top_nivel %}
             <div class="r-item">
                 <div class="r-pos {% if loop.index == 1 %}pos-1{% elif loop.index == 2 %}pos-2{% elif loop.index == 3 %}pos-3{% else %}pos-normal{% endif %}">
-                    {% if loop.index <= 3 %}<i class="fas fa-medal"></i>{% else %}{{ loop.index }}º{% endif %}
+                    {% if loop.index == 1 %}<i class="fas fa-crown"></i>
+                    {% elif loop.index == 2 %}<i class="fas fa-medal"></i>
+                    {% elif loop.index == 3 %}<i class="fas fa-award"></i>
+                    {% else %}{{ loop.index }}º{% endif %}
                 </div>
                 <div class="r-nome">
                     {{ j.username }}
@@ -44,7 +47,10 @@
             {% for j in top_ricos %}
             <div class="r-item">
                 <div class="r-pos {% if loop.index == 1 %}pos-1{% elif loop.index == 2 %}pos-2{% elif loop.index == 3 %}pos-3{% else %}pos-normal{% endif %}">
-                    {% if loop.index <= 3 %}<i class="fas fa-medal"></i>{% else %}{{ loop.index }}º{% endif %}
+                    {% if loop.index == 1 %}<i class="fas fa-trophy"></i>
+                    {% elif loop.index == 2 %}<i class="fas fa-sack-dollar"></i>
+                    {% elif loop.index == 3 %}<i class="fas fa-coins"></i>
+                    {% else %}{{ loop.index }}º{% endif %}
                 </div>
                 <div class="r-nome">
                     {{ j.username }}
@@ -56,7 +62,6 @@
             <p class="msg-vazio">Nenhuma fortuna registrada.</p>
             {% endfor %}
         </div>
-    </div>
 
     <!-- Chamando a inteligência Orientada a Objetos -->
     <script src="{{ url_for('static', filename='js/ranking.js') }}"></script>
