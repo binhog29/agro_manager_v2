@@ -9,6 +9,10 @@ def obras_terra():
     if 'usuario' not in session:
         return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
 
+    # 🔥 IMPORTAÇÃO CORRIGIDA: Agora fica no topo da função para tudo enxergar!
+    from database import Maquinario
+    from logica.economia import registrar_transacao
+
     # 🔥 BLINDAGEM 1: Trava o jogador para evitar "clonagem" de saldo por cliques simultâneos de Bots
     usuario = Jogador.query.filter_by(username=session['usuario']).with_for_update().first()
     dados = request.get_json()
@@ -78,14 +82,36 @@ def obras_terra():
 
     elif acao == 'arar':
         if lote.status != 'limpo': return jsonify({'sucesso': False, 'erro': 'A terra precisa estar limpa primeiro.'})
-        custo = 600
-        if usuario.saldo < custo: return jsonify({'sucesso': False, 'erro': 'Saldo insuficiente.'})
-        usuario.saldo -= custo
+        
+        custo_original = 600
+        custo_final = custo_original
+        
+        grade = Maquinario.query.filter(
+            Maquinario.propriedade_id == fazenda_alvo.id,
+            Maquinario.modelo == 'Grade Aradora',
+            Maquinario.nivel_combustivel >= 5,
+            Maquinario.estado_conservacao >= 2
+        ).first()
+        
+        if grade:
+            custo_final = int(custo_original * 0.20) # 80% de desconto
+            
+        if usuario.saldo < custo_final: return jsonify({'sucesso': False, 'erro': 'Saldo insuficiente.'})
+        
+        usuario.saldo -= custo_final
         lote.status = 'arado'
-        registrar_transacao(usuario.id, 'saida', custo, f'Preparo de Solo/Arado ({lote.nome})')
+        
+        if grade:
+            grade.nivel_combustivel -= 5
+            grade.estado_conservacao -= 2
+            registrar_transacao(usuario.id, 'saida', custo_final, f'Preparo de Solo Próprio ({lote.nome})')
+            mensagem = 'Solo arado e nivelado! A sua Grade Aradora reduziu o custo do serviço em 80%.'
+        else:
+            registrar_transacao(usuario.id, 'saida', custo_final, f'Preparo de Solo Terceirizado ({lote.nome})')
+            mensagem = 'Solo arado e nivelado! Pronto para plantio de Grãos e Cereais.'
+
         if getattr(usuario, 'xp', None) is None: usuario.xp = 0
         usuario.xp += 15
-        mensagem = 'Solo arado e nivelado! Pronto para plantio de Grãos e Cereais.'
 
     elif acao == 'covear':
         if lote.status != 'limpo': return jsonify({'sucesso': False, 'erro': 'A terra precisa estar limpa primeiro.'})
@@ -162,14 +188,35 @@ def infra_pasto():
         msg = "Linha de Ração construída! Agora você pode realizar trato intensivo."
 
     elif obra == 'bebedouro':
-        custo = 700
-        if usuario.saldo < custo: return jsonify({'sucesso': False, 'erro': 'Saldo insuficiente.'})
-        usuario.saldo -= custo
+        custo_original = 700
+        custo_final = custo_original
+        from database import Maquinario
+        escavadeira = Maquinario.query.filter(
+            Maquinario.propriedade_id == fazenda_alvo.id,
+            Maquinario.modelo == 'Escavadeira',
+            Maquinario.nivel_combustivel >= 5,
+            Maquinario.estado_conservacao >= 2
+        ).first()
+        
+        if escavadeira:
+            custo_final = 200 # Paga apenas o encanamento, escavação sai de graça
+            
+        if usuario.saldo < custo_final: return jsonify({'sucesso': False, 'erro': 'Saldo insuficiente.'})
+        
+        usuario.saldo -= custo_final
         lote.tem_bebedouro = True
-        registrar_transacao(usuario.id, 'saida', custo, f'Escavação de Bebedouro ({lote.nome})')
+        
+        if escavadeira:
+            escavadeira.nivel_combustivel -= 5
+            escavadeira.estado_conservacao -= 2
+            registrar_transacao(usuario.id, 'saida', custo_final, f'Encanamento de Bebedouro ({lote.nome})')
+            msg = "Tanque escavado! Sua Escavadeira poupou R$ 500 em aluguel!"
+        else:
+            registrar_transacao(usuario.id, 'saida', custo_final, f'Escavação de Bebedouro ({lote.nome})')
+            msg = "Tanque de água escavado com sucesso!"
+            
         if getattr(usuario, 'xp', None) is None: usuario.xp = 0
-        usuario.xp += 15  
-        msg = "Tanque de água escavado com sucesso!"
+        usuario.xp += 15
     else:
         return jsonify({'sucesso': False, 'erro': 'Obra inválida.'})
 

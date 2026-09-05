@@ -15,6 +15,8 @@ class Concessionaria:
         'escavadeira': {'nome': 'Escavadeira', 'tipo': 'Escavadeira', 'hp': 140, 'preco': 550000},
         'colheitadeira': {'nome': 'Colheitadeira Grãos', 'tipo': 'Colheitadeira', 'hp': 320, 'preco': 850000},
         'pulverizador': {'nome': 'Pulverizador', 'tipo': 'Implemento', 'hp': 190, 'preco': 420000},
+        'plantadeira': {'nome': 'Plantadeira', 'tipo': 'Implemento', 'hp': 120, 'preco': 150000},
+        'grade_aradora': {'nome': 'Grade Aradora', 'tipo': 'Implemento', 'hp': 140, 'preco': 65000}, # 🔥 NOVO AQUI
         'caminhonete_usada': {'nome': 'Caminhonete Usada', 'tipo': 'Veiculo', 'hp': 110, 'preco': 45000},
         'caminhonete_nova': {'nome': 'Caminhonete Nova', 'tipo': 'Veiculo', 'hp': 160, 'preco': 180000},
         'caminhao_boiadeiro': {'nome': 'Caminhão Boiadeiro', 'tipo': 'Caminhao', 'hp': 300, 'preco': 250000},
@@ -44,6 +46,8 @@ def listar_barracao():
             'Escavadeira': 'escavadeira.png',
             'Colheitadeira Grãos': 'colheitadeira.png',
             'Pulverizador': 'pulverizador.png',
+            'Plantadeira': 'plantadeira.png', # 🔥 NOVO AQUI
+            'Grade Aradora': 'grade_aradora.png',
             'Caminhão Boiadeiro': 'caminhao_boiadeiro.png',
             'Caminhão Baú (Frios)': 'caminhao_bau.png',
             'Caminhonete Usada': 'caminhonete_usada.png',

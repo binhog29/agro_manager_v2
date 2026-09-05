@@ -22,15 +22,30 @@ def construir_estrutura():
     if tipo not in TABELA_CUSTOS:
         return jsonify({'sucesso': False, 'erro': 'Tipo de construção inválido.'})
         
-    custo = TABELA_CUSTOS[tipo]
+    custo_original = TABELA_CUSTOS[tipo]
     
-    # Busca a fazenda correta
     fazenda = Propriedade.query.filter_by(id=fazenda_id, dono_id=usuario.id).first()
     if not fazenda:
-        fazenda = Propriedade.query.filter_by(dono_id=usuario.id).first() # Fallback
+        fazenda = Propriedade.query.filter_by(dono_id=usuario.id).first()
     
-    if usuario.saldo < custo:
-        return jsonify({'sucesso': False, 'erro': 'Saldo insuficiente para a obra.'})
+    # 🔥 INTEGRAÇÃO DA ESCAVADEIRA
+    from database import Maquinario
+    maquina_usada = None
+    custo_final = custo_original
+    
+    if tipo in ['represa', 'chiqueiro']:
+        maquina_usada = Maquinario.query.filter(
+            Maquinario.propriedade_id == fazenda.id,
+            Maquinario.modelo == 'Escavadeira',
+            Maquinario.nivel_combustivel >= 15,
+            Maquinario.estado_conservacao >= 5
+        ).first()
+        
+        if maquina_usada:
+            custo_final = custo_original * 0.40 # Desconto de 60% 
+    
+    if usuario.saldo < custo_final:
+        return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente. A obra custa R$ {custo_final:,.2f}.'})
         
     coluna_bd = 'tem_represa_geral' if tipo == 'represa' else f'tem_{tipo}'
     
@@ -38,16 +53,24 @@ def construir_estrutura():
         return jsonify({'sucesso': False, 'erro': f'Você já construiu este {tipo.capitalize()}!'})
         
     setattr(fazenda, coluna_bd, True)
-    usuario.saldo -= custo
+    usuario.saldo -= custo_final
     
-    registrar_transacao(usuario.id, 'saida', custo, f'Engenharia: Construção de {tipo.capitalize()}')
+    msg_sucesso = f'Construção do {tipo.capitalize()} concluída!'
+    
+    if maquina_usada:
+        maquina_usada.nivel_combustivel -= 15
+        maquina_usada.estado_conservacao -= 5
+        registrar_transacao(usuario.id, 'saida', custo_final, f'Engenharia (Frota Própria): Construção de {tipo.capitalize()}')
+        msg_sucesso = f'Obra concluída! A sua Escavadeira gerou 60% de economia!'
+    else:
+        registrar_transacao(usuario.id, 'saida', custo_final, f'Engenharia Terceirizada: Construção de {tipo.capitalize()}')
     
     if getattr(usuario, 'xp', None) is None:
         usuario.xp = 0
     usuario.xp += 20
     
     db.session.commit()
-    return jsonify({'sucesso': True, 'msg': f'Construção do {tipo.capitalize()} concluída!'})
+    return jsonify({'sucesso': True, 'msg': msg_sucesso})
 
 @infra_bp.route('/api/fazenda/expandir_curral', methods=['POST'])
 def expandir_curral():
