@@ -86,3 +86,59 @@ window.avancarTempoJogador = function(jogadorId, nomeJogador) {
         }
     });
 };
+
+// ==========================================
+// 🔥 NOVAS FUNÇÕES DE AUDITORIA E INTERVENÇÃO
+// ==========================================
+
+window.auditarFazendas = function(id, nome) {
+    Swal.fire({ title: 'Analisando propriedades...', didOpen: () => Swal.showLoading() });
+    
+    // A auditoria usa o fetch manualmente porque ela não recarrega a página, ela exibe um relatório customizado.
+    fetch('/api/admin/auditoria_fazendas', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ jogador_id: id })
+    }).then(r => r.json()).then(d => {
+        if(d.sucesso) {
+            Swal.fire({ 
+                title: `📋 Raio-X de ${nome}`, 
+                html: `<div style="text-align:left; font-size:13px; max-height: 50vh; overflow-y: auto;">${d.msg}</div>`, 
+                background: '#2a2a2a', color: '#fff',
+                confirmButtonColor: '#4caf50'
+            });
+        } else {
+            Swal.fire({title: 'Atenção', text: d.erro, icon: 'warning', background: '#2a2a2a', color: '#fff'});
+        }
+    }).catch(e => {
+        console.error(e);
+        Swal.fire({title: 'Erro Fatal', text: 'Falha ao gerar o relatório.', icon: 'error', background: '#2a2a2a', color: '#fff'});
+    });
+};
+
+window.confiscarHectaresExtras = function(id, nome) {
+    Swal.fire({
+        title: 'Confiscar Hectares?',
+        text: `Arrancar as terras extras de ${nome} e devolver ao Estado? (A fazenda voltará ao tamanho de fábrica e os animais do pasto irão para o curral)`,
+        icon: 'warning', background: '#2a2a2a', color: '#fff', 
+        showCancelButton: true, confirmButtonColor: '#d32f2f', confirmButtonText: 'Confiscar Tudo'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Usa o seu helper nativo que recarrega a página no final
+            godAction('/api/admin/remover_hectares_extras', { jogador_id: id });
+        }
+    });
+};
+
+window.limparLavourasAdmin = function(id, nome) {
+    Swal.fire({
+        title: 'Destruir Lavouras?',
+        text: `Zerar todas as plantações ativas nas terras de ${nome}? (A terra voltará a ficar arada)`,
+        icon: 'warning', background: '#2a2a2a', color: '#fff', 
+        showCancelButton: true, confirmButtonColor: '#fbc02d', confirmButtonText: 'Destruir Lavouras'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Usa o seu helper nativo que recarrega a página no final
+            godAction('/api/admin/limpar_lavouras', { jogador_id: id });
+        }
+    });
+};

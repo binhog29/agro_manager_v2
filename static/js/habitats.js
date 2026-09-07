@@ -226,9 +226,20 @@ window.iniciarAnimacaoHabitat = function(habitat, animais, temComedouro) {
     });
 }
 
-window.expandirHabitat = function(habitat, custo) {
+window.expandirHabitat = function(habitat) {
     const fazendaId = window.location.pathname.split('/').pop();
-    const aumento = habitat === 'chiqueiro' ? 50 : 100;
+    
+    let aumento = 0;
+    let custo = 0;
+    
+    // 🔥 TABELA DE PREÇOS ATUALIZADA: Modo Hardcore!
+    if (habitat === 'represa') { aumento = 100; custo = 15000; }
+    else if (habitat === 'chiqueiro') { aumento = 50; custo = 35000; }
+    else if (habitat === 'galinheiro') { aumento = 100; custo = 12000; }
+    else if (habitat === 'haras') { aumento = 5; custo = 80000; }
+    else if (habitat === 'aprisco') { aumento = 15; custo = 40000; }
+    else { return Swal.fire('Erro', 'Habitat inválido.', 'error'); }
+
     Swal.fire({
         title: `Ampliar ${habitat.toUpperCase()}`,
         text: `Aumentar a capacidade em +${aumento} vagas vai custar R$ ${custo.toLocaleString('pt-BR')}. Confirma?`,
@@ -241,7 +252,7 @@ window.expandirHabitat = function(habitat, custo) {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ habitat: habitat, fazenda_id: fazendaId })
             }).then(r => r.json()).then(d => {
-                if (d.sucesso) Swal.fire('Pronto!', d.msg, 'success').then(() => carregarAnimaisHabitat(habitat));
+                if (d.sucesso) Swal.fire('Pronto!', d.msg, 'success').then(() => location.reload());
                 else Swal.fire('Atenção', d.erro, 'warning');
             });
         }

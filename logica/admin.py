@@ -61,16 +61,63 @@ def deletar_conta():
     if not alvo: return jsonify({'sucesso': False, 'erro': 'Jogador não encontrado.'})
     if getattr(alvo, 'is_admin', False): return jsonify({'sucesso': False, 'erro': 'Você não pode deletar a conta do CEO!'})
     
-    # 1. Devolve as propriedades ao Estado
+    # 1. Devolve as propriedades ao Estado (Fazendo a Limpeza de Fábrica!)
     propriedades = Propriedade.query.filter_by(dono_id=alvo.id).all()
-    for p in propriedades: p.dono_id = None
+    limites_originais = {'Chácara': 2, 'Sítio': 5, 'Fazenda': 12, 'Latifúndio': 25}
+    
+    for fazenda in propriedades:
+        fazenda.dono_id = None
+        Animal.query.filter_by(propriedade_id=fazenda.id).delete()
+        Maquinario.query.filter_by(propriedade_id=fazenda.id).delete()
+        Equipe.query.filter_by(propriedade_id=fazenda.id).delete()
+        
+        limite_padrao = limites_originais.get(fazenda.tipo, 2)
+        lotes = Lote.query.filter_by(fazenda_id=fazenda.id).order_by(Lote.id).all()
+        for i, lote in enumerate(lotes):
+            if i < limite_padrao:
+                lote.status = 'mato'
+                lote.tem_cerca = False
+                lote.tem_bebedouro = False
+                lote.tem_cocho = False
+                lote.tem_cocho_racao = False
+                lote.sistema_irrigacao = 'nenhum'
+                lote.tipo_cultivo = None
+                lote.tipo_capim = None
+                lote.dias_plantado = 0
+                lote.nivel_pragas = 0
+                lote.fertilidade_solo = 100
+            else:
+                db.session.delete(lote) # Deleta hectares extras do banido!
+                
+        fazenda.cap_silo = 500
+        fazenda.cap_armazem = 200
+        fazenda.cap_curral = 10
+        fazenda.cap_barracao = 0
+        fazenda.cap_represa = 200
+        fazenda.cap_chiqueiro = 50
+        fazenda.cap_galinheiro = 100
+        fazenda.cap_haras = 10
+        fazenda.cap_aprisco = 30
+        fazenda.tem_represa_geral = False
+        fazenda.tem_chiqueiro = False
+        fazenda.tem_galinheiro = False
+        fazenda.tem_haras = False
+        fazenda.tem_aprisco = False
+        
+        for campo in ['est_milho', 'est_soja', 'est_arroz', 'est_feijao', 'est_algodao', 'est_mandioca', 
+                      'est_cafe', 'est_cana', 'est_tomate', 'est_banana', 'est_cacau', 'est_acai', 
+                      'est_cupuacu', 'est_pimenta', 'est_melancia', 'est_abacaxi',
+                      'est_sal', 'est_racao', 'est_adubo', 'est_veneno', 'est_combustivel', 
+                      'est_vacina_aftosa', 'est_vacina_brucelose', 'est_medicamento_geral', 
+                      'est_suplemento_engorda', 'est_racao_peixe', 'est_leite', 'est_ovos']:
+            if hasattr(fazenda, campo):
+                setattr(fazenda, campo, 0)
         
     # 2. Deleta dependências que travam o Banco de Dados
     Transacao.query.filter_by(jogador_id=alvo.id).delete()
     MensagemChat.query.filter_by(jogador_id=alvo.id).delete()
     
     try:
-        # 🔥 CORREÇÃO: Limpando a caixa de correio e contratos antes de banir
         from database import Notificacao, Emprestimo, Contrato
         Notificacao.query.filter_by(jogador_id=alvo.id).delete()
         Emprestimo.query.filter_by(jogador_id=alvo.id).delete()
@@ -86,7 +133,7 @@ def deletar_conta():
     nome_alvo = alvo.username
     db.session.delete(alvo)
     db.session.commit()
-    return jsonify({'sucesso': True, 'msg': f'A conta "{nome_alvo}" foi banida e suas terras devolvidas ao estado!'})
+    return jsonify({'sucesso': True, 'msg': f'A conta "{nome_alvo}" foi banida e suas terras devolvidas limpas ao estado!'})
 
 # ==========================================
 # 🔥 NOVOS PODERES DO MODO DEUS
@@ -161,11 +208,59 @@ def confiscar_terras():
     
     if not propriedades: return jsonify({'sucesso': False, 'erro': 'Jogador não possui terras.'})
     
-    for p in propriedades:
-        p.dono_id = None
+    limites_originais = {'Chácara': 2, 'Sítio': 5, 'Fazenda': 12, 'Latifúndio': 25}
+    
+    for fazenda in propriedades:
+        fazenda.dono_id = None
+        
+        Animal.query.filter_by(propriedade_id=fazenda.id).delete()
+        Maquinario.query.filter_by(propriedade_id=fazenda.id).delete()
+        Equipe.query.filter_by(propriedade_id=fazenda.id).delete()
+        
+        limite_padrao = limites_originais.get(fazenda.tipo, 2)
+        lotes = Lote.query.filter_by(fazenda_id=fazenda.id).order_by(Lote.id).all()
+        for i, lote in enumerate(lotes):
+            if i < limite_padrao:
+                lote.status = 'mato'
+                lote.tem_cerca = False
+                lote.tem_bebedouro = False
+                lote.tem_cocho = False
+                lote.tem_cocho_racao = False
+                lote.sistema_irrigacao = 'nenhum'
+                lote.tipo_cultivo = None
+                lote.tipo_capim = None
+                lote.dias_plantado = 0
+                lote.nivel_pragas = 0
+                lote.fertilidade_solo = 100
+            else:
+                db.session.delete(lote) # Deleta os hectares extras!
+                
+        fazenda.cap_silo = 500
+        fazenda.cap_armazem = 200
+        fazenda.cap_curral = 10
+        fazenda.cap_barracao = 0
+        fazenda.cap_represa = 200
+        fazenda.cap_chiqueiro = 50
+        fazenda.cap_galinheiro = 100
+        fazenda.cap_haras = 10
+        fazenda.cap_aprisco = 30
+        fazenda.tem_represa_geral = False
+        fazenda.tem_chiqueiro = False
+        fazenda.tem_galinheiro = False
+        fazenda.tem_haras = False
+        fazenda.tem_aprisco = False
+        
+        for campo in ['est_milho', 'est_soja', 'est_arroz', 'est_feijao', 'est_algodao', 'est_mandioca', 
+                      'est_cafe', 'est_cana', 'est_tomate', 'est_banana', 'est_cacau', 'est_acai', 
+                      'est_cupuacu', 'est_pimenta', 'est_melancia', 'est_abacaxi',
+                      'est_sal', 'est_racao', 'est_adubo', 'est_veneno', 'est_combustivel', 
+                      'est_vacina_aftosa', 'est_vacina_brucelose', 'est_medicamento_geral', 
+                      'est_suplemento_engorda', 'est_racao_peixe', 'est_leite', 'est_ovos']:
+            if hasattr(fazenda, campo):
+                setattr(fazenda, campo, 0)
         
     db.session.commit()
-    return jsonify({'sucesso': True, 'msg': f'Todas as terras de {alvo.username} foram confiscadas pelo Estado!'})
+    return jsonify({'sucesso': True, 'msg': f'Todas as terras de {alvo.username} foram confiscadas e limpas para o Estado!'})
 
 @admin_bp.route('/api/admin/avancar_tempo_jogador', methods=['POST'])
 def avancar_tempo_jogador():
@@ -185,3 +280,88 @@ def avancar_tempo_jogador():
     
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': f'O tempo de {alvo.username} avançou em {horas} horas!'})
+
+# ==========================================
+# 🔥 MÓDULO DE AUDITORIA E INTERVENÇÃO
+# ==========================================
+
+@admin_bp.route('/api/admin/auditoria_fazendas', methods=['POST'])
+def auditoria_fazendas():
+    if not verificar_admin(): return jsonify({'sucesso': False, 'erro': 'Acesso negado.'})
+    alvo = Jogador.query.get(request.json.get('jogador_id'))
+    
+    propriedades = Propriedade.query.filter_by(dono_id=alvo.id).all()
+    if not propriedades: return jsonify({'sucesso': False, 'erro': 'Este jogador não possui propriedades.'})
+    
+    relatorio = []
+    for p in propriedades:
+        qtd_lotes = Lote.query.filter_by(fazenda_id=p.id).count()
+        qtd_animais = Animal.query.filter_by(propriedade_id=p.id).count()
+        
+        soma_silo = getattr(p, 'est_soja', 0) + getattr(p, 'est_milho', 0) + getattr(p, 'est_arroz', 0) + getattr(p, 'est_feijao', 0)
+        soma_laticinios = getattr(p, 'est_leite', 0) + getattr(p, 'est_ovos', 0)
+        
+        relatorio.append(
+            f"🚜 <b>{p.nome}</b> ({p.tipo})<br>"
+            f"▪️ Terras: {qtd_lotes} Hectares<br>"
+            f"▪️ Rebanho: {qtd_animais} Cabeças<br>"
+            f"▪️ Silo: {soma_silo} Kg | Derivados: {int(soma_laticinios)} un"
+        )
+        
+    return jsonify({'sucesso': True, 'msg': "<br><br>".join(relatorio)})
+
+
+@admin_bp.route('/api/admin/remover_hectares_extras', methods=['POST'])
+def remover_hectares_extras():
+    if not verificar_admin(): return jsonify({'sucesso': False, 'erro': 'Acesso negado.'})
+    alvo = Jogador.query.get(request.json.get('jogador_id'))
+    
+    propriedades = Propriedade.query.filter_by(dono_id=alvo.id).all()
+    if not propriedades: return jsonify({'sucesso': False, 'erro': 'O jogador não possui propriedades.'})
+    
+    limites_originais = {'Chácara': 2, 'Sítio': 5, 'Fazenda': 12, 'Latifúndio': 25}
+    hectares_removidos = 0
+    
+    for fazenda in propriedades:
+        limite = limites_originais.get(fazenda.tipo, 2)
+        lotes = Lote.query.filter_by(fazenda_id=fazenda.id).order_by(Lote.id.desc()).all()
+        
+        while len(lotes) > limite:
+            ultimo_lote = lotes.pop(0) # Pega o lote com maior ID (o mais recente comprado)
+            
+            # Resgata animais para o curral (Evita deletar o gado junto com a terra)
+            Animal.query.filter_by(lote_id=ultimo_lote.id).update({'lote_id': None, 'onde_esta': 'curral'})
+            
+            db.session.delete(ultimo_lote)
+            hectares_removidos += 1
+            
+    if hectares_removidos > 0:
+        db.session.commit()
+        return jsonify({'sucesso': True, 'msg': f'Operação Concluída! Foram confiscados {hectares_removidos} hectares extras das terras de {alvo.username}.'})
+    else:
+        return jsonify({'sucesso': False, 'erro': 'As fazendas deste jogador já estão no tamanho original (sem hectares extras).'})
+        
+        
+@admin_bp.route('/api/admin/limpar_lavouras', methods=['POST'])
+def limpar_lavouras():
+    if not verificar_admin(): return jsonify({'sucesso': False, 'erro': 'Acesso negado.'})
+    alvo = Jogador.query.get(request.json.get('jogador_id'))
+    
+    propriedades = Propriedade.query.filter_by(dono_id=alvo.id).all()
+    prop_ids = [p.id for p in propriedades]
+    
+    if not prop_ids: return jsonify({'sucesso': False, 'erro': 'O jogador não tem fazendas.'})
+    
+    lotes_sujos = Lote.query.filter(Lote.fazenda_id.in_(prop_ids), Lote.status.in_(['plantado', 'colhendo', 'colheita_incompleta'])).all()
+    
+    if not lotes_sujos: return jsonify({'sucesso': False, 'erro': 'Nenhuma lavoura ativa para limpar.'})
+    
+    for lote in lotes_sujos:
+        lote.status = 'arado' # Retorna a terra nua e preparada
+        lote.tipo_cultivo = None
+        lote.dias_plantado = 0
+        lote.ciclos_colhidos = 0
+        lote.nivel_pragas = 0
+        
+    db.session.commit()
+    return jsonify({'sucesso': True, 'msg': f'Intervenção aplicada! {len(lotes_sujos)} lavouras foram forçosamente destruídas e aradas.'})

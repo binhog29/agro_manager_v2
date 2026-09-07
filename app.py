@@ -295,76 +295,117 @@ def perfil():
         
     return render_template('perfil.html', jogador=jogador_atual, posicao_nivel=posicao_nivel, posicao_saldo=posicao_saldo)
     
+# ==========================================
+# 🏛️ SIF - SISTEMA DE INTELIGÊNCIA FISCAL 
+# ==========================================
 @app.route('/admin/receita-federal')
 def receita_federal():
-    if 'usuario' not in session:
-        return redirect(url_for('login'))
-        
+    if 'usuario' not in session: return redirect(url_for('login'))
     usuario_atual = Jogador.query.filter_by(username=session['usuario']).first()
     if not usuario_atual or not getattr(usuario_atual, 'is_admin', False):
-        return "Acesso negado. Área restrita à Receita Federal do Jogo!", 403
+        return "Acesso negado. Área restrita à Receita Federal!", 403
 
-    # Busca as últimas 100 transações
-    transacoes = Transacao.query.order_by(Transacao.data.desc()).limit(200).all()
+    transacoes = Transacao.query.order_by(Transacao.data.desc()).limit(300).all()
     
-    # Monta uma lista associando cada transação ao seu respectivo Jogador para evitar erros
     auditoria = []
+    alertas_malha_fina = []
+    
     for t in transacoes:
         dono = db.session.get(Jogador, t.jogador_id)
+        nome_dono = dono.username if dono else "Desconhecido"
+        
+        # 🔥 IA DA MALHA FINA: Detecta padrões de trapaça e lavagem de dinheiro
+        suspeito = False
+        motivo = ""
+        
+        if t.valor > 2000000 and t.tipo == 'entrada' and "Leilão" not in t.descricao:
+            suspeito, motivo = True, "💰 Entrada Milionária Súbita"
+        elif "Frigorífico" in t.descricao and ("200x" in t.descricao or "100x" in t.descricao):
+            suspeito, motivo = True, "⚠️ Exploit Suspeito de XP (Venda em Massa)"
+        elif t.valor > 500000 and "Leilão" in t.descricao:
+            suspeito, motivo = True, "⚖️ Lavagem de Dinheiro (Leilão com valor irreal)"
+            
+        if suspeito and dono and not getattr(dono, 'is_admin', False):
+            # Impede que o mesmo jogador lote a tela de alertas (agrupa por jogador)
+            if not any(a['jogador_id'] == dono.id for a in alertas_malha_fina):
+                alertas_malha_fina.append({
+                    'jogador_id': dono.id, 'fazendeiro': nome_dono,
+                    'motivo': motivo, 'valor': t.valor, 'data': t.data.strftime("%d/%m %H:%M")
+                })
+
         auditoria.append({
-            'data': t.data,
-            'fazendeiro': dono.username if dono else "Desconhecido",
+            'data': t.data, 'fazendeiro': nome_dono, 
             'nivel': getattr(dono, 'nivel', 1) if dono else 1,
-            'tipo': t.tipo,
-            'valor': t.valor,
-            'descricao': t.descricao
+            'tipo': t.tipo, 'valor': t.valor, 'descricao': t.descricao, 'suspeito': suspeito
         })
 
-    milionarios = Jogador.query.order_by(Jogador.saldo.desc()).limit(50).all()
+    milionarios = Jogador.query.filter_by(is_admin=False).order_by(Jogador.saldo.desc()).limit(50).all()
+    
+    # Calcula a inflação global do servidor (Dinheiro total em jogo)
+    total_circulacao = sum(j.saldo for j in Jogador.query.filter_by(is_admin=False).all())
 
     return render_template(
         'admin_receita.html', 
         user=usuario_atual, 
         auditoria=auditoria,
-        milionarios=milionarios
+        milionarios=milionarios,
+        alertas=alertas_malha_fina,
+        total_circulacao=total_circulacao
     )
+
+@app.route('/api/admin/dossie/<int:jogador_id>', methods=['GET'])
+def dossie_jogador(jogador_id):
+    """Gera um Raio-X completo do jogador para a Receita Federal"""
+    if 'usuario' not in session: return jsonify({'sucesso': False})
+    admin = Jogador.query.filter_by(username=session['usuario']).first()
+    if not admin or not getattr(admin, 'is_admin', False): return jsonify({'sucesso': False})
+    
+    from database import Lote, Animal, Propriedade # Importação local segura
+    
+    alvo = db.session.get(Jogador, jogador_id)
+    if not alvo: return jsonify({'sucesso': False, 'erro': 'Jogador não encontrado'})
+    
+    propriedades = Propriedade.query.filter_by(dono_id=alvo.id).all()
+    prop_ids = [p.id for p in propriedades]
+    
+    hectares = Lote.query.filter(Lote.fazenda_id.in_(prop_ids)).count() if prop_ids else 0
+    animais = Animal.query.filter(Animal.propriedade_id.in_(prop_ids)).count() if prop_ids else 0
+    
+    return jsonify({
+        'sucesso': True,
+        'nome': alvo.username,
+        'nivel': getattr(alvo, 'nivel', 1),
+        'saldo': alvo.saldo,
+        'fazendas': len(propriedades),
+        'hectares': hectares,
+        'animais': animais
+    })
 
 @app.route('/admin/multar/<int:jogador_id>', methods=['POST'])
 def aplicar_multa(jogador_id):
-    if 'usuario' not in session:
-        return jsonify({'sucesso': False, 'erro': 'Não autorizado'})
-        
-    usuario_atual = Jogador.query.filter_by(username=session['usuario']).first()
-    if not usuario_atual or not getattr(usuario_atual, 'is_admin', False):
-        return jsonify({'sucesso': False, 'erro': 'Acesso negado'}), 403
+    if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Não autorizado'})
+    admin = Jogador.query.filter_by(username=session['usuario']).first()
+    if not admin or not getattr(admin, 'is_admin', False): return jsonify({'sucesso': False}), 403
 
     dados = request.get_json() or {}
     try:
         valor_multa = float(dados.get('valor', 0))
     except ValueError:
-        return jsonify({'sucesso': False, 'erro': 'Valor da multa inválido'})
+        return jsonify({'sucesso': False, 'erro': 'Valor inválido'})
         
-    motivo = dados.get('motivo', 'Infração fiscal / Exploit detectado')
+    motivo = dados.get('motivo', 'Ação Fiscal / Apreensão de Bens')
 
     alvo = db.session.get(Jogador, jogador_id)
-    if not alvo:
-        return jsonify({'sucesso': False, 'erro': 'Jogador não encontrado'})
+    if not alvo: return jsonify({'sucesso': False, 'erro': 'Jogador não encontrado'})
 
-    # Desconta o saldo com segurança
     alvo.saldo = max(0.0, alvo.saldo - valor_multa)
-
-    # Registra no extrato usando a tabela Transacao diretamente para evitar falhas
-    nova_transacao = Transacao(
-        jogador_id=alvo.id,
-        tipo='saida',
-        valor=valor_multa,
-        descricao=f'⚖️ MULTA DA RECEITA FEDERAL: {motivo}'
-    )
+    
+    nova_transacao = Transacao(jogador_id=alvo.id, tipo='saida', valor=valor_multa, descricao=f'🚨 CONFISCO FEDERAL: {motivo}')
     db.session.add(nova_transacao)
     db.session.commit()
     
-    return jsonify({'sucesso': True, 'msg': f'Multa de R$ {valor_multa:,.2f} aplicada com sucesso em {alvo.username}!'})
-
+    return jsonify({'sucesso': True, 'msg': f'Ação fiscal concluída! Foram retidos R$ {valor_multa:,.2f} da conta de {alvo.username}.'})
+        
 @app.route('/ajuda')
 def ajuda():
     if 'usuario' not in session:

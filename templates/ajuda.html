@@ -29,7 +29,7 @@
 
     <div class="header">
         <h1><i class="fas fa-book"></i> Guia Completo do Fazendeiro</h1>
-        <p>Manual oficial de operações do Agro Manager</p>
+        <p>Manual oficial de operações do Agro Manager (v2.4)</p>
     </div>
 
     <div class="container">
@@ -66,21 +66,23 @@
 
         <!-- 3. SAÚDE, SUPLEMENTAÇÃO E LIMITES -->
         <details>
-            <summary><i class="fas fa-notes-medical"></i> 3. Saúde, Suplementação e Limites</summary>
+            <summary><i class="fas fa-notes-medical"></i> 3. Saúde, Habitats e Mortandade</summary>
             <div class="conteudo">
-                <strong>⚖️ Teto Biológico:</strong> A genética tem um limite. O peso máximo é 150% da média da raça. Ao atingir esse limite, ele para de engordar.<br><br>
-                <strong>🏡 Capacidade dos Habitats e Superlotação:</strong>
-                Represas suportam 200 peixes, Galinheiros 100 aves, Chiqueiros 50 suínos, Apriscos 30 ovinos/caprinos e Haras 10 cavalos. O Curral inicia com 10 vagas. <br><br><span class="destaque">Atenção Extrema:</span> Se uma fêmea parir e o seu habitat, pasto ou curral estiver lotado, <b>o filhote não sobreviverá!</b>
+                <strong>⚖️ Teto Biológico:</strong> A genética tem um limite. O peso máximo é 150% da média da raça. Ao atingir esse limite, o animal para de engordar.<br><br>
+                <strong>🏡 Capacidades Iniciais dos Habitats:</strong>
+                Represas (200 Peixes), Galinheiros (100 Aves), Chiqueiros (50 Suínos), Apriscos (30 Ovinos/Caprinos) e Haras (10 Equinos). O Curral (Tronco) inicia com apenas 10 vagas.<br><br>
+                <strong>☠️ Superlotação e Mortes:</strong> 
+                <span class="destaque">Atenção Extrema:</span> Se uma fêmea parir e o seu habitat, pasto ou curral estiver lotado, <b>o filhote não sobreviverá!</b> Além disso, animais esquecidos no curral sem pasto perderão saúde até a morte.
             </div>
         </details>
 
-        <!-- 4. MERCADO, COTAÇÕES E LEILÃO -->
+        <!-- 4. MERCADO E LEILÃO -->
         <details>
-            <summary><i class="fas fa-chart-line"></i> 4. Mercado, Arroba e FUNRURAL</summary>
+            <summary><i class="fas fa-chart-line"></i> 4. Mercado, Cotações e FUNRURAL</summary>
             <div class="conteudo">
                 <strong>📉 Fator Diário:</strong> O Fator de Mercado é volátil, alterando os preços de 85% a 115% diariamente. <b>Isto afeta a Pecuária e a Agricultura.</b> As sacas no Silo também sobem e descem de preço todos os dias!<br><br>
-                <strong>🧾 FUNRURAL e Logística:</strong> Toda venda agrícola direta do Silo ou Galpão retém automaticamente <b>4% na fonte</b> para cobrir impostos e o escoamento logístico da safra.<br><br>
-                <strong>⚖️ Leilão da Comunidade:</strong> Destravado no Nível 3, o Leilão permite negociar gado diretamente com outros fazendeiros sem ágio.
+                <strong>🧾 FUNRURAL e Logística:</strong> Toda venda agrícola direta do Silo ou Galpão retém automaticamente <b>4% na fonte</b> para cobrir impostos e o escoamento da safra.<br><br>
+                <strong>⚖️ Leilão da Comunidade:</strong> Destravado no Nível 3, o Leilão permite negociar gado diretamente com outros jogadores. O teto de preço é de 3x o valor do animal para evitar abusos.
             </div>
         </details>
 
@@ -88,43 +90,47 @@
         <details>
             <summary><i class="fas fa-map-marked-alt"></i> 5. Compra de Terras e Estoques</summary>
             <div class="conteudo">
-                <strong>🚜 Expansão de Hectares:</strong> Você pode anexar terras infinitamente. Porém, a especulação imobiliária aplica uma inflação quadrática: cada novo hectare custa mais caro.<br><br>
+                <strong>🚜 Expansão de Hectares:</strong> Você pode anexar terras infinitamente. Porém, a especulação imobiliária aplica uma inflação quadrática: cada novo hectare custa mais caro que o anterior.<br><br>
                 <strong>📦 Obras de Armazenamento:</strong> Expanda as capacidades construindo silos gigantes (até +500.000kg) e armazéns monumentais (+300.000un).
             </div>
         </details>
 
         <!-- 6. GESTÃO DE EQUIPE E RH -->
         <details>
-            <summary><i class="fas fa-users"></i> 6. Funcionários, Automação e RH</summary>
+            <summary><i class="fas fa-users"></i> 6. Funcionários e Automação Inteligente</summary>
             <div class="conteudo">
-                Sua equipe trabalha em <strong>turno comercial de 8 horas por dia</strong> e os salários são cobrados <strong>mensalmente</strong>.<br><br>
-                <p><strong>👨‍🌾 Peão (R$ 10,42/h):</strong> Reduz impacto da fome, automatiza o reabastecimento de TODOS os cochos buscando grãos no silo e <strong>aplica vacinas/medicamentos automaticamente</strong>.</p>
-                <p><strong>🚜 Tratorista (R$ 12/h):</strong> Aumenta colheita (+15%), pulveriza, aduba e <strong>abastece/repara a frota de máquinas automaticamente</strong>.</p>
-                <p><strong>💼 Capataz (R$ 20/h):</strong> Garante um ágio de +5% em qualquer venda ao mercado.</p>
-                <p><strong>🩺 Veterinário (R$ 25/h):</strong> Reduz em 90% a perda de saúde por doenças.</p>
+                Sua equipe trabalha em <strong>turno comercial</strong> e os salários são cobrados <strong>mensalmente</strong>.<br><br>
+                <p><strong>👨‍🌾 Peão (R$ 10,42/h):</strong> Aplica vacinas e remédios sozinho. Ele também <b>faz múltiplas viagens automáticas ao Silo</b> para garantir que a ração da semana inteira chegue aos cochos dos Habitats.</p>
+                <p><strong>🚜 Tratorista (R$ 12/h):</strong> Aumenta colheita (+15%), pulveriza lavouras e reabastece veículos. Mas atenção: ele envia os tratores para o mecânico quando a saúde cai, e o conserto custa <b>15% da Tabela FIPE do veículo!</b></p>
+                <p><strong>💼 Capataz (R$ 20/h):</strong> Garante um ágio de +5% em qualquer venda ao mercado (Máximo de 5 acúmulos = 25%).</p>
+                <p><strong>🩺 Veterinário (R$ 25/h):</strong> Reduz em 90% a perda de saúde por doenças crônicas.</p>
                 <p><strong>🌱 Agrônomo (R$ 30/h):</strong> Acelera o tempo de crescimento do plantio em 20%.</p>
             </div>
         </details>
 
         <!-- 7. MAQUINÁRIO E BARRACÃO -->
         <details>
-            <summary><i class="fas fa-tractor"></i> 7. Frota e Logística</summary>
+            <summary><i class="fas fa-truck-moving"></i> 7. Frota, Cargas e Limites Logísticos</summary>
             <div class="conteudo">
-                <strong>🚛 Logística Intermunicipal:</strong> Possuir a frota certa zera a pesada taxa de frete nas <strong>transferências de animais</strong> e <strong>transferências de grãos e insumos</strong> entre fazendas.<br><br>
-                <strong>🚜 Trator de Esteira:</strong> Zera o aluguel de limpeza e extrai madeira nobre (<span class="destaque">R$ 2.500</span> por hectare).<br><br>
-                <strong>⚙️ Grade Aradora e Plantadeira:</strong> Reduzem o custo do preparo do solo e do plantio em <span class="destaque">80%</span>.<br><br>
-                <strong>🌾 Colheitadeiras e Tratores:</strong> Reduzem em <span class="destaque">80%</span> os custos na colheita.<br><br>
-                <strong>🏗️ Escavadeira:</strong> Garante <span class="destaque">60% de economia</span> na construção de Represas, Chiqueiros e Tanques d'água de pasto.
+                Possuir a frota certa abastecida e conservada na garagem zera a taxa de frete nas compras e transferências! O mapa exibirá seus caminhões em trânsito com tempo de chegada.<br><br>
+                <strong>🚛 Especialização de Cargas:</strong>
+                <ul>
+                    <li><b>Caminhão Baú (Frios):</b> Único veículo capaz de transportar Peixes vivos (Até 200 un).</li>
+                    <li><b>Caminhão Boiadeiro:</b> Leva até 20 Bovinos, 60 Suínos/Ovinos, 10 Cavalos ou 200 Aves.</li>
+                    <li><b>Caminhonetes:</b> Não suportam Gado pesado. Levam no máximo 10 Suínos/Ovinos, 50 Aves ou 1 Cavalo solitário.</li>
+                </ul>
+                <strong>🚜 Obras e Campo:</strong><br>
+                O Trator de Esteira zera o aluguel de desmatamento e vende madeira nobre. A Grade e a Plantadeira dão 80% de desconto no solo, e a Escavadeira reduz em 60% os custos de novas represas, chiqueiros e tanques.
             </div>
         </details>
 
         <!-- 8. IMOBILIÁRIA E RECEITA FEDERAL -->
         <details>
-            <summary><i class="fas fa-building"></i> 8. Receita Federal e Imobiliária</summary>
+            <summary><i class="fas fa-building"></i> 8. Receita Federal (SIF) e Malha Fina</summary>
             <div class="conteudo">
-                <strong>🏛️ ITR e Tributo de Fortunas:</strong> A Receita Federal não brinca em serviço. A cada virada de mês (30 dias), é cobrado o <b>Imposto Territorial Rural (ITR) de R$ 800 por lote/hectare</b> que você possuir. Além disso, se o seu saldo bancário ultrapassar R$ 10.000.000, o governo aplicará uma <b>Taxa de Grandes Fortunas de 1.5% ao mês</b> sobre o saldo.<br><br>
-                <strong>🤝 Venda na Corretora (Jogadores):</strong> Anuncie de "porteira fechada" (o comprador leva as terras, o gado e os tratores). Retenção de 10% de ITBI.<br><br>
-                <strong>🏦 Liquidação ao Banco:</strong> O Banco paga apenas 70% do valor venal da terra e executa uma limpeza extrema: o gado e as máquinas são perdidos e a terra volta limpa ao mapa.
+                <strong>🏛️ ITR e Tributo de Fortunas:</strong> A cada virada de mês (30 dias), é cobrado o <b>Imposto Territorial Rural (ITR) de R$ 800 por hectare</b> que você possuir. Contas com mais de R$ 10 Milhões sofrem retenção da <b>Taxa de Grandes Fortunas (1.5% ao mês)</b>.<br><br>
+                <strong>🚨 SIF (Sistema de Inteligência Fiscal):</strong> O jogo possui uma Malha Fina de Inteligência Artificial ativa! Tentar lavar dinheiro via Leilão com preços exorbitantes ou abusar de transações em massa alertará a Receita Federal, que intervirá retendo de 10% a 100% de todo o seu patrimônio.<br><br>
+                <strong>🏦 Liquidação ao Banco:</strong> A fuga da falência. O Banco paga 70% do valor da terra e executa um WIPE: gado, máquinas e infraestruturas são deletados e a terra volta limpa ao mapa para outro comprar.
             </div>
         </details>
 

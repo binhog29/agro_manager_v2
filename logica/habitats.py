@@ -188,7 +188,8 @@ def expandir_habitat():
     if not fazenda or fazenda.dono_id != jogador.id: 
         return jsonify({'sucesso': False, 'erro': 'Esta fazenda não é sua.'})
     
-    custos_exp = {'represa': 8000, 'chiqueiro': 25000, 'galinheiro': 8000, 'haras': 15000, 'aprisco': 10000}
+    # 🔥 INFLAÇÃO DAS OBRAS: Preços atualizados do Late-Game
+    custos_exp = {'represa': 15000, 'chiqueiro': 35000, 'galinheiro': 12000, 'haras': 80000, 'aprisco': 40000}
     inc_exp = {'represa': 100, 'chiqueiro': 50, 'galinheiro': 100, 'haras': 5, 'aprisco': 15}
     
     if habitat not in custos_exp:
@@ -203,8 +204,64 @@ def expandir_habitat():
     jogador.saldo -= custo
     
     col_cap = f'cap_{habitat}'
-    setattr(fazenda, col_cap, getattr(fazenda, col_cap, 0) + incremento)
+    # 🔥 A CORREÇÃO DO BUG: "or 0" impede que o Python tente somar None + Número
+    capacidade_atual = getattr(fazenda, col_cap) or 0
+    setattr(fazenda, col_cap, capacidade_atual + incremento)
         
     registrar_transacao(jogador.id, 'saida', custo, f'Engenharia: Expansão do {habitat.capitalize()} (+{incremento} vagas)')    
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': f'Capacidade aumentada com sucesso em +{incremento} vagas!'})
+
+# ==========================================
+# ROTA PARA ALIMENTAÇÃO MANUAL DOS HABITATS
+# ==========================================
+@habitats_bp.route('/api/pecuaria/alimentar_habitat', methods=['POST'])
+def alimentar_habitat_manual():
+    if 'usuario' not in session: 
+        return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
+        
+    dados = request.get_json()
+    habitat = dados.get('habitat')
+    fazenda_id = dados.get('fazenda_id')
+    
+    jogador = Jogador.query.filter_by(username=session['usuario']).first()
+    fazenda = Propriedade.query.filter_by(id=fazenda_id, dono_id=jogador.id).first()
+    
+    if not fazenda:
+        return jsonify({'sucesso': False, 'erro': 'Fazenda não encontrada.'})
+        
+    animais = Animal.query.filter_by(propriedade_id=fazenda.id, onde_esta=habitat).all()
+    if not animais:
+        return jsonify({'sucesso': False, 'erro': 'Não há animais neste local para alimentar.'})
+        
+    # Verifica se existe um comedouro construído no local
+    tem_comedouro = getattr(fazenda, f'{habitat}_tem_comedouro', False)
+    if not tem_comedouro:
+        return jsonify({'sucesso': False, 'erro': 'Você precisa construir um depósito de ração/comedouro neste habitat primeiro!'})
+        
+    # Puxa a ração disponível no cocho
+    qtd_racao_cocho = float(getattr(fazenda, f'{habitat}_qtd_racao', 0.0) or 0.0)
+    
+    if qtd_racao_cocho <= 0:
+        return jsonify({'sucesso': False, 'erro': 'O comedouro está vazio! Abasteça-o puxando grãos do Silo ou do Armazém.'})
+
+    # Calcula o consumo (Padrão: 0.10 por animal por clique)
+    consumo_total = len(animais) * 0.10
+    
+    if qtd_racao_cocho < consumo_total:
+        return jsonify({'sucesso': False, 'erro': 'A ração no comedouro não é suficiente para todos os animais. Reabasteça!'})
+        
+    # Desconta a ração do cocho e zera a fome dos animais
+    setattr(fazenda, f'{habitat}_qtd_racao', qtd_racao_cocho - consumo_total)
+    
+    for a in animais:
+        a.fome = 0.0
+        # Dar comida manualmente dá um pequeno "boost" na saúde
+        a.saude = min(100.0, float(a.saude or 100) + 5.0)
+        
+    if getattr(jogador, 'xp', None) is None:
+        jogador.xp = 0
+    jogador.xp += 10
+        
+    db.session.commit()
+    return jsonify({'sucesso': True, 'msg': 'Todos os animais do recinto foram alimentados e a fome foi zerada!'})

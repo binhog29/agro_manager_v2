@@ -109,28 +109,43 @@ def vender_banco():
     Maquinario.query.filter_by(propriedade_id=fazenda.id).delete()
     Equipe.query.filter_by(propriedade_id=fazenda.id).delete()
 
-    lotes = Lote.query.filter_by(fazenda_id=fazenda.id).all()
-    for lote in lotes:
-        lote.status = 'mato'
-        lote.tem_cerca = False
-        lote.tem_bebedouro = False
-        lote.tem_cocho = False
-        lote.tem_cocho_racao = False
-        lote.sistema_irrigacao = 'nenhum'
-        lote.tipo_cultivo = None
-        lote.tipo_capim = None
-        lote.dias_plantado = 0
-        lote.nivel_pragas = 0
-        lote.fertilidade_solo = 100
+    # 🔥 CORREÇÃO: Reseta as terras e APAGA os hectares comprados além do limite
+    limites_originais = {'Chácara': 2, 'Sítio': 5, 'Fazenda': 12, 'Latifúndio': 25}
+    limite_padrao = limites_originais.get(fazenda.tipo, 2)
+
+    lotes = Lote.query.filter_by(fazenda_id=fazenda.id).order_by(Lote.id).all()
+    for i, lote in enumerate(lotes):
+        if i < limite_padrao:
+            lote.status = 'mato'
+            lote.tem_cerca = False
+            lote.tem_bebedouro = False
+            lote.tem_cocho = False
+            lote.tem_cocho_racao = False
+            lote.sistema_irrigacao = 'nenhum'
+            lote.tipo_cultivo = None
+            lote.tipo_capim = None
+            lote.dias_plantado = 0
+            lote.nivel_pragas = 0
+            lote.fertilidade_solo = 100
+        else:
+            db.session.delete(lote) # Apaga o hectare extra!
 
     # Reseta a infraestrutura e os estoques do banco de dados
     fazenda.cap_silo = 500
     fazenda.cap_armazem = 200
     fazenda.cap_curral = 10
     fazenda.cap_barracao = 0
+    fazenda.cap_represa = 200
+    fazenda.cap_chiqueiro = 50
+    fazenda.cap_galinheiro = 100
+    fazenda.cap_haras = 10
+    fazenda.cap_aprisco = 30
+    
     fazenda.tem_represa_geral = False
     fazenda.tem_chiqueiro = False
     fazenda.tem_galinheiro = False
+    fazenda.tem_haras = False
+    fazenda.tem_aprisco = False
     
     for campo in ['est_milho', 'est_soja', 'est_arroz', 'est_feijao', 'est_algodao', 'est_mandioca', 
                   'est_cafe', 'est_cana', 'est_tomate', 'est_banana', 'est_cacau', 'est_acai', 

@@ -1,35 +1,35 @@
 <!-- templates/partes/modal_atualizacao.html -->
 <div id="modal-novidades" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 99999; display: none; justify-content: center; align-items: center; font-family: 'Poppins', sans-serif;">
-    <div style="background: #1e1e1e; border: 1px solid #333; border-radius: 12px; padding: 25px; color: #fff; max-width: 420px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); width: 90%;">
+    <div style="background: #1e1e1e; border: 1px solid #333; border-radius: 12px; padding: 25px; color: #fff; max-width: 450px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); width: 90%;">
         
         <div style="font-size: 32px; text-align: center; margin-bottom: 10px;">
-            <i class="fas fa-balance-scale" style="color: #ffcc00;"></i>
+            <i class="fas fa-shield-alt" style="color: #ff5252;"></i>
         </div>
         
-        <h3 style="margin: 0 0 15px 0; color: #fff; font-size: 20px; text-align: center;">🚀 Atualização 2.3 - A Era dos Impérios!</h3>
+        <h3 style="margin: 0 0 15px 0; color: #fff; font-size: 20px; text-align: center;">🚀 Atualização 2.4 - SIF e Logística Viva!</h3>
         
-        <div style="font-size: 14px; color: #ccc; line-height: 1.6; text-align: left; background: #252525; padding: 15px; border-radius: 6px; margin-bottom: 20px; max-height: 50vh; overflow-y: auto;">
-            <p style="margin: 0 0 10px 0; color: #4caf50; font-weight: bold;">O Late-Game (Fim de jogo) agora é um verdadeiro desafio:</p>
+        <div style="font-size: 14px; color: #ccc; line-height: 1.6; text-align: left; background: #13131a; padding: 15px; border-radius: 6px; margin-bottom: 20px; max-height: 50vh; overflow-y: auto; border: 1px solid #2a2a35;">
             
-            <p style="margin: 0 0 8px 0;">🏛️ <b>Receita Federal Ativa:</b> Na virada do mês, o governo cobra o ITR (R$ 800 por hectare). E cuidado: fortunas na conta acima de R$ 10 Milhões sofrem retenção mensal de 1.5%!</p>
+            <p style="margin: 0 0 10px 0;">🛡️ <b style="color: #ff5252;">SIF (Malha Fina Ativa):</b> A Inteligência Artificial da Receita Federal agora monitora transações em tempo real. Preços abusivos no leilão (lavagem de dinheiro) e vendas em massa suspeitas (exploits) gerarão confiscos e multas severas!</p>
 
-            <p style="margin: 0 0 8px 0;">📉 <b>Mercado Agrícola e FUNRURAL:</b> Os preços no Silo agora flutuam com o mercado diário, e toda venda agrícola retém 4% (Frete/Imposto) na fonte.</p>
+            <p style="margin: 0 0 10px 0;">🐎 <b style="color: #ff9800;">Habitats de Luxo:</b> O Haras e o Aprisco chegaram. Porém, a construção civil encareceu! Expandir a infraestrutura agora exige um verdadeiro império financeiro.</p>
 
-            <p style="margin: 0 0 8px 0;">📈 <b>Inflação Operacional:</b> O valor de Plantar, Colher e Avançar o Tempo fica mais caro de acordo com o seu Nível e a quantidade de fazendas (O custo de um império!).</p>
+            <p style="margin: 0 0 10px 0;">🚚 <b style="color: #4caf50;">Logística Viva e Limites:</b> Os caminhões agora aparecem viajando no mapa global. Além disso, cada veículo da sua frota possui limite de peso e restrição de carga (Caminhão Baú só leva peixes, caminhonetes levam cargas menores, etc).</p>
 
-            <p style="margin: 0 0 8px 0;">☠️ <b>Superlotação:</b> A farra acabou. Se uma fêmea parir e o seu pasto, curral ou habitat estiver lotado, o filhote não sobreviverá.</p>
+            <p style="margin: 0 0 8px 0;">🤖 <b style="color: #64b5f6;">RH Superinteligente:</b> Os Peões agora fazem múltiplas viagens ao Silo para garantir a ração da semana inteira, e os mecânicos cobram 15% da tabela FIPE para consertar tratores que quebrarem (cuide da manutenção!).</p>
+
         </div>
         
-        <button onclick="fecharEGravarNovidade()" style="background: #ff9800; color: #000; border: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; font-size: 16px;"><i class="fas fa-play"></i> Ciente! Bora Jogar</button>
+        <button onclick="fecharEGravarNovidade()" style="background: #2e7d32; color: #fff; border: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; font-size: 16px;"><i class="fas fa-check-circle"></i> Ciente! Bora Jogar</button>
         
     </div>
 </div>
 
 <script>
     // ---------------------------------------------------------
-    // CONTROLE DE VERSÃO: Atualizado para 2.3
+    // CONTROLE DE VERSÃO: Atualizado para 2.4
     // ---------------------------------------------------------
-    const VERSAO_ATUAL = "2.3";
+    const VERSAO_ATUAL = "2.4";
 
     document.addEventListener("DOMContentLoaded", function() {
         const modal = document.getElementById('modal-novidades');
