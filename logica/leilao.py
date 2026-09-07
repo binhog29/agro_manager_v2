@@ -96,7 +96,6 @@ def comprar_leilao():
     if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Faça login primeiro.'})
     usuario = Jogador.query.filter_by(username=session['usuario']).first()
     
-    # 🛡️ ANTI-FAKE: Trava de Nível para Comprar
     if getattr(usuario, 'nivel', 1) < 3:
         return jsonify({'sucesso': False, 'erro': 'Apenas fazendeiros Nível 3+ podem comprar na comunidade.'})
         
@@ -113,39 +112,56 @@ def comprar_leilao():
 
     animal = Animal.query.get(anuncio.animal_id)
     
-    # 🔥 Validações de Espaço Blindadas por Palavras-Chave 🔥
     raca_lower = animal.raca.lower()
+    
+    # 🔥 HABITATS E VEÍCULOS NO LEILÃO P2P 🔥
     if any(t in raca_lower for t in ['galinha', 'pato', 'peru', 'ave']):
         habitat = 'galinheiro'
         if not getattr(propriedade, 'tem_galinheiro', False): return jsonify({'sucesso': False, 'erro': 'Construa um Galinheiro!'})
+        limite = getattr(propriedade, 'cap_galinheiro', 100)
+        modelos_aceitos = ['Caminhonete Nova', 'Caminhonete Usada', 'Caminhão Boiadeiro']
     elif any(t in raca_lower for t in ['porco', 'leitao', 'javali', 'suino']):
         habitat = 'chiqueiro'
         if not getattr(propriedade, 'tem_chiqueiro', False): return jsonify({'sucesso': False, 'erro': 'Construa um Chiqueiro!'})
+        limite = getattr(propriedade, 'cap_chiqueiro', 50)
+        modelos_aceitos = ['Caminhonete Nova', 'Caminhonete Usada', 'Caminhão Boiadeiro']
     elif any(t in raca_lower for t in ['tambaqui', 'pirarucu', 'pacu', 'matrinxa', 'jaraqui', 'curimata', 'surubim', 'pintado', 'cachara', 'tucunare', 'piau', 'peixe']):
         habitat = 'represa'
         if not getattr(propriedade, 'tem_represa_geral', False): return jsonify({'sucesso': False, 'erro': 'Construa uma Represa!'})
+        limite = getattr(propriedade, 'cap_represa', 200)
+        modelos_aceitos = ['Caminhão Baú (Frios)']
+    elif any(t in raca_lower for t in ['cavalo', 'egua', 'equino']):
+        habitat = 'haras'
+        if not getattr(propriedade, 'tem_haras', False): return jsonify({'sucesso': False, 'erro': 'Construa um Haras!'})
+        limite = getattr(propriedade, 'cap_haras', 10)
+        modelos_aceitos = ['Caminhão Boiadeiro']
+    elif any(t in raca_lower for t in ['ovelha', 'cabra', 'ovino', 'caprino']):
+        habitat = 'aprisco'
+        if not getattr(propriedade, 'tem_aprisco', False): return jsonify({'sucesso': False, 'erro': 'Construa um Aprisco!'})
+        limite = getattr(propriedade, 'cap_aprisco', 30)
+        modelos_aceitos = ['Caminhonete Nova', 'Caminhonete Usada', 'Caminhão Boiadeiro']
     else:
         habitat = 'curral'
-        animais_atuais = Animal.query.filter_by(propriedade_id=propriedade.id, onde_esta='curral').count()
         limite = propriedade.cap_curral if hasattr(propriedade, 'cap_curral') else 10
-        if animais_atuais >= limite: return jsonify({'sucesso': False, 'erro': 'Tronco lotado!'})
+        modelos_aceitos = ['Caminhão Boiadeiro']
+        
+    animais_atuais = Animal.query.filter_by(propriedade_id=propriedade.id, onde_esta=habitat).count()
+    if animais_atuais >= limite: return jsonify({'sucesso': False, 'erro': f'{habitat.capitalize()} lotado!'})
 
     usa_caminhao = dados.get('usa_caminhao', False)
     custo_frete = 0.0
 
     if usa_caminhao:
-        modelo_necessario = 'Caminhão Baú (Frios)' if habitat == 'represa' else 'Caminhão Boiadeiro'
         tem_caminhao = Maquinario.query.filter(
             Maquinario.propriedade_id == propriedade.id, 
-            Maquinario.modelo == modelo_necessario,
+            Maquinario.modelo.in_(modelos_aceitos),
             Maquinario.nivel_combustivel >= 15,
             Maquinario.estado_conservacao >= 5
         ).first()
         
         if not tem_caminhao:
-            return jsonify({'sucesso': False, 'erro': f'Veículo indisponível! Sem combustível ou quebrado no Barracão.'})
+            return jsonify({'sucesso': False, 'erro': f'Veículo indisponível! Sem veículo compatível abastecido e inteiro no Barracão.'})
             
-        # 🔥 APLICA O DESGASTE DA VIAGEM
         tem_caminhao.nivel_combustivel -= 15
         tem_caminhao.estado_conservacao -= 5
     else:

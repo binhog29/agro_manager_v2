@@ -146,10 +146,7 @@ def vender_derivados():
         return jsonify({'sucesso': False, 'erro': 'Quantidade inválida.'})
 
     # Tabela de preços base dos derivados
-    precos = {
-        'leite': 2.50, # R$ 2,50 por Litro
-        'ovos': 0.50   # R$ 0,50 por Ovo
-    } 
+    precos = {'leite': 2.50, 'ovos': 0.50} 
     
     if produto not in precos:
         return jsonify({'sucesso': False, 'erro': 'Produto inválido.'})
@@ -166,10 +163,13 @@ def vender_derivados():
         return jsonify({'sucesso': False, 'erro': 'Fazenda não encontrada.'})
 
     nome_coluna = f'est_{produto}'
-    estoque_atual = float(getattr(fazenda, nome_coluna, 0.0))
+    
+    # 🔥 A MÁGICA: Arredonda o valor do banco para bater com o que o Javascript enviou!
+    estoque_atual = round(float(getattr(fazenda, nome_coluna, 0.0)), 1)
+    quantidade = round(quantidade, 1)
 
     if estoque_atual < quantidade:
-        return jsonify({'sucesso': False, 'erro': f'Estoque insuficiente de {produto}!'})
+        return jsonify({'sucesso': False, 'erro': f'Estoque insuficiente de {produto}! (Tem: {estoque_atual}, Pediu: {quantidade})'})
 
     # 💰 INJEÇÃO DE RH: Bônus do Capataz
     from logica.funcionarios import obter_bonus_equipe
@@ -179,8 +179,9 @@ def vender_derivados():
     # Calcula o valor total com o lucro extra
     valor_total = (quantidade * precos[produto]) * multiplicador_venda
 
-    # Desconta do estoque e paga o jogador
-    setattr(fazenda, nome_coluna, estoque_atual - quantidade)
+    # Atualiza o banco garantindo que não fique sujeira decimal
+    novo_estoque = round(estoque_atual - quantidade, 1)
+    setattr(fazenda, nome_coluna, max(0.0, novo_estoque))
     usuario.saldo += valor_total
 
     from logica.economia import registrar_transacao

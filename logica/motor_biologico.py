@@ -27,10 +27,10 @@ class MotorBiologico:
         # 1. O Maestro chama a Agricultura
         MotorAgricultura.processar_lotes(lotes, dias, self.clima_atual, self.jogador, avisos_turno)
 
-        # 2. O Maestro SEPARA os animais por tipo
-        gados = [a for a in animais if a.raca.lower() in ['nelore', 'angus', 'guzera', 'brahman', 'girolando', 'cavalo']]
+        # 2. O Maestro SEPARA os animais por tipo (🔥 AGORA INCLUI OVELHAS E CABRAS!)
+        gados = [a for a in animais if a.raca.lower() in ['nelore', 'angus', 'guzera', 'brahman', 'girolando', 'cavalo', 'ovelha', 'cabra']]
         aves = [a for a in animais if a.raca.lower() in ['galinha', 'pato', 'peru']]
-        suinos = [a for a in animais if a.raca.lower() in ['porco']]
+        suinos = [a for a in animais if a.raca.lower() in ['porco', 'leitao', 'javali']]
         peixes = [a for a in animais if a.raca.lower() in ['tambaqui', 'pirarucu', 'pacu', 'matrinxa', 'jaraqui', 'curimata', 'surubim', 'pintado', 'cachara', 'tucunare', 'piau']]
 
         # 3. O Maestro envia cada grupo para o seu Motor Específico

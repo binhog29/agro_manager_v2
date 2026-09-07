@@ -50,8 +50,22 @@ class Jogador(db.Model):
         while self.xp >= (self.nivel * 1000):
             self.nivel += 1
             subiu_de_nivel = True
-            bonus_dinheiro = self.nivel * 5000 
+            
+            # 🔥 BALANCEAMENTO: Curva de recompensa achatada para o Late-Game!
+            # Até o nível 10, ganha Nível * 2000. Depois do nível 10, trava em R$ 25.000 fixos.
+            if self.nivel <= 10:
+                bonus_dinheiro = self.nivel * 2000.0
+            else:
+                bonus_dinheiro = 25000.0 
+                
             self.saldo += bonus_dinheiro
+            
+            # 🔥 REGISTRO NO EXTRATO: Agora o jogador vê o prêmio caindo na conta!
+            try:
+                from logica.economia import registrar_transacao
+                registrar_transacao(self.id, 'entrada', bonus_dinheiro, f'Recompensa: Alcançou Nível {self.nivel}')
+            except Exception:
+                pass # Evita travar caso seja chamado fora do contexto do Flask
             
         # 🔥 NOVA LÓGICA: Rebaixamento caso o admin remova XP
         while self.nivel > 1 and self.xp < ((self.nivel - 1) * 1000):
@@ -78,6 +92,17 @@ class Propriedade(db.Model):
     cap_represa = db.Column(db.Integer, default=200)
     cap_chiqueiro = db.Column(db.Integer, default=50)
     cap_galinheiro = db.Column(db.Integer, default=100)
+    
+        # 🔥 NOVOS HABITATS
+    cap_haras = db.Column(db.Integer, default=10)
+    tem_haras = db.Column(db.Boolean, default=False)
+    haras_tem_comedouro = db.Column(db.Boolean, default=False)
+    haras_qtd_racao = db.Column(db.Float, default=0.0)
+
+    cap_aprisco = db.Column(db.Integer, default=30)
+    tem_aprisco = db.Column(db.Boolean, default=False)
+    aprisco_tem_comedouro = db.Column(db.Boolean, default=False)
+    aprisco_qtd_racao = db.Column(db.Float, default=0.0)
     
     tem_represa_geral = db.Column(db.Boolean, default=False)
     tem_chiqueiro = db.Column(db.Boolean, default=False)
@@ -245,6 +270,11 @@ class Animal(db.Model):
     medicado = db.Column(db.Boolean, default=False)
     suplementado = db.Column(db.Boolean, default=False)
     onde_esta = db.Column(db.String(50), default='curral') 
+    
+    # 🔥 NOVAS COLUNAS DA FROTA DE TRANSPORTE
+    destino_id = db.Column(db.Integer, nullable=True)
+    habitat_destino = db.Column(db.String(50), nullable=True)
+    horas_viagem = db.Column(db.Integer, default=0)
 
     def obter_dna(self):
         raca_lower = self.raca.lower()

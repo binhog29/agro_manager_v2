@@ -13,11 +13,25 @@
     <div style="background:#f4f4f4; padding:20px; border-radius:15px; width:85%; max-width: 320px; text-align:center; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
         <h3 style="color: #333; margin-top: 0; font-family: 'Poppins', sans-serif;">Avançar Tempo</h3>
         <p style="color: #666; font-size: 12px; margin-bottom: 15px;">Pague os custos operacionais do período para avançar.</p>
+
+        <!-- 🔥 MÁGICA: O HTML AGORA CALCULA O ÁGIO BASEADO NO JOGADOR! -->
+        {% set fator_escala = 1.0 + (jogador.nivel * 0.02) + (jogador.propriedades|length * 0.05) %}
+        {% set c_1h = 1000 * fator_escala %}
+        {% set c_6h = 5000 * fator_escala %}
+        {% set c_1d = 20000 * fator_escala %}
+        {% set c_1s = 120000 * fator_escala %}
+
+        <!-- Aviso da Inflação (Só aparece se o jogador sofrer inflação) -->
+        {% if fator_escala > 1.0 %}
+        <div style="background: #fff3e0; border: 1px dashed #ff9800; color: #e65100; font-size: 11px; padding: 8px; border-radius: 6px; margin-bottom: 15px; text-align: left;">
+            <i class="fas fa-chart-line"></i> <b>Inflação:</b> Com Nível {{ jogador.nivel }} e {{ jogador.propriedades|length }} fazenda(s), seus custos estão <b>+{{ ((fator_escala - 1.0) * 100)|int }}%</b>.
+        </div>
+        {% endif %}
         
-        <button style="width:100%; padding:12px; margin:5px 0; background:#2e7d32; color:white; border:none; border-radius:8px; font-weight: 800; cursor: pointer;" onclick="confirmarAvanco(1, 85)">Avançar 1 Hora - R$ 1000</button>
-        <button style="width:100%; padding:12px; margin:5px 0; background:#2e7d32; color:white; border:none; border-radius:8px; font-weight: 800; cursor: pointer;" onclick="confirmarAvanco(6, 500)">Avançar 6 Horas - R$ 5000</button>
-        <button style="width:100%; padding:12px; margin:5px 0; background:#1b5e20; color:white; border:none; border-radius:8px; font-weight: 800; cursor: pointer;" onclick="confirmarAvanco(24, 1500)">Avançar 1 Dia - R$ 20.000</button>
-        <button style="width:100%; padding:12px; margin:5px 0; background:#b71c1c; color:white; border:none; border-radius:8px; font-weight: 800; cursor: pointer;" onclick="confirmarAvanco(168, 7000)">Avançar 1 Semana - R$ 120.000</button>
+        <button style="width:100%; padding:12px; margin:5px 0; background:#2e7d32; color:white; border:none; border-radius:8px; font-weight: 800; cursor: pointer;" onclick="confirmarAvanco(1, {{ c_1h }})">Avançar 1 Hora - R$ {{ "{:,.2f}".format(c_1h).replace(',', 'X').replace('.', ',').replace('X', '.') }}</button>
+        <button style="width:100%; padding:12px; margin:5px 0; background:#2e7d32; color:white; border:none; border-radius:8px; font-weight: 800; cursor: pointer;" onclick="confirmarAvanco(6, {{ c_6h }})">Avançar 6 Horas - R$ {{ "{:,.2f}".format(c_6h).replace(',', 'X').replace('.', ',').replace('X', '.') }}</button>
+        <button style="width:100%; padding:12px; margin:5px 0; background:#1b5e20; color:white; border:none; border-radius:8px; font-weight: 800; cursor: pointer;" onclick="confirmarAvanco(24, {{ c_1d }})">Avançar 1 Dia - R$ {{ "{:,.2f}".format(c_1d).replace(',', 'X').replace('.', ',').replace('X', '.') }}</button>
+        <button style="width:100%; padding:12px; margin:5px 0; background:#b71c1c; color:white; border:none; border-radius:8px; font-weight: 800; cursor: pointer;" onclick="confirmarAvanco(168, {{ c_1s }})">Avançar 1 Semana - R$ {{ "{:,.2f}".format(c_1s).replace(',', 'X').replace('.', ',').replace('X', '.') }}</button>
         
         <button style="width:100%; padding:12px; margin:10px 0 0 0; background:#ccc; color:#333; border:none; border-radius:8px; font-weight: bold; cursor: pointer;" onclick="document.getElementById('modal-tempo').style.display='none'">Cancelar</button>
     </div>

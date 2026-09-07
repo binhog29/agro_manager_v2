@@ -40,11 +40,29 @@ class MotorPiscicultura:
 
         # 2. Desconta do comedouro coletivo uma única vez
         qtd_comedouro = getattr(fazenda, 'represa_qtd_racao', 0.0)
+        
+        # 🔥 MÁGICA DO PEÃO: Busca Ração de Peixe no Armazém e Notifica!
+        from logica.funcionarios import obter_bonus_equipe
+        bonus_rh_geral = obter_bonus_equipe(fazenda.id)
+        
+        if qtd_comedouro < consumo_total and bonus_rh_geral.get('protecao_animal', False):
+            buscou_racao = False
+            # 🔥 O Peão faz quantas viagens forem necessárias para a semana!
+            while qtd_comedouro < consumo_total and getattr(fazenda, 'est_racao_peixe', 0) >= 20:
+                fazenda.est_racao_peixe -= 20
+                qtd_comedouro += 20.0
+                buscou_racao = True
+                
+            if buscou_racao:
+                fazenda.represa_qtd_racao = qtd_comedouro
+                msg = "👨‍🌾 Um Peão buscou Ração de Peixe no Armazém para a Represa."
+                if msg not in avisos_turno: avisos_turno.append(msg)
+
         tem_racao_geral = False
         
         if qtd_comedouro >= consumo_total:
             tem_racao_geral = True
-            fazenda.represa_qtd_racao -= consumo_total
+            fazenda.represa_qtd_racao = qtd_comedouro - consumo_total
         else:
             if qtd_comedouro > 0:
                 fazenda.represa_qtd_racao = 0.0

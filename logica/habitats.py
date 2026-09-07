@@ -38,6 +38,14 @@ def ver_habitat(habitat):
         tem_comedouro = getattr(fazenda, 'galinheiro_tem_comedouro', False)
         qtd_racao = float(getattr(fazenda, 'galinheiro_qtd_racao', 0.0) or 0.0)
         capacidade = getattr(fazenda, 'cap_galinheiro', 100)
+    elif habitat == 'haras':
+        tem_comedouro = getattr(fazenda, 'haras_tem_comedouro', False)
+        qtd_racao = float(getattr(fazenda, 'haras_qtd_racao', 0.0) or 0.0)
+        capacidade = getattr(fazenda, 'cap_haras', 10)
+    elif habitat == 'aprisco':
+        tem_comedouro = getattr(fazenda, 'aprisco_tem_comedouro', False)
+        qtd_racao = float(getattr(fazenda, 'aprisco_qtd_racao', 0.0) or 0.0)
+        capacidade = getattr(fazenda, 'cap_aprisco', 30)
     
     lista = [{
         'id': a.id, 
@@ -47,7 +55,6 @@ def ver_habitat(habitat):
         'peso': float(getattr(a, 'peso', 0.0)),
         'saude': float(getattr(a, 'saude', 100.0)),
         'fome': float(getattr(a, 'fome', 0.0)),
-        # 🔥 A CORREÇÃO: Enviando as variáveis de reprodução para o Javascript ler!
         'prenha': getattr(a, 'prenha', False),
         'dias_prenhez': int(getattr(a, 'dias_gestacao', 0))
     } for a in animais]
@@ -70,14 +77,13 @@ def construir_comedouro_habitat():
     habitat = dados.get('habitat')
     fazenda_id = dados.get('fazenda_id')
     
-    # 🔥 BLINDADO
     if not fazenda_id:
         return jsonify({'sucesso': False, 'erro': 'Fazenda não identificada.'})
         
     fazenda = Propriedade.query.filter_by(id=fazenda_id, dono_id=usuario.id).first()
     if not fazenda: return jsonify({'sucesso': False, 'erro': 'Fazenda não encontrada.'})
     
-    custos = {'represa': 800.0, 'chiqueiro': 1000.0, 'galinheiro': 600.0}
+    custos = {'represa': 800.0, 'chiqueiro': 1000.0, 'galinheiro': 600.0, 'haras': 1500.0, 'aprisco': 900.0}
     if habitat not in custos:
         return jsonify({'sucesso': False, 'erro': 'Habitat inválido.'})
         
@@ -110,7 +116,6 @@ def reabastecer_comedouro_habitat():
     tipo_grao = dados.get('tipo_grao', 'soja')
     fazenda_id = dados.get('fazenda_id')
     
-    # 🔥 BLINDADO
     if not fazenda_id:
         return jsonify({'sucesso': False, 'erro': 'Fazenda não identificada.'})
         
@@ -136,7 +141,9 @@ def reabastecer_comedouro_habitat():
     else:
         mapa_insumo = {
             'represa': ('est_racao_peixe', 'Ração de Peixe', 'armazem'),
-            'galinheiro': ('est_milho', 'Milho (Silo)', 'silo')
+            'galinheiro': ('est_milho', 'Milho (Silo)', 'silo'),
+            'haras': ('est_racao', 'Ração (Gado)', 'armazem'),
+            'aprisco': ('est_racao', 'Ração (Gado)', 'armazem')
         }
         if habitat not in mapa_insumo:
             return jsonify({'sucesso': False, 'erro': 'Habitat desconhecido.'})
@@ -181,19 +188,22 @@ def expandir_habitat():
     if not fazenda or fazenda.dono_id != jogador.id: 
         return jsonify({'sucesso': False, 'erro': 'Esta fazenda não é sua.'})
     
-    custo = 25000 if habitat == 'chiqueiro' else 8000
-    incremento = 50 if habitat == 'chiqueiro' else 100
+    custos_exp = {'represa': 8000, 'chiqueiro': 25000, 'galinheiro': 8000, 'haras': 15000, 'aprisco': 10000}
+    inc_exp = {'represa': 100, 'chiqueiro': 50, 'galinheiro': 100, 'haras': 5, 'aprisco': 15}
+    
+    if habitat not in custos_exp:
+        return jsonify({'sucesso': False, 'erro': 'Habitat inválido.'})
+        
+    custo = custos_exp[habitat]
+    incremento = inc_exp[habitat]
     
     if jogador.saldo < custo: 
         return jsonify({'sucesso': False, 'erro': 'Saldo insuficiente no caixa da fazenda!'})
     
     jogador.saldo -= custo
     
-    # Adiciona a capacidade dinamicamente na Propriedade
-    if habitat == 'chiqueiro':
-        fazenda.cap_chiqueiro = getattr(fazenda, 'cap_chiqueiro', 50) + incremento
-    elif habitat == 'galinheiro':
-        fazenda.cap_galinheiro = getattr(fazenda, 'cap_galinheiro', 100) + incremento
+    col_cap = f'cap_{habitat}'
+    setattr(fazenda, col_cap, getattr(fazenda, col_cap, 0) + incremento)
         
     registrar_transacao(jogador.id, 'saida', custo, f'Engenharia: Expansão do {habitat.capitalize()} (+{incremento} vagas)')    
     db.session.commit()

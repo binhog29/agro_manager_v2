@@ -436,7 +436,6 @@ window.abrirModalLoteFrigorifico = async function() {
 window.prepararTransferenciaLoteCurral = async function(habitatAtual = 'curral') {
     const fazendaId = window.location.pathname.split('/').pop();
     
-    // Descobre se estamos puxando os animais do curral, galinheiro, chiqueiro ou represa
     let endpoint = '';
     if (habitatAtual === 'curral') endpoint = `/api/pecuaria/listar_curral?fazenda_id=${fazendaId}`;
     else endpoint = `/api/pecuaria/habitat/${habitatAtual}?fazenda_id=${fazendaId}`;
@@ -452,7 +451,6 @@ window.prepararTransferenciaLoteCurral = async function(habitatAtual = 'curral')
             return;
         }
         
-        // Puxa a lista de terras do jogador para escolher o destino
         const resFazendas = await fetch('/api/mapa_global');
         const todasTerras = await resFazendas.json();
         const minhasOutrasTerras = todasTerras.filter(t => t.e_minha && t.id != fazendaId);
@@ -509,7 +507,7 @@ window.prepararTransferenciaLoteCurral = async function(habitatAtual = 'curral')
         `;
 
         Swal.fire({
-            title: '🚚 Transferência Intermunicipal',
+            title: '🚚 Logística e Transporte',
             html: htmlCheckboxes,
             background: '#2a2a2a', color: '#fff',
             showCancelButton: true, confirmButtonText: 'Despachar Carga', cancelButtonText: 'Cancelar', confirmButtonColor: '#0288d1',
@@ -523,10 +521,10 @@ window.prepararTransferenciaLoteCurral = async function(habitatAtual = 'curral')
                     usa_caminhao: document.getElementById('check-caminhao-transfer').checked
                 };
             }
+            
         }).then((result) => {
             if (result.isConfirmed) {
                 Swal.fire({ title: 'Viajando pelas rodovias...', didOpen: () => Swal.showLoading() });
-                
                 fetch('/api/animal/transferir_lote', {
                     method: 'POST', headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ 
@@ -537,8 +535,11 @@ window.prepararTransferenciaLoteCurral = async function(habitatAtual = 'curral')
                     })
                 })
                 .then(r => r.json()).then(d => {
-                    if(d.sucesso) Swal.fire('Chegou! 🚚', d.msg, 'success').then(()=> { location.reload(); });
-                    else Swal.fire('Atenção', d.erro, 'warning');
+                    if(d.sucesso) {
+                        Swal.fire('Despachado! 🚚', d.msg, 'success').then(()=> { 
+                            window.location.href = '/mapa'; // Manda pro Mapa!
+                        });
+                    } else Swal.fire('Atenção', d.erro, 'warning');
                 });
             }
         });

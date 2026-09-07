@@ -55,7 +55,6 @@ class GerenciadorTempo:
         dias_passados = jogador.hora // 24
         jogador.hora = jogador.hora % 24
 
-        # Inicializa a variável para evitar erros caso não passe nenhum dia
         meses_passados = 0 
 
         if dias_passados > 0:
@@ -75,9 +74,6 @@ class GerenciadorTempo:
 
         cls._atualizar_clima_e_estacao(jogador)
 
-        # =======================================================
-        # 🔥 AUTOMAÇÃO DA FROTA (TRATORISTAS E MECÂNICOS)
-        # =======================================================
         from database import Propriedade, Equipe, Maquinario
         from logica.barracao import Concessionaria
         avisos_automacao = []
@@ -86,11 +82,9 @@ class GerenciadorTempo:
         for prop in propriedades:
             equipe = Equipe.query.filter_by(propriedade_id=prop.id).first()
             
-            # Se a fazenda tem pelo menos 1 Tratorista contratado
             if equipe and getattr(equipe, 'tratoristas', 0) > 0:
                 maquinas = Maquinario.query.filter_by(propriedade_id=prop.id).all()
                 for maq in maquinas:
-                    # 1. Abastecimento Automático (Tanque < 20%)
                     if maq.nivel_combustivel < 20 and getattr(prop, 'est_combustivel', 0) > 0:
                         espaco = 100 - maq.nivel_combustivel
                         gasto = min(espaco, prop.est_combustivel)
@@ -98,7 +92,6 @@ class GerenciadorTempo:
                         maq.nivel_combustivel += gasto
                         avisos_automacao.append(f"🚜 O Tratorista abasteceu o {maq.modelo} com {gasto}L de Diesel.")
                     
-                    # 2. Oficina Automática (Saúde < 15%)
                     if maq.estado_conservacao < 15:
                         dano = 100 - maq.estado_conservacao
                         preco_base = 0
@@ -107,7 +100,6 @@ class GerenciadorTempo:
                                 preco_base = info['preco']
                                 break
                         
-                        # Usa a mesma regra justa: 15% do valor da máquina nova
                         custo_reparo = dano * (preco_base * 0.0015) if preco_base > 0 else dano * 350.0
                         
                         if jogador.saldo >= custo_reparo:
@@ -115,36 +107,47 @@ class GerenciadorTempo:
                             maq.estado_conservacao = 100
                             registrar_transacao(jogador.id, 'saida', custo_reparo, f'Oficina Automática: {maq.modelo}')
                             avisos_automacao.append(f"🔧 O Tratorista levou o {maq.modelo} para a revisão. Custo: R$ {custo_reparo:,.2f}.")
-        # =======================================================
 
         motor = MotorBiologico(clima_atual=getattr(jogador, 'clima_atual', 'sol'), jogador=jogador)
-        # Junta os relatórios da frota com os da natureza
         avisos = avisos_automacao + motor.processar_turno(horas)
         
-        # 🔥 NOVA FOLHA DE PAGAMENTO MENSAL BLINDADA
+        # 🔥 BALANCEAMENTO: NOVA FOLHA DE PAGAMENTO E IMPOSTOS (ITR)
         if meses_passados > 0:
             from logica.funcionarios import cobrar_folha_pagamento
-            # 30 dias trabalhados x 8h diárias = 240 horas por mês
+            from database import Lote
+            
             horas_cobradas = meses_passados * 240
             custo_rh = cobrar_folha_pagamento(jogador, horas_cobradas)
+            
+            # 🔥 ITR: O Jogador paga R$ 800 mensais por CADA hectare que ele domina!
+            qtd_lotes = Lote.query.join(Propriedade).filter(Propriedade.dono_id == jogador.id).count()
+            imposto_itr = (qtd_lotes * 800.0) * meses_passados
+            
+            # 🔥 TAXA DE FORTUNA: Se passar de 10 Milhões, perde 1.5% ao mês para a Receita.
+            taxa_fortuna = (jogador.saldo * 0.015) * meses_passados if jogador.saldo > 10000000 else 0
+            imposto_total = imposto_itr + taxa_fortuna
+            
+            if imposto_total > 0:
+                valor_cobrado = imposto_total if jogador.saldo >= imposto_total else jogador.saldo
+                jogador.saldo -= valor_cobrado
+                registrar_transacao(jogador.id, 'saida', valor_cobrado, f'Impostos (ITR + Tributos) ref. a {meses_passados} mês(es)')
+                
+                texto_fortuna = " e Tributo de Fortuna" if taxa_fortuna > 0 else ""
+                avisos.append(f"🏛️ Receita Federal: R$ {valor_cobrado:,.2f} retidos em ITR patrimonial{texto_fortuna}.")
+
             if custo_rh > 0:
                 texto_mes = "mês" if meses_passados == 1 else "meses"
                 avisos.append(f"💼 Folha de Pagamento: R$ {custo_rh:,.2f} descontados (Ref: Salário mensal por {meses_passados} {texto_mes}).")
 
-        # 🔥 SOLUÇÃO INTELIGENTE: Adapta-se ao Banco de Dados automaticamente!
         if avisos:
             from database import Notificacao
             data_jogo_str = f"{jogador.dia:02d}/{jogador.mes:02d}/{jogador.ano} {jogador.hora:02d}:00"
-            
             for aviso in avisos:
                 try:
-                    # Tenta gravar usando a coluna nova (se ela já existir)
                     nova_not = Notificacao(jogador_id=jogador.id, texto=aviso, data_jogo=data_jogo_str)
                 except TypeError:
-                    # Se o banco não tiver a coluna, embute a data do jogo direto no texto para não travar!
                     texto_adaptado = f"[{data_jogo_str}] {aviso}"
                     nova_not = Notificacao(jogador_id=jogador.id, texto=texto_adaptado)
-                
                 db.session.add(nova_not)
 
         return avisos
@@ -152,11 +155,7 @@ class GerenciadorTempo:
     @classmethod
     def _atualizar_clima_e_estacao(cls, jogador):
         jogador.estacao_atual = cls.ESTACOES.get(jogador.mes, 'primavera')
-
-        chances_chuva = {
-            'verao': 0.70, 'outono': 0.40, 'inverno': 0.05, 'primavera': 0.30   
-        }
-
+        chances_chuva = {'verao': 0.70, 'outono': 0.40, 'inverno': 0.05, 'primavera': 0.30}
         if random.random() < chances_chuva.get(jogador.estacao_atual, 0.30):
             jogador.clima_atual = 'chuva'
         else:
@@ -164,34 +163,30 @@ class GerenciadorTempo:
 
 @tempo_bp.route('/api/avancar_tempo', methods=['POST'])
 def avancar_tempo_manual():
-    if 'usuario' not in session: 
-        return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
+    if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
 
     usuario = Jogador.query.filter_by(username=session['usuario']).first()
     dados = request.get_json()
     
     horas_avancar = int(dados.get('horas', 0))
+    TABELA_CUSTOS_BASE = { 1: 1000.0, 6: 5000.0, 24: 20000.0, 168: 120000.0 }
     
-    TABELA_CUSTOS = {
-        1: 1000.0, 6: 5000.0, 24: 20000.0, 168: 120000.0
-    }
-    
-    if horas_avancar not in TABELA_CUSTOS:
-        return jsonify({'sucesso': False, 'erro': 'Quantidade de horas inválida ou tentativa de fraude.'})
+    if horas_avancar not in TABELA_CUSTOS_BASE:
+        return jsonify({'sucesso': False, 'erro': 'Quantidade de horas inválida.'})
         
-    custo = TABELA_CUSTOS[horas_avancar]
+    # 🔥 BALANCEAMENTO: O Custo de Vida / Custos Administrativos escalam com o Nível e Império!
+    from database import Propriedade
+    qtd_prop = Propriedade.query.filter_by(dono_id=usuario.id).count()
+    fator_escala = 1.0 + (getattr(usuario, 'nivel', 1) * 0.02) + (qtd_prop * 0.05)
+    
+    custo = TABELA_CUSTOS_BASE[horas_avancar] * fator_escala
 
     if usuario.saldo < custo:
-        return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente para pagar os custos operacionais (R$ {custo:,.2f}).'})
+        return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente para pagar os custos administrativos (R$ {custo:,.2f}).'})
 
     if custo > 0:
         usuario.saldo -= custo
-        registrar_transacao(
-            jogador_id=usuario.id,
-            tipo='saida',
-            valor=custo,
-            descricao=f'Custos Operacionais ({horas_avancar}h adiantadas)'
-        )
+        registrar_transacao(usuario.id, 'saida', custo, f'Custos Operacionais ({horas_avancar}h adiantadas)')
 
     avisos_motor = []
     if horas_avancar > 0:
@@ -200,55 +195,30 @@ def avancar_tempo_manual():
 
     db.session.commit()
     
-    return jsonify({
-        'sucesso': True, 
-        'msg': 'O tempo avançou e a natureza seguiu seu curso!',
-        'avisos': avisos_motor
-    })
+    return jsonify({'sucesso': True, 'msg': 'O tempo avançou e a natureza seguiu seu curso!', 'avisos': avisos_motor})
     
 @tempo_bp.route('/api/tempo_atual', methods=['GET'])
 def tempo_atual():
-    if 'usuario' not in session: 
-        return jsonify({'sucesso': False, 'erro': 'Não logado'})
-
+    if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Não logado'})
     usuario = Jogador.query.filter_by(username=session['usuario']).first()
     GerenciadorTempo.calcular_progresso_offline(usuario)
-    
     return jsonify({
-        'sucesso': True,
-        'hora': usuario.hora,
-        'dia': usuario.dia,
-        'mes': usuario.mes,
-        'ano': usuario.ano,
-        'clima': getattr(usuario, 'clima_atual', 'sol'),
-        'estacao': getattr(usuario, 'estacao_atual', 'primavera')
+        'sucesso': True, 'hora': usuario.hora, 'dia': usuario.dia, 'mes': usuario.mes, 'ano': usuario.ano,
+        'clima': getattr(usuario, 'clima_atual', 'sol'), 'estacao': getattr(usuario, 'estacao_atual', 'primavera')
     })
 
-# ==========================================
-# ROTAS DA CAIXA DE CORREIO
-# ==========================================
 @tempo_bp.route('/api/notificacoes', methods=['GET'])
 def get_notificacoes():
     if 'usuario' not in session: return jsonify({'sucesso': False})
     from database import Jogador, Notificacao
     usuario = Jogador.query.filter_by(username=session['usuario']).first()
-    
     nots = Notificacao.query.filter_by(jogador_id=usuario.id).order_by(Notificacao.id.desc()).limit(50).all()
     dados = []
-    
     for n in nots:
         data_exibicao = getattr(n, 'data_jogo', None)
-        if not data_exibicao:
-            data_exibicao = n.data.strftime("%d/%m/%Y %H:%M") if n.data else ""
-            
-        dados.append({
-            'id': n.id,
-            'texto': n.texto,
-            'lida': n.lida,
-            'data': data_exibicao
-        })
+        if not data_exibicao: data_exibicao = n.data.strftime("%d/%m/%Y %H:%M") if n.data else ""
+        dados.append({'id': n.id, 'texto': n.texto, 'lida': n.lida, 'data': data_exibicao})
         n.lida = True 
-        
     db.session.commit()
     return jsonify({'sucesso': True, 'notificacoes': dados})
 
@@ -271,13 +241,7 @@ def limpar_notificacoes():
 
 @tempo_bp.route('/api/tempo/sincronizar_offline', methods=['POST'])
 def sincronizar_offline():
-    if 'usuario' not in session: 
-        return jsonify({'sucesso': False})
-    
+    if 'usuario' not in session: return jsonify({'sucesso': False})
     usuario = Jogador.query.filter_by(username=session['usuario']).first()
-    
-    # Executa o cálculo pesado no servidor em segundo plano
     horas_processadas = GerenciadorTempo.calcular_progresso_offline(usuario)
-    
     return jsonify({'sucesso': True, 'horas': horas_processadas})
-

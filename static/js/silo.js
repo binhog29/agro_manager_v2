@@ -1,7 +1,14 @@
 window.prepararVenda = function(itemChave, itemNome, qtdMax) {
     Swal.fire({
         title: `Vender ${itemNome}`,
-        text: `Você tem ${qtdMax} kg em estoque.`,
+        html: `
+            <div style="margin-bottom: 15px;">Você tem <b>${qtdMax} kg</b> em estoque.</div>
+            
+            <div style="text-align: left; font-size: 12px; color: #ff9800; background: #222; padding: 12px; border-radius: 8px; border: 1px dashed #ff9800; margin-bottom: 15px; line-height: 1.5;">
+                <div style="margin-bottom: 5px;"><i class="fas fa-info-circle"></i> O preço base de venda acompanha o <b>Fator de Mercado</b> diário.</div>
+                <div><i class="fas fa-file-invoice-dollar"></i> Serão retidos <b>4%</b> na fonte (1.5% FUNRURAL + 2.5% Logística).</div>
+            </div>
+        `,
         input: 'number',
         inputAttributes: {
             min: 1,
@@ -13,6 +20,8 @@ window.prepararVenda = function(itemChave, itemNome, qtdMax) {
         confirmButtonText: 'Vender',
         cancelButtonText: 'Cancelar',
         confirmButtonColor: '#2e7d32',
+        background: '#2a2a2a', 
+        color: '#fff',
         preConfirm: (qtd) => {
             if (!qtd || qtd <= 0 || qtd > qtdMax) {
                 Swal.showValidationMessage('Quantidade inválida!');
@@ -22,8 +31,6 @@ window.prepararVenda = function(itemChave, itemNome, qtdMax) {
     }).then((result) => {
         if (result.isConfirmed) {
             const qtdVenda = parseInt(result.value);
-            
-            // 🔥 A MÁGICA: Captura o ID da fazenda atual!
             const fazendaId = window.location.pathname.split('/').pop();
             
             Swal.fire({ title: 'Carregando caminhão...', didOpen: () => Swal.showLoading() });
@@ -31,7 +38,6 @@ window.prepararVenda = function(itemChave, itemNome, qtdMax) {
             fetch('/api/silo/vender', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                // 🔥 Adiciona o ID da fazenda no envio para o Python
                 body: JSON.stringify({ item: itemChave, quantidade: qtdVenda, fazenda_id: fazendaId })
             })
             .then(r => r.json())

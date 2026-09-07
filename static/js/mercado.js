@@ -92,39 +92,49 @@ window.verificarCaminhaoDestino = async function() {
     const imgCaminhao = document.getElementById('img-veiculo');
 
     try {
-        // 🔥 A MÁGICA: O "?t=..." envia a hora exata em milissegundos. 
-        // Isso obriga o celular a buscar o diesel REAL no servidor e ignorar a memória!
         const res = await fetch(`/api/barracao/listar?fazenda_id=${destino}&t=${new Date().getTime()}`);
         const data = await res.json();
 
         if (data.sucesso) {
             const veiculosPossuidos = data.maquinas.filter(m => modelosAceitos.includes(m.modelo));
-            
-            // Filtra os que têm combustível e saúde suficientes
             const veiculosProntos = veiculosPossuidos.filter(m => m.combustivel >= 15 && m.saude >= 5);
 
             if (veiculosProntos.length > 0) {
-                veiculosProntos.sort((a, b) => modelosAceitos.indexOf(a.modelo) - modelosAceitos.indexOf(b.modelo));
-                const veiculoEscolhido = veiculosProntos[0];
+                // 🔥 SOMA A CAPACIDADE DA FROTA TODA
+                let capTotal = 0;
+                veiculosProntos.forEach(v => {
+                    let mult = compraAtual.fase === 'filhote' ? 2 : 1;
+                    if (v.modelo === 'Caminhão Baú (Frios)') capTotal += 200 * mult;
+                    else if (v.modelo === 'Caminhão Boiadeiro') {
+                        if(peixes.includes(racaLower)) capTotal += 200 * mult;
+                        else if(['porco', 'ovelha', 'cabra'].includes(racaLower)) capTotal += 60 * mult;
+                        else if(['galinha', 'pato', 'peru'].includes(racaLower)) capTotal += 200 * mult;
+                        else capTotal += 20 * mult;
+                    } else if (v.modelo.includes('Caminhonete')) {
+                        if(['porco', 'ovelha', 'cabra'].includes(racaLower)) capTotal += 10 * mult;
+                        else if(['galinha', 'pato', 'peru'].includes(racaLower)) capTotal += 50 * mult;
+                        else capTotal += 2 * mult;
+                    }
+                });
 
                 checkbox.disabled = false;
                 checkbox.checked = true;
-                aviso.innerText = `✅ Você usará o ${veiculoEscolhido.modelo}! Frete Grátis.`;
+                aviso.innerText = `✅ Frota Pronta: ${veiculosProntos.length} veículos (Suporta até ${capTotal} cab.). Frete Grátis.`;
                 aviso.style.color = '#4caf50';
 
-                if(veiculoEscolhido.imagem) {
-                    imgCaminhao.src = '/static/img/' + veiculoEscolhido.imagem;
+                // Ilustra a foto com o maior veículo disponível
+                let veiculoIlustracao = veiculosProntos.find(v => v.modelo.includes('Caminhão')) || veiculosProntos[0];
+                if(veiculoIlustracao.imagem) {
+                    imgCaminhao.src = '/static/img/' + veiculoIlustracao.imagem;
                 }
 
             } else if (veiculosPossuidos.length > 0) {
-                // Tem a máquina, mas está quebrada ou sem diesel
                 checkbox.disabled = true;
                 checkbox.checked = false;
-                aviso.innerText = `❌ Seu ${veiculosPossuidos[0].modelo} está sem diesel (<15%) ou quebrado.`;
+                aviso.innerText = `❌ Sua frota está sem diesel (<15%) ou quebrada. Mande ao barracão.`;
                 aviso.style.color = '#f44336';
                 definirCaminhaoPadrao(racaLower); 
             } else {
-                // Não tem a máquina
                 checkbox.disabled = true;
                 checkbox.checked = false;
                 aviso.innerText = `❌ Sem ${nomeVeiculoMsg} nesta fazenda. Frete será cobrado.`;

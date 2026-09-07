@@ -234,3 +234,38 @@ window.abrirPainelCotacoes = function() {
         }
     });
 }
+
+window.construirInstalacao = function(tipo, nomeExibicao, custo) {
+    const fazendaId = window.location.pathname.split('/').pop();
+    
+    Swal.fire({
+        title: `Construir ${nomeExibicao.toUpperCase()}`,
+        text: `Esta obra vai custar R$ ${custo.toLocaleString('pt-BR', {minimumFractionDigits: 2})}. Confirma?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#2e7d32',
+        cancelButtonColor: '#555',
+        confirmButtonText: 'Construir',
+        cancelButtonText: 'Cancel',
+        background: '#2a2a2a', color: '#fff'
+    }).then((res) => {
+        if (res.isConfirmed) {
+            Swal.fire({ title: 'Construindo...', didOpen: () => Swal.showLoading() });
+            
+            fetch('/api/fazenda/construir', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tipo: tipo, fazenda_id: fazendaId })
+            })
+            .then(r => r.json())
+            .then(d => {
+                if (d.sucesso) {
+                    Swal.fire('Sucesso!', d.msg, 'success').then(() => location.reload());
+                } else {
+                    Swal.fire('Atenção', d.erro, 'warning');
+                }
+            }).catch(() => Swal.fire('Erro', 'Falha de comunicação.', 'error'));
+        }
+    });
+};
+

@@ -239,6 +239,32 @@ def api_mapa_global():
         
     return jsonify(lista_props)
 
+@app.route('/api/mapa_frota')
+def api_mapa_frota():
+    if 'usuario' not in session: return jsonify([])
+    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    
+    props = Propriedade.query.filter_by(dono_id=usuario.id).all()
+    prop_ids = [p.id for p in props]
+    
+    # Procura animais trancados no caminhão
+    em_viagem = Animal.query.filter(Animal.propriedade_id.in_(prop_ids), Animal.onde_esta == 'caminhao').all()
+    
+    viagens = {}
+    for a in em_viagem:
+        # Agrupa pelo mesmo destino e mesma duração restante
+        chave = f"{a.propriedade_id}_{a.destino_id}_{a.horas_viagem}"
+        if chave not in viagens:
+            viagens[chave] = {
+                'origem_id': a.propriedade_id,
+                'destino_id': a.destino_id,
+                'horas_restantes': a.horas_viagem,
+                'qtd': 0
+            }
+        viagens[chave]['qtd'] += 1
+        
+    return jsonify(list(viagens.values()))
+
 @app.route('/sair')
 def sair():
     session.pop('usuario', None)

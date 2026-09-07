@@ -1,8 +1,8 @@
-// Função auxiliar para alternar entre Kg e Arrobas (@)
+// Função auxiliar para alternar entre Kg e Arrobas (@) COM SEU RENDIMENTO COMERCIAL
 function formatarPeso(peso) {
     let p = parseFloat(peso) || 0;
     if (p >= 30.0) {
-        // Agora reflete o rendimento comercial correto (30 kg vivos = 1 @)
+        // 🔥 VOLTOU O SEU PADRÃO: (30 kg vivos = 1 @)
         return (p / 30.0).toFixed(1) + ' @';
     } else {
         return p.toFixed(1) + ' kg';
@@ -13,30 +13,32 @@ window.abrirGerenciamentoPasto = async function(loteId, tipoCapim, temCocho, tem
     const response = await fetch(`/api/pecuaria/listar_pasto?pasto_id=${loteId}`);
     const data = await response.json();
     
-    let infoCocho = '';
-    if(temCocho) { infoCocho += `✅ Sal (${Math.round(qtdSal)}/10 un) | `; } else { infoCocho += `❌ Sal | `; }
-    if(temCochoRacao) { infoCocho += `✅ Ração (${Math.round(qtdRacao)}/20 un) | `; } else { infoCocho += `❌ Ração | `; }
-    infoCocho += temBebedouro ? `✅ Água` : `❌ Água`;
+    // Status visual da infraestrutura no topo
+    let infraText = [];
+    if(temCocho) infraText.push(`Sal (${Math.round(qtdSal)}/10)`);
+    if(temCochoRacao) infraText.push(`Ração (${Math.round(qtdRacao)}/20)`);
+    if(temBebedouro) infraText.push(`Água`);
+    let infoInfra = infraText.length > 0 ? infraText.join(' | ') : 'Terra nua';
     
+    // A lista antiga (agora fica oculta por padrão)
     let animaisHtml = data.animais.map(a => {
         const cAft = a.vacinado_aftosa ? '#2196f3' : '#444';
         const cBruc = a.vacinado_brucelose ? '#f44336' : '#444';
         const cMed = a.medicado ? '#9c27b0' : '#444';
         const cSup = a.suplementado ? '#4caf50' : '#444';
 
-        // 🔥 NOVIDADE: Cria a etiqueta visual da gravidez!
+        // 🔥 NOVIDADE: A sua etiqueta visual da gravidez!
         let tagPrenha = '';
         if (a.sexo === 'F' && a.prenha) {
-            tagPrenha = `<span style="background: #e91e63; color: white; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: bold; margin-left: 6px; box-shadow: 0 0 5px rgba(233,30,99,0.5);"><i class="fas fa-heart"></i> PRENHA (${Math.round(a.dias_gestacao)}d)</span>`;
+            tagPrenha = `<span style="background: #e91e63; color: white; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: bold; margin-left: 6px; box-shadow: 0 0 5px rgba(233,30,99,0.5);"><i class="fas fa-heart"></i> PRENHA (${Math.round(a.dias_gestacao || 0)}d)</span>`;
         }
 
         return `
         <div style="background: #222; padding: 8px; margin-bottom: 6px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between; border-left: 3px solid #555;">
             <div style="text-align: left;">
-                <div style="font-weight: bold; font-size: 13px; color: #fff; text-transform: capitalize;">${a.raca} ${tagPrenha}</div>
-                <div style="font-size: 10px; color: #888;">ID: #${a.id} | Sexo: <b>${a.sexo}</b> | ${formatarPeso(a.peso)} | ${a.status_peso || ''}</div>
+                <div style="font-weight: bold; font-size: 13px; color: #fff; text-transform: capitalize;">${a.raca} (${a.fase}) ${tagPrenha}</div>
+                <div style="font-size: 10px; color: #888;">ID: #${a.id} | Sexo: <b>${a.sexo}</b> | ${formatarPeso(a.peso)}</div>
             </div>
-            
             <div style="display: flex; gap: 4px;">
                 <div style="width: 20px; height: 20px; background: ${cAft}; color: white; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; border-radius: 3px;" title="Aftosa">A</div>
                 <div style="width: 20px; height: 20px; background: ${cBruc}; color: white; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; border-radius: 3px;" title="Brucelose">B</div>
@@ -49,36 +51,167 @@ window.abrirGerenciamentoPasto = async function(loteId, tipoCapim, temCocho, tem
     Swal.fire({
         title: `Lote ${loteId}`,
         html: `
-            <div style="text-align: left; font-size: 14px;">
-                <div style="margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #444;">
-                    <p style="margin: 2px 0;">Capim: <b>${tipoCapim.toUpperCase()}</b></p>
-                    <p style="margin: 2px 0;">Infra: ${infoCocho}</p>
+            <style>
+                @keyframes caminhar {
+                    0% { transform: translateY(0px) rotate(0deg); }
+                    25% { transform: translateY(-3px) rotate(-3deg); }
+                    50% { transform: translateY(0px) rotate(0deg); }
+                    75% { transform: translateY(-3px) rotate(3deg); }
+                    100% { transform: translateY(0px) rotate(0deg); }
+                }
+                .boi-andando { animation: caminhar 1.5s infinite linear; }
+                .btn-painel { margin: 0 !important; font-size: 11px !important; padding: 10px 5px !important; font-weight: bold; }
+            </style>
+
+            <div style="text-align: left; font-size: 13px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px; color: #ccc;">
+                    <span>🌱 ${tipoCapim.toUpperCase()}</span>
+                    <span>🛠️ ${infoInfra}</span>
                 </div>
                 
-                ${temCocho ? `<button class="swal2-styled" style="background: #ff9800; width: 100%; margin: 0 0 6px 0; font-size: 12px; font-weight: bold;" onclick="reabastecerCochoPasto(${loteId}, 'sal')"><i class="fas fa-cube"></i> Reabastecer Cocho de Sal</button>` : ''}
-                ${temCochoRacao ? `<button class="swal2-styled" style="background: #8d6e63; width: 100%; margin: 0 0 10px 0; font-size: 12px; font-weight: bold;" onclick="reabastecerCochoPasto(${loteId}, 'racao')"><i class="fas fa-bars"></i> Reabastecer Linha de Ração</button>` : ''}
+                <!-- 🔥 PASTO 2D - O PALCO PRINCIPAL 🔥 -->
+                <div id="pasto-2d-container" style="width: 100%; height: 220px; background: radial-gradient(circle, #689f38 0%, #33691e 100%); border: 3px solid #4e342e; border-radius: 8px; position: relative; overflow: hidden; margin-bottom: 15px; box-shadow: inset 0 0 20px rgba(0,0,0,0.8);">
+                </div>
+                
+                <!-- 🔥 PAINEL DE CONTROLE MODERNO (GRID) 🔥 -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px;">
+                    <button class="swal2-styled btn-painel" style="background: #333; grid-column: span 2;" onclick="document.getElementById('lista-rebanho-oculta').style.display = document.getElementById('lista-rebanho-oculta').style.display === 'none' ? 'block' : 'none'">
+                        <i class="fas fa-list"></i> Ver Relatório do Rebanho (${data.animais.length} cabeças) <i class="fas fa-chevron-down"></i>
+                    </button>
 
-                <div style="max-height: 35vh; overflow-y: auto; margin-bottom: 10px;">
+                    ${temCocho ? `<button class="swal2-styled btn-painel" style="background: #ff9800;" onclick="reabastecerCochoPasto(${loteId}, 'sal')"><i class="fas fa-cube"></i> Pôr Sal</button>` : `<div style="opacity:0.3; text-align:center; font-size:11px; padding:10px; border: 1px dashed #555; border-radius:4px;">Sem Cocho Sal</div>`}
+                    ${temCochoRacao ? `<button class="swal2-styled btn-painel" style="background: #8d6e63;" onclick="reabastecerCochoPasto(${loteId}, 'racao')"><i class="fas fa-bars"></i> Pôr Ração</button>` : `<div style="opacity:0.3; text-align:center; font-size:11px; padding:10px; border: 1px dashed #555; border-radius:4px;">Sem Cocho Ração</div>`}
+
+                    <button class="swal2-styled btn-painel" style="background: #2e7d32;" onclick="abrirSeletorAnimais(${loteId}, 'curral_para_pasto')"><i class="fas fa-arrow-down"></i> Trazer Gado</button>
+                    <button class="swal2-styled btn-painel" style="background: #1b5e20;" onclick="abrirSeletorAnimais(${loteId}, 'pasto_para_curral')"><i class="fas fa-arrow-up"></i> Levar Curral</button>
+
+                    <button class="swal2-styled btn-painel" style="background: #0288d1; grid-column: span 2;" onclick="abrirLojaInfra(${loteId}, ${temCocho}, ${temBebedouro}, ${temCochoRacao})"><i class="fas fa-hammer"></i> Obras & Manutenção</button>
+                    
+                    <button class="swal2-styled btn-painel" style="background: #c62828; color: #fff; grid-column: span 2; opacity: 0.8;" onclick="reverterPasto(${loteId})">
+                        <i class="fas fa-tractor"></i> Destruir Pasto
+                    </button>
+                </div>
+
+                <!-- Lista Oculta -->
+                <div id="lista-rebanho-oculta" style="display: none; max-height: 25vh; overflow-y: auto; border-top: 1px solid #444; padding-top: 10px;">
                     ${animaisHtml}
                 </div>
             </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                <button class="swal2-styled" style="background: #2e7d32; margin:0;" onclick="abrirSeletorAnimais(${loteId}, 'curral_para_pasto')">Trazer</button>
-                <button class="swal2-styled" style="background: #2e7d32; margin:0;" onclick="abrirSeletorAnimais(${loteId}, 'pasto_para_curral')">Levar</button>
-                <button class="swal2-styled" style="background: #0288d1; grid-column: span 2; margin:0;" onclick="abrirLojaInfra(${loteId}, ${temCocho}, ${temBebedouro}, ${temCochoRacao})">Manutenção</button>
-                
-                <button class="swal2-styled" style="background: #c62828; color: #fff; grid-column: span 2; margin:0; font-weight: bold;" onclick="reverterPasto(${loteId})">
-                    <i class="fas fa-tractor"></i> Passar Trator (Destruir Pasto)
-                </button>
-            </div>
         `,
-        background: '#1a1a1a',
-        color: '#fff',
-        width: '95%',
-        confirmButtonText: 'Voltar',
-        allowOutsideClick: false
+        background: '#1a1a1a', color: '#fff', width: '95%',
+        showConfirmButton: false, showCloseButton: true, allowOutsideClick: false,
+        didOpen: () => { iniciarAnimacaoPasto(data.animais, temCocho, temBebedouro, temCochoRacao); }
     });
 };
+
+// ==========================================
+// 🐄 O MOTOR DO PASTO ANIMADO (COM GRAMA E IMAGENS)
+// ==========================================
+window.iniciarAnimacaoPasto = function(animais, temCocho, temBebedouro, temCochoRacao) {
+    const container = document.getElementById('pasto-2d-container');
+    if (!container) return;
+    
+    let infraHtml = '';
+
+    // 🌿 1. GERADOR DE CAPIM ORGÂNICO
+    // Cria 35 tufos de grama espalhados aleatoriamente pelo pasto
+    for(let i = 0; i < 35; i++) {
+        let posX = Math.random() * 95; // Posição horizontal
+        let posY = Math.random() * 90; // Posição vertical
+        let tamanho = 8 + (Math.random() * 10); // Tamanhos variados para dar realismo
+        
+        infraHtml += `
+            <div style="position: absolute; left: ${posX}%; top: ${posY}%; font-size: ${tamanho}px; opacity: 0.25; z-index: 1; pointer-events: none; filter: sepia(1) hue-rotate(50deg) saturate(3);">
+                🌱
+            </div>
+        `;
+    }
+    
+    // 🚰 2. BEBEDOURO ESCAVADO
+    if (temBebedouro) {
+        infraHtml += `
+            <div style="position: absolute; top: 15px; left: 15px; width: 75px; height: 45px; background: radial-gradient(ellipse, #0288d1 30%, #4e342e 95%); border-radius: 50%; border: 3px solid #3e2723; box-shadow: inset 0 0 10px rgba(0,0,0,0.8), 2px 4px 6px rgba(0,0,0,0.5); z-index: 2;" title="Bebedouro Escavado"></div>
+        `;
+    }
+    
+    // 🏚️ 3. COCHO RÚSTICO DE RONDÔNIA
+    if (temCocho || temCochoRacao) {
+        let corComida = temCochoRacao ? '#cddc39' : '#fff'; // Amarelo (Ração) ou Branco (Sal)
+        infraHtml += `
+            <div style="position: absolute; bottom: 10px; right: 15px; width: 65px; height: 40px; z-index: 100;" title="Cocheira Rústica">
+                <div style="position: absolute; bottom: 0; left: 2px; width: 60px; height: 12px; background: #5d4037; border: 1px solid #3e2723; border-radius: 2px;"></div>
+                <div style="position: absolute; bottom: 3px; left: 5px; width: 54px; height: 8px; background: ${corComida}; border-radius: 2px;"></div>
+                <div style="position: absolute; bottom: 12px; left: 8px; width: 4px; height: 18px; background: #3e2723;"></div>
+                <div style="position: absolute; bottom: 12px; right: 8px; width: 4px; height: 18px; background: #3e2723;"></div>
+                <div style="position: absolute; top: 0; left: -5px; width: 75px; height: 15px; background: #4e342e; transform: skewX(-15deg); border-bottom: 2px solid #27140f; box-shadow: 2px 3px 5px rgba(0,0,0,0.6);"></div>
+            </div>
+        `;
+    }
+    container.innerHTML = infraHtml;
+
+    // 🐄 4. GADO ANIMADO
+    animais.forEach((a, index) => {
+        if (index >= 20) return; // Limite para não travar o celular
+
+        let containerBoi = document.createElement('div');
+        containerBoi.style.position = 'absolute';
+        containerBoi.style.transition = 'left 4s linear, top 4s linear'; 
+        containerBoi.style.cursor = 'pointer';
+        containerBoi.title = 'Clique para ver dados';
+        containerBoi.style.width = '45px';
+        containerBoi.style.height = '45px';
+        containerBoi.style.display = 'flex';
+        containerBoi.style.alignItems = 'center';
+        containerBoi.style.justifyContent = 'center';
+        containerBoi.style.filter = 'drop-shadow(2px 5px 3px rgba(0,0,0,0.5))';
+
+        let imgBoi = document.createElement('img');
+        imgBoi.src = `/static/img/${a.raca.toLowerCase()}.png`;
+        imgBoi.onerror = function() { this.src = '/static/img/nelore.png'; };
+        imgBoi.style.width = '100%';
+        imgBoi.style.pointerEvents = 'none'; 
+        imgBoi.style.transition = 'transform 0.3s ease';
+
+        containerBoi.appendChild(imgBoi);
+        container.appendChild(containerBoi);
+        
+        let posX = 5 + Math.random() * 80; 
+        let posY = 5 + Math.random() * 70;  
+        containerBoi.style.left = posX + '%';
+        containerBoi.style.top = posY + '%';
+        containerBoi.style.zIndex = Math.round(posY) + 10; // +10 para ficar sempre acima da grama
+
+        containerBoi.onclick = () => {
+            Swal.fire({
+                title: `${a.raca.toUpperCase()} #${a.id}`,
+                html: `Peso: <b>${formatarPeso(a.peso)}</b> <br> Saúde: <b>${Math.round(a.saude)}%</b> | Fome: <b>${Math.round(a.fome || 0)}%</b>`,
+                toast: true, position: 'top', showConfirmButton: false, timer: 3500, background: '#222', color: '#fff'
+            });
+        };
+
+        setInterval(() => {
+            let novaPosX = 5 + Math.random() * 80;
+            let novaPosY = 5 + Math.random() * 70;
+            
+            let direcaoFlip = novaPosX > posX ? 'scaleX(-1)' : 'scaleX(1)';
+            
+            imgBoi.style.transform = direcaoFlip;
+            imgBoi.classList.add('boi-andando');
+            
+            posX = novaPosX;
+            posY = novaPosY;
+            containerBoi.style.left = posX + '%';
+            containerBoi.style.top = posY + '%';
+            containerBoi.style.zIndex = Math.round(posY) + 10;
+            
+            setTimeout(() => {
+                imgBoi.classList.remove('boi-andando');
+            }, 4000);
+
+        }, 5000 + (Math.random() * 5000)); 
+    });
+};
+
 
 window.reabastecerCochoPasto = async function(loteId, tipoInsumo) {
     const nomeInsumo = tipoInsumo === 'sal' ? 'Sal' : 'Ração';

@@ -258,6 +258,43 @@
                         <button class="btn-abrir" style="background-color: #555; color: #999; cursor: not-allowed;" disabled>VISITA 🔒</button>
                     {% endif %}
                 </div>
+                
+                <!-- CARTÃO DO HARAS -->
+<div style="background: #252525; border-radius: 12px; padding: 15px; text-align: center; border: 1px solid #333; display: flex; flex-direction: column; justify-content: space-between;">
+    <div>
+        <img src="/static/img/haras.png" style="width: 50px; height: 50px; object-fit: contain; margin-bottom: 10px;" onerror="this.src='/static/img/cavalo.png'">
+        <h3 style="margin: 0; color: #fff; font-size: 16px;">Haras</h3>
+        <p style="margin: 5px 0 15px 0; color: #aaa; font-size: 12px;">Equinocultura</p>
+    </div>
+    {% if fazenda.tem_haras %}
+        <button onclick="abrirModalHabitat('haras')" style="background: #8d6e63; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%;">
+            ABRIR 🐎
+        </button>
+    {% else %}
+        <button onclick="construirInstalacao('haras', 'Haras', 15000)" style="background: #444; color: #aaa; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%;">
+            CONSTRUIR (15k)
+        </button>
+    {% endif %}
+</div>
+
+<!-- CARTÃO DO APRISCO -->
+<div style="background: #252525; border-radius: 12px; padding: 15px; text-align: center; border: 1px solid #333; display: flex; flex-direction: column; justify-content: space-between;">
+    <div>
+        <img src="/static/img/aprisco.png" style="width: 50px; height: 50px; object-fit: contain; margin-bottom: 10px;" onerror="this.src='/static/img/ovelha.png'">
+        <h3 style="margin: 0; color: #fff; font-size: 16px;">Aprisco</h3>
+        <p style="margin: 5px 0 15px 0; color: #aaa; font-size: 12px;">Ovinos e Caprinos</p>
+    </div>
+    {% if fazenda.tem_aprisco %}
+        <button onclick="abrirModalHabitat('aprisco')" style="background: #aed581; color: #000; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%;">
+            ABRIR 🐑
+        </button>
+    {% else %}
+        <button onclick="construirInstalacao('aprisco', 'Aprisco', 10000)" style="background: #444; color: #aaa; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%;">
+            CONSTRUIR (10k)
+        </button>
+    {% endif %}
+</div>
+
 
                 <div class="sede-card">
                     <img src="/static/img/comunidade.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2316/2316668.png'">

@@ -25,7 +25,6 @@ def vender_grao():
 
     usuario_sessao = session['usuario']
     
-    # 🔥 BLINDAGEM: with_for_update enfileira requisições, barrando scripts de clonagem
     jogador = Jogador.query.filter_by(username=usuario_sessao).with_for_update().first()
     if not jogador:
         jogador = Jogador.query.filter_by(id=usuario_sessao).with_for_update().first()
@@ -51,38 +50,46 @@ def vender_grao():
     itens_silo = ['soja', 'milho', 'arroz', 'feijao']
     local_venda = "Silo" if item_chave in itens_silo else "Galpão"
 
-    preco_unidade = PRECOS_VENDA.get(item_chave, 50) 
+    # 🔥 BALANCEAMENTO: O PREÇO AGORA FLUTUA COM O MERCADO DO DIA!
+    from logica.mercado import calcular_fator_dia
+    fator_mercado = calcular_fator_dia(jogador.dia, jogador.mes, jogador.ano)
+    preco_base = PRECOS_VENDA.get(item_chave, 50) 
+    preco_unidade = preco_base * fator_mercado
+    
     from logica.funcionarios import obter_bonus_equipe
     bonus_rh = obter_bonus_equipe(fazenda.id)
     multiplicador_venda = bonus_rh.get('bonus_venda', 1.0)
     
-    valor_total = (quantidade_venda * preco_unidade) * multiplicador_venda
+    # Cálculo do Valor Bruto
+    valor_bruto = (quantidade_venda * preco_unidade) * multiplicador_venda
+    
+    # 🔥 BALANCEAMENTO LATE-GAME: Desconto de FUNRURAL e Escoamento (Logística)
+    # Total de 4% de retenção na fonte. Freia milionários.
+    imposto_retido = valor_bruto * 0.04 
+    valor_liquido = valor_bruto - imposto_retido
 
     setattr(fazenda, nome_coluna, estoque_atual - quantidade_venda)
-    jogador.saldo += valor_total
+    jogador.saldo += valor_liquido
 
     if multiplicador_venda > 1.0:
-        # Descobre a porcentagem real (ex: 1.15 - 1.0 = 0.15 * 100 = 15%)
         porcentagem_real = int(round((multiplicador_venda - 1.0) * 100))
-        texto_venda = f"Venda de {local_venda}: {quantidade_venda}x {item_chave.capitalize()} (+{porcentagem_real}% Capataz)"
+        texto_venda = f"Venda {local_venda}: {quantidade_venda}x {item_chave.capitalize()} (+{porcentagem_real}% Capataz)"
     else:
-        texto_venda = f"Venda de {local_venda}: {quantidade_venda}x {item_chave.capitalize()}"
+        texto_venda = f"Venda {local_venda}: {quantidade_venda}x {item_chave.capitalize()}"
 
-    nova_transacao = Transacao(
-        jogador_id=jogador.id,
-        tipo='entrada',
-        valor=valor_total,
-        descricao=texto_venda
-    )
-    db.session.add(nova_transacao)
+    db.session.add(Transacao(jogador_id=jogador.id, tipo='entrada', valor=valor_liquido, descricao=texto_venda))
     
+    # Lança a despesa da logística no extrato para justificar a retenção
+    if imposto_retido > 0:
+        db.session.add(Transacao(jogador_id=jogador.id, tipo='saida', valor=imposto_retido, descricao=f"Retenção Direta: FUNRURAL e Escoamento de Safra"))
+
     if getattr(jogador, 'xp', None) is None:
         jogador.xp = 0
     jogador.xp += 10
     
     db.session.commit()
     
-    return jsonify({'sucesso': True, 'msg': f'Venda de {quantidade_venda}x {item_chave.capitalize()} gerou R$ {valor_total:,.2f}!'})
+    return jsonify({'sucesso': True, 'msg': f'Foram creditados R$ {valor_liquido:,.2f} líquidos na sua conta após impostos!'})
 
 @silo_bp.route('/api/silo/expandir', methods=['POST'])
 def expandir_silo():

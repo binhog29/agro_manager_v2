@@ -4,9 +4,6 @@ from database import db, HistoricoMorte, Propriedade, Animal
 from logica.funcionarios import obter_bonus_equipe
 
 class MotorSuinocultura:
-    # ==========================================
-    # ⚙️ PAINEL DE CONFIGURAÇÃO - SUINOCULTURA
-    # ==========================================
     CONFIG_SUINOS = {
         'porco':  {'crescimento': 0.8, 'consumo': 0.15},
         'leitao': {'crescimento': 0.4, 'consumo': 0.05}
@@ -15,18 +12,13 @@ class MotorSuinocultura:
     AUMENTO_FOME_DIA = 25.0
     QUEDA_SAUDE_FOME_DIA = 20.0
     RECUPERACAO_SAUDE_DIA = 10.0
-    CHANCE_PRENHEZ_DIA = 0.10 # 10% de chance ao dia
-    # ==========================================
+    CHANCE_PRENHEZ_DIA = 0.10 
     
     @staticmethod
     def processar_animais(animais_chiqueiro, dias, avisos_turno):
-        if not animais_chiqueiro:
-            return
-            
+        if not animais_chiqueiro: return
         fazenda = Propriedade.query.get(animais_chiqueiro[0].propriedade_id)
-        if not fazenda:
-            return
-            
+        if not fazenda: return
         cache_bonus_rh = {} 
 
         consumo_total = 0.0
@@ -38,24 +30,31 @@ class MotorSuinocultura:
             consumo_total += config['consumo'] * dias
 
         qtd_comedouro = getattr(fazenda, 'chiqueiro_qtd_racao', 0.0)
-        
-        # 🔥 MÁGICA DO PEÃO: Se a ração faltar, ele busca no Silo!
+        # 🔥 MÁGICA DO PEÃO: Se a ração faltar, ele busca no Silo (Milho/Soja) e Notifica!
         from logica.funcionarios import obter_bonus_equipe
         bonus_rh_geral = obter_bonus_equipe(fazenda.id)
         
         if qtd_comedouro < consumo_total and bonus_rh_geral.get('protecao_animal', False):
-            if getattr(fazenda, 'est_milho', 0) >= 100:
-                fazenda.est_milho -= 100
-                qtd_comedouro += 100.0
+            buscou_racao = False
+            # 🔥 O Peão trabalhador não para até o cocho estar pronto!
+            while qtd_comedouro < consumo_total:
+                if getattr(fazenda, 'est_milho', 0) >= 100:
+                    fazenda.est_milho -= 100
+                    qtd_comedouro += 100.0
+                    buscou_racao = True
+                    msg = "👨‍🌾 Um Peão buscou Milho no Silo para os Porcos."
+                    if msg not in avisos_turno: avisos_turno.append(msg)
+                elif getattr(fazenda, 'est_soja', 0) >= 100:
+                    fazenda.est_soja -= 100
+                    qtd_comedouro += 100.0
+                    buscou_racao = True
+                    msg = "👨‍🌾 Um Peão buscou Soja no Silo para os Porcos."
+                    if msg not in avisos_turno: avisos_turno.append(msg)
+                else:
+                    break # Acabou a comida do Silo!
+                    
+            if buscou_racao:
                 fazenda.chiqueiro_qtd_racao = qtd_comedouro
-                msg = f"👨‍🌾 Um Peão buscou 100 un. de Milho no Silo para os Porcos."
-                if msg not in avisos_turno: avisos_turno.append(msg)
-            elif getattr(fazenda, 'est_soja', 0) >= 100:
-                fazenda.est_soja -= 100
-                qtd_comedouro += 100.0
-                fazenda.chiqueiro_qtd_racao = qtd_comedouro
-                msg = f"👨‍🌾 Um Peão buscou 100 un. de Soja no Silo para os Porcos."
-                if msg not in avisos_turno: avisos_turno.append(msg)
 
         tem_racao_geral = False
         
@@ -69,11 +68,8 @@ class MotorSuinocultura:
 
         for porco in animais_chiqueiro:
             config = config_por_porco[porco.id]
-                
-            if porco.propriedade_id not in cache_bonus_rh:
-                cache_bonus_rh[porco.propriedade_id] = obter_bonus_equipe(porco.propriedade_id)
+            if porco.propriedade_id not in cache_bonus_rh: cache_bonus_rh[porco.propriedade_id] = obter_bonus_equipe(porco.propriedade_id)
             bonus_rh = cache_bonus_rh[porco.propriedade_id]
-
             peso_anterior = float(porco.peso or 0.0)
             
             if tem_racao_geral:
@@ -82,16 +78,13 @@ class MotorSuinocultura:
                 porco.saude = min(100.0, float(porco.saude or 100) + (MotorSuinocultura.RECUPERACAO_SAUDE_DIA * dias))
             else:
                 porco.fome = min(100.0, float(porco.fome or 0) + (MotorSuinocultura.AUMENTO_FOME_DIA * dias))
-                
                 perda_peso = config['crescimento'] * 0.8 * dias
-                if bonus_rh.get('protecao_animal', False):
-                    perda_peso *= 0.2
+                if bonus_rh.get('protecao_animal', False): perda_peso *= 0.2
                 porco.peso = max(0.5, peso_anterior - perda_peso)
                 
                 if porco.fome >= 100.0:
                     queda_saude = MotorSuinocultura.QUEDA_SAUDE_FOME_DIA * dias
-                    if bonus_rh.get('reduz_doencas', False):
-                        queda_saude *= 0.1
+                    if bonus_rh.get('reduz_doencas', False): queda_saude *= 0.1
                     porco.saude = max(0.0, float(porco.saude or 100) - queda_saude)
                     
             if porco.saude <= 0:
@@ -106,23 +99,24 @@ class MotorSuinocultura:
     def _processar_reproducao(animal, dias, avisos_turno):
         if getattr(animal, 'prenha', False):
             animal.dias_gestacao = float(getattr(animal, 'dias_gestacao', 0.0)) + dias
-            
             dna = animal.obter_dna() if hasattr(animal, 'obter_dna') else {}
             tempo_gestacao = dna.get('gestacao', 114)
             peso_nascimento = dna.get('peso_jovem', 15.0)
             
             if animal.dias_gestacao >= tempo_gestacao:
-                novo_filhote = Animal(
-                    propriedade_id=animal.propriedade_id, 
-                    raca=animal.raca, 
-                    fase='Filhote', 
-                    peso=peso_nascimento, 
-                    sexo=random.choice(['M', 'F']), 
-                    onde_esta=animal.onde_esta, 
-                    origem='Nascimento'
-                )
-                db.session.add(novo_filhote)
-                avisos_turno.append(f"🎉 Nasceram leitões de {animal.raca.capitalize()} no Chiqueiro!")
+                # 🔥 BALANCEAMENTO: Controle de Lotação
+                from database import Propriedade
+                fazenda = Propriedade.query.get(animal.propriedade_id)
+                limite_chiqueiro = getattr(fazenda, 'cap_chiqueiro', 50)
+                qtd_atual = Animal.query.filter_by(propriedade_id=animal.propriedade_id, onde_esta='chiqueiro').count()
+                
+                if qtd_atual < limite_chiqueiro:
+                    novo_filhote = Animal(propriedade_id=animal.propriedade_id, raca=animal.raca, fase='Filhote', peso=peso_nascimento, sexo=random.choice(['M', 'F']), onde_esta=animal.onde_esta, origem='Nascimento')
+                    db.session.add(novo_filhote)
+                    avisos_turno.append(f"🎉 Nasceram leitões de {animal.raca.capitalize()} no Chiqueiro!")
+                else:
+                    avisos_turno.append(f"⚠️ Tristeza: Os leitões de {animal.raca.capitalize()} não sobreviveram. O Chiqueiro está superlotado!")
+                    
                 animal.prenha = False
                 animal.dias_gestacao = 0.0
 

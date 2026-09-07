@@ -164,27 +164,15 @@ def plantar():
         prep_nome = "Arada (Trator)" if dna_planta.preparo_exigido == 'arado' else "com Covas Abertas"
         return jsonify({'sucesso': False, 'erro': f'Exige terra {prep_nome}.'})
 
-    # 🔥 INTEGRAÇÃO DA PLANTADEIRA 
-    custo_semente_total = dna_planta.custo_semente * area
-    custo_maquina_original = dna_planta.custo_maquina_plantio * area
-    custo_maquina_final = custo_maquina_original
-    
-    from database import Maquinario
-    plantadeira = Maquinario.query.filter(
-        Maquinario.propriedade_id == fazenda_alvo.id,
-        Maquinario.modelo == 'Plantadeira',
-        Maquinario.nivel_combustivel >= 5,
-        Maquinario.estado_conservacao >= 2
-    ).first()
+    # 🔥 BALANCEAMENTO: Operações escalam com o Nível e Império!
+    qtd_prop = Propriedade.query.filter_by(dono_id=usuario.id).count()
+    fator_inflacao = 1.0 + (getattr(usuario, 'nivel', 1) * 0.02) + (qtd_prop * 0.05)
 
-    if plantadeira:
-        # Se tem a máquina abastecida, ganha 80% de desconto na taxa de plantio
-        custo_maquina_final = int(custo_maquina_original * 0.20) 
-        
-    custo_total = custo_semente_total + custo_maquina_final
+    custo_base = (dna_planta.custo_semente + dna_planta.custo_maquina_plantio) * area
+    custo_total = int(custo_base * fator_inflacao)
 
     if usuario.saldo < custo_total:
-        return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente. Você precisa de R$ {custo_total:,.2f} para plantar {area}ha.'})
+        return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente. Você precisa de R$ {custo_total:,.2f} para bancar esta operação.'})
 
     cultura_anterior = getattr(lote, 'tipo_cultivo', None)
     nova_produtividade = 100
@@ -209,15 +197,7 @@ def plantar():
     lote.nivel_pragas = 0
     lote.fertilidade_solo = max(0, getattr(lote, 'fertilidade_solo', 100) - 20)
 
-    # 🔥 APLICA O DESGASTE E REGISTRA NO EXTRATO
-    if plantadeira:
-        plantadeira.nivel_combustivel -= 5
-        plantadeira.estado_conservacao -= 2
-        msg_extra += " (Sua Plantadeira reduziu 80% do custo de serviço!)"
-        registrar_transacao(usuario.id, 'saida', custo_total, f'Plantio Próprio de {dna_planta.nome} ({area}ha)')
-    else:
-        registrar_transacao(usuario.id, 'saida', custo_total, f'Plantio Terceirizado de {dna_planta.nome} ({area}ha)')
-
+    registrar_transacao(usuario.id, 'saida', custo_total, f'Custos de Plantio de {dna_planta.nome} ({area}ha)')
     db.session.commit()
     
     return jsonify({'sucesso': True, 'msg': f'{dna_planta.nome} plantado com sucesso! {msg_extra}'})
@@ -315,28 +295,15 @@ def colher():
     colheita_parcial = kg_a_colher < kg_totais_disponiveis
     proporcao_colhida = kg_a_colher / kg_totais_disponiveis if kg_totais_disponiveis > 0 else 1
     
-    # 🔥 INTEGRAÇÃO DE MÁQUINAS: Colheitadeira para Grãos, Trator para Frutas/Raízes!
-    custo_original = int(dna_planta.custo_maquina_colheita * area * proporcao_colhida)
-    custo_real = custo_original
-    
-    from database import Maquinario
-    maquina_usada = None
-    
-    tipo_maquina_necessaria = 'Colheitadeira' if tipo in itens_silo_graos else 'Trator'
-    
-    maquina_usada = Maquinario.query.filter(
-        Maquinario.propriedade_id == fazenda_alvo.id,
-        Maquinario.tipo == tipo_maquina_necessaria,
-        Maquinario.nivel_combustivel >= 10,
-        Maquinario.estado_conservacao >= 5
-    ).first()
-    
-    if maquina_usada:
-        # Corta 80% do valor do aluguel terceirizado se tiver máquina própria
-        custo_real = int(custo_original * 0.20)
+    # 🔥 BALANCEAMENTO: A colheita também sofre inflação se for um milionário
+    qtd_prop = Propriedade.query.filter_by(dono_id=usuario.id).count()
+    fator_inflacao = 1.0 + (getattr(usuario, 'nivel', 1) * 0.02) + (qtd_prop * 0.05)
+
+    custo_base = dna_planta.custo_maquina_colheita * area * proporcao_colhida
+    custo_real = int(custo_base * fator_inflacao)
 
     if usuario.saldo < custo_real:
-        return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente para a colheita (R$ {custo_real:,.2f}).'})
+        return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente para bancar as colheitadeiras (R$ {custo_real:,.2f}).'})
 
     coluna_estoque = f'est_{tipo}'
     try:
@@ -346,27 +313,18 @@ def colher():
         return jsonify({'sucesso': False, 'erro': 'Erro de estoque.'})
     
     usuario.saldo -= custo_real
-    
-    extra_msg = ""
-    if maquina_usada:
-        maquina_usada.nivel_combustivel -= 10
-        maquina_usada.estado_conservacao -= 2
-        nome_maq = maquina_usada.modelo
-        extra_msg = f" (Usou {nome_maq}!)"
-        registrar_transacao(usuario.id, 'saida', custo_real, f'Colheita Própria de {dna_planta.nome} ({area}ha)')
-    else:
-        registrar_transacao(usuario.id, 'saida', custo_real, f'Colheita Terceirizada de {dna_planta.nome} ({area}ha)')
+    registrar_transacao(usuario.id, 'saida', custo_real, f'Aluguel de Colheitadeiras ({area}ha)')
 
     msg_final = ""
     if colheita_parcial:
         nova_produtividade = produtividade - (produtividade * proporcao_colhida)
         lote.produtividade_atual = nova_produtividade
         lote.status = 'colheita_incompleta' 
-        msg_final = f'⚠️ {local_armazenamento} encheu! Foram colhidos {kg_a_colher} kg{extra_msg}. Venda no mercado e volte para terminar.'
+        msg_final = f'⚠️ {local_armazenamento} encheu! Foram colhidos {kg_a_colher} kg. Venda no mercado e volte para terminar.'
     else:
         lote.fertilidade_solo = max(0, getattr(lote, 'fertilidade_solo', 100) - 30)
         dna_planta.processar_pos_colheita(lote)
-        msg_final = f'Colheita finalizada! {kg_a_colher} kg armazenados no {local_armazenamento}{extra_msg}.'
+        msg_final = f'Colheita finalizada! {kg_a_colher} kg armazenados no {local_armazenamento}.'
 
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': msg_final})

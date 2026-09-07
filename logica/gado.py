@@ -463,24 +463,36 @@ def transferir_lote():
             break
             
     # 🎯 Descobre o habitat de destino e as regras de frete
-    if familia_animal == 'ave' or any(t in raca_lower for t in ['galinha', 'pato', 'peru']):
+    if familia_animal == 'ave' or any(t in raca_lower for t in ['galinha', 'pato', 'peru', 'ave']):
         habitat = 'galinheiro'
-        if not getattr(prop_destino, 'tem_galinheiro', False): return jsonify({'sucesso': False, 'erro': f'O destino "{prop_destino.nome}" não possui Galinheiro!'})
+        if not getattr(prop_destino, 'tem_galinheiro', False): return jsonify({'sucesso': False, 'erro': f'O destino não possui Galinheiro!'})
         limite = getattr(prop_destino, 'cap_galinheiro', 100)
         frete_cabeca = 5.0
         modelos_aceitos = ['Caminhonete Nova', 'Caminhonete Usada', 'Caminhão Boiadeiro']
-    elif familia_animal == 'suino' or any(t in raca_lower for t in ['porco', 'leitao', 'javali']):
+    elif familia_animal == 'suino' or any(t in raca_lower for t in ['porco', 'leitao', 'javali', 'suino']):
         habitat = 'chiqueiro'
-        if not getattr(prop_destino, 'tem_chiqueiro', False): return jsonify({'sucesso': False, 'erro': f'O destino "{prop_destino.nome}" não possui Chiqueiro!'})
+        if not getattr(prop_destino, 'tem_chiqueiro', False): return jsonify({'sucesso': False, 'erro': f'O destino não possui Chiqueiro!'})
         limite = getattr(prop_destino, 'cap_chiqueiro', 50)
         frete_cabeca = 15.0
         modelos_aceitos = ['Caminhonete Nova', 'Caminhonete Usada', 'Caminhão Boiadeiro']
-    elif 'peixe' in familia_animal or any(t in raca_lower for t in ['tambaqui', 'pirarucu', 'pacu', 'matrinxa']):
+    elif 'peixe' in familia_animal or any(t in raca_lower for t in ['tambaqui', 'pirarucu', 'pacu', 'matrinxa', 'jaraqui', 'curimata', 'surubim', 'pintado', 'cachara', 'tucunare', 'piau', 'peixe']):
         habitat = 'represa'
-        if not getattr(prop_destino, 'tem_represa_geral', False): return jsonify({'sucesso': False, 'erro': f'O destino "{prop_destino.nome}" não possui Represa!'})
+        if not getattr(prop_destino, 'tem_represa_geral', False): return jsonify({'sucesso': False, 'erro': f'O destino não possui Represa!'})
         limite = getattr(prop_destino, 'cap_represa', 200)
         frete_cabeca = 5.0
         modelos_aceitos = ['Caminhão Baú (Frios)']
+    elif familia_animal == 'equino' or any(t in raca_lower for t in ['cavalo', 'egua', 'equino']):
+        habitat = 'haras'
+        if not getattr(prop_destino, 'tem_haras', False): return jsonify({'sucesso': False, 'erro': f'O destino não possui Haras!'})
+        limite = getattr(prop_destino, 'cap_haras', 10)
+        frete_cabeca = 50.0
+        modelos_aceitos = ['Caminhão Boiadeiro']
+    elif familia_animal == 'ovino' or any(t in raca_lower for t in ['ovelha', 'cabra', 'ovino', 'caprino']):
+        habitat = 'aprisco'
+        if not getattr(prop_destino, 'tem_aprisco', False): return jsonify({'sucesso': False, 'erro': f'O destino não possui Aprisco!'})
+        limite = getattr(prop_destino, 'cap_aprisco', 30)
+        frete_cabeca = 15.0
+        modelos_aceitos = ['Caminhonete Nova', 'Caminhonete Usada', 'Caminhão Boiadeiro']
     else:
         habitat = 'curral'
         limite = getattr(prop_destino, 'cap_curral', 10)
@@ -491,23 +503,59 @@ def transferir_lote():
     if animais_no_destino + quantidade > limite:
         return jsonify({'sucesso': False, 'erro': f'Lotação excedida! O {habitat.capitalize()} de destino só tem {limite - animais_no_destino} vagas.'})
         
-    # 🚚 Lógica de Frete vs Caminhão Próprio
+    # 🚚 Lógica de Frete vs Caminhão Próprio E FROTA MULTIPLA
     custo_frete = 0.0
     
     if usa_caminhao:
-        tem_veiculo = Maquinario.query.filter(
+        frota_disponivel = Maquinario.query.filter(
             Maquinario.propriedade_id == prop_origem.id,
             Maquinario.modelo.in_(modelos_aceitos),
             Maquinario.nivel_combustivel >= 15,
             Maquinario.estado_conservacao >= 5
-        ).first()
+        ).all()
         
-        if not tem_veiculo:
-            return jsonify({'sucesso': False, 'erro': 'A fazenda de ORIGEM não tem nenhum veículo livre, abastecido (>15%) e inteiro (>5%) que suporte essa carga!'})
+        if not frota_disponivel:
+            return jsonify({'sucesso': False, 'erro': 'A fazenda de ORIGEM não tem frota livre e compatível para a viagem!'})
             
-        # O veículo desgasta com a viagem!
-        tem_veiculo.nivel_combustivel -= 15
-        tem_veiculo.estado_conservacao -= 5
+        def get_cap(modelo):
+            if modelo == 'Caminhão Baú (Frios)': return 200
+            if modelo == 'Caminhão Boiadeiro':
+                if familia_animal in ['suino', 'ovino']: return 60
+                if familia_animal in ['ave']: return 200
+                if familia_animal == 'equino': return 10
+                return 20
+            if 'Caminhonete' in modelo:
+                if familia_animal in ['suino', 'ovino']: return 10
+                if familia_animal in ['ave']: return 50
+                if familia_animal == 'equino': return 1
+                return 2
+            return 0
+            
+        frota_disponivel.sort(key=lambda v: get_cap(v.modelo), reverse=True)
+        
+        espaco_necessario = 0.0
+        for a in animais:
+            if str(a.fase).lower() in ['filhote', 'jovem']: espaco_necessario += 0.5
+            else: espaco_necessario += 1.0
+                
+        restante = espaco_necessario
+        caminhoes_usados = []
+        cap_total = 0
+        
+        for v in frota_disponivel:
+            if restante <= 0: break
+            cap_v = get_cap(v.modelo)
+            if cap_v > 0:
+                cap_total += cap_v
+                restante -= cap_v
+                caminhoes_usados.append(v)
+                
+        if restante > 0:
+            return jsonify({'sucesso': False, 'erro': f'Sua frota suporta apenas {int(cap_total)} animais deste tamanho! Compre mais caminhões na Origem ou pague o Frete.'})
+            
+        for v in caminhoes_usados:
+            v.nivel_combustivel -= 15
+            v.estado_conservacao -= 5
     else:
         custo_frete = quantidade * frete_cabeca
         
@@ -519,16 +567,25 @@ def transferir_lote():
         from logica.economia import registrar_transacao
         registrar_transacao(usuario.id, 'saida', custo_frete, f'Logística: Frete de Transferência ({quantidade} cabeças)')
         
-    # Desembarca os animais no destino
+    # 🔥 MÁGICA DO TEMPO BASEADO NA DISTÂNCIA
+    tempo_viagem = 24 if usa_caminhao else 48
+    cidade_origem = prop_origem.nome.split(" de ")[-1]
+    cidade_destino = prop_destino.nome.split(" de ")[-1]
+    
+    if cidade_origem == cidade_destino:
+        tempo_viagem = 6 if usa_caminhao else 12 
+
     for a in animais:
-        a.propriedade_id = prop_destino.id
+        a.destino_id = prop_destino.id
+        a.habitat_destino = habitat
+        a.horas_viagem = tempo_viagem
         a.lote_id = None
-        a.onde_esta = habitat
+        a.onde_esta = 'caminhao' 
         
     if getattr(usuario, 'xp', None) is None: usuario.xp = 0
     usuario.xp += (quantidade * 2) 
         
     db.session.commit()
     
-    meio_transporte = "com a sua frota própria" if usa_caminhao else "por transportadora"
-    return jsonify({'sucesso': True, 'msg': f'Carga despachada {meio_transporte}! {quantidade} animais chegaram na fazenda "{prop_destino.nome}".'})
+    meio_transporte = "com a sua frota própria" if usa_caminhao else "por transportadora terceirizada"
+    return jsonify({'sucesso': True, 'msg': f'Carga despachada {meio_transporte}! Os animais chegarão na fazenda "{prop_destino.nome}" em {tempo_viagem} horas.'})
