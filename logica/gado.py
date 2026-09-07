@@ -124,11 +124,12 @@ def manejar_lote():
             animal.onde_esta = 'curral'
             animal.lote_id = None
             movidos += 1
-
+            
     if movidos > 0:
         if getattr(usuario, 'xp', None) is None:
             usuario.xp = 0
-        usuario.xp += (5 * movidos)
+        # 🔥 FIM DA FESTA: Apenas 15 XP fixos por operação de manejo do peão!
+        usuario.xp += 15
 
     db.session.commit()
     
@@ -583,7 +584,8 @@ def transferir_lote():
         a.onde_esta = 'caminhao' 
         
     if getattr(usuario, 'xp', None) is None: usuario.xp = 0
-    usuario.xp += (quantidade * 2) 
+    # 🔥 FIM DA FESTA: Apenas 20 XP por viagem de caminhão!
+    usuario.xp += 20
         
     db.session.commit()
     

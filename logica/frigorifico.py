@@ -188,7 +188,8 @@ def vender_lote_curral():
     
     if getattr(usuario, 'xp', None) is None:
         usuario.xp = 0
-    usuario.xp += (quantidade * 50)
+    # 🔥 FIM DA FESTA: Dá apenas 50 XP por lote vendido, independente da quantidade!
+    usuario.xp += 50
     
     registrar_transacao(usuario.id, 'entrada', valor_total, f'Frigorífico ({quantidade}x Múltiplos) - Detalhes: {", ".join(msg_resumo)[:40]}...')
     
