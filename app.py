@@ -6,8 +6,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_migrate import Migrate
 from datetime import timedelta
-
-from database import db, Jogador, Propriedade, Animal, HistoricoMorte, Transacao
+from database import db, Jogador, Propriedade, Animal, HistoricoMorte, Transacao, Maquinario, Equipe, Lote
 
 from logica.social import social_bp
 from logica.mercado import mercado_bp
@@ -387,6 +386,75 @@ def dossie_jogador(jogador_id):
         'hectares': hectares,
         'animais': animais
     })
+@app.route('/api/admin/propriedades/<int:jogador_id>', methods=['GET'])
+def listar_propriedades_jogador(jogador_id):
+    """Retorna a lista de fazendas do jogador para o Administrador escolher o alvo"""
+    if 'usuario' not in session: return jsonify({'sucesso': False})
+    admin = Jogador.query.filter_by(username=session['usuario']).first()
+    if not admin or not getattr(admin, 'is_admin', False): return jsonify({'sucesso': False})
+    
+    props = Propriedade.query.filter_by(dono_id=jogador_id).all()
+    lista = [{'id': p.id, 'nome': p.nome, 'tipo': p.tipo, 'preco': p.preco} for p in props]
+    
+    return jsonify({'sucesso': True, 'propriedades': lista})
+
+@app.route('/api/admin/confiscar_fazenda_especifica', methods=['POST'])
+def confiscar_fazenda_especifica():
+    """Confisca uma fazenda específica escolhida pelo Administrador"""
+    if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
+    admin = Jogador.query.filter_by(username=session['usuario']).first()
+    if not admin or not getattr(admin, 'is_admin', False): 
+        return jsonify({'sucesso': False, 'erro': 'Acesso negado.'}), 403
+        
+    dados = request.get_json() or {}
+    prop_id = dados.get('propriedade_id')
+    
+    fazenda = Propriedade.query.get(prop_id)
+    if not fazenda or not fazenda.dono_id:
+        return jsonify({'sucesso': False, 'erro': 'Propriedade não encontrada ou já pertence ao Estado.'})
+        
+    nome_fazenda = fazenda.nome
+    
+    # Executa a limpeza da fazenda (Wipe da propriedade específica)
+    Animal.query.filter_by(propriedade_id=fazenda.id).delete()
+    Maquinario.query.filter_by(propriedade_id=fazenda.id).delete()
+    Equipe.query.filter_by(propriedade_id=fazenda.id).delete()
+
+    lotes = Lote.query.filter_by(fazenda_id=fazenda.id).all()
+    for lote in lotes:
+        lote.status = 'mato'
+        lote.tem_cerca = False
+        lote.tem_bebedouro = False
+        lote.tem_cocho = False
+        lote.tem_cocho_racao = False
+        lote.sistema_irrigacao = 'nenhum'
+        lote.tipo_cultivo = None
+        lote.tipo_capim = None
+        lote.dias_plantado = 0
+        lote.nivel_pragas = 0
+        lote.fertilidade_solo = 100
+
+    fazenda.cap_silo = 500
+    fazenda.cap_armazem = 200
+    fazenda.cap_curral = 10
+    fazenda.cap_barracao = 0
+    fazenda.tem_represa_geral = False
+    fazenda.tem_chiqueiro = False
+    fazenda.tem_galinheiro = False
+    
+    for campo in ['est_milho', 'est_soja', 'est_arroz', 'est_feijao', 'est_algodao', 'est_mandioca', 
+                  'est_cafe', 'est_cana', 'est_tomate', 'est_banana', 'est_cacau', 'est_acai', 
+                  'est_cupuacu', 'est_pimenta', 'est_melancia', 'est_abacaxi',
+                  'est_sal', 'est_racao', 'est_adubo', 'est_veneno', 'est_combustivel', 
+                  'est_vacina_aftosa', 'est_vacina_brucelose', 'est_medicamento_geral', 
+                  'est_suplemento_engorda', 'est_racao_peixe', 'est_leite', 'est_ovos']:
+        if hasattr(fazenda, campo):
+            setattr(fazenda, campo, 0)
+
+    fazenda.dono_id = None
+    db.session.commit()
+    
+    return jsonify({'sucesso': True, 'msg': f'A propriedade "{nome_fazenda}" foi confiscada e devolvida ao Estado!'})
 
 @app.route('/admin/multar/<int:jogador_id>', methods=['POST'])
 def aplicar_multa(jogador_id):
@@ -477,6 +545,51 @@ def fazenda(prop_id):
                            gado_curral=animais_no_curral,
                            visitante=visitante) 
                            
+@app.route('/api/admin/lotes/<int:prop_id>', methods=['GET'])
+def listar_lotes_propriedade(prop_id):
+    """Retorna os hectares/lotes de uma propriedade específica para o Admin escolher"""
+    if 'usuario' not in session: return jsonify({'sucesso': False})
+    admin = Jogador.query.filter_by(username=session['usuario']).first()
+    if not admin or not getattr(admin, 'is_admin', False): return jsonify({'sucesso': False})
+    
+    from database import Lote
+    lotes = Lote.query.filter_by(fazenda_id=prop_id).all()
+    lista = [{'id': l.id, 'status': l.status, 'cultivo': l.tipo_cultivo or 'Vazio/Mato'} for l in lotes]
+    
+    return jsonify({'sucesso': True, 'lotes': lista})
+
+@app.route('/api/admin/confiscar_lote_especifico', methods=['POST'])
+def confiscar_lote_especifico():
+    """Confisca e limpa um hectare (lote) específico escolhido pelo Administrador"""
+    if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
+    admin = Jogador.query.filter_by(username=session['usuario']).first()
+    if not admin or not getattr(admin, 'is_admin', False): 
+        return jsonify({'sucesso': False, 'erro': 'Acesso negado.'}), 403
+        
+    dados = request.get_json() or {}
+    lote_id = dados.get('lote_id')
+    
+    from database import Lote
+    lote = Lote.query.get(lote_id)
+    if not lote:
+        return jsonify({'sucesso': False, 'erro': 'Hectare não encontrado.'})
+        
+    # Reseta o hectare específico para o estado virgem (mato)
+    lote.status = 'mato'
+    lote.tem_cerca = False
+    lote.tem_bebedouro = False
+    lote.tem_cocho = False
+    lote.tem_cocho_racao = False
+    lote.sistema_irrigacao = 'nenhum'
+    lote.tipo_cultivo = None
+    lote.tipo_capim = None
+    lote.dias_plantado = 0
+    lote.nivel_pragas = 0
+    lote.fertilidade_solo = 100
+    
+    db.session.commit()
+    return jsonify({'sucesso': True, 'msg': f'O hectare #{lote.id} foi confiscado e devolvido ao Estado com sucesso!'})
+
 @app.route('/cemiterio/<int:prop_id>')
 def cemiterio(prop_id):
     if 'usuario' not in session:

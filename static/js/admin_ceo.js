@@ -115,19 +115,106 @@ window.auditarFazendas = function(id, nome) {
     });
 };
 
+// ==========================================
+// 🌾 CONFISCO CIRÚRGICO DE HECTARES EXTRAS
+// ==========================================
 window.confiscarHectaresExtras = function(id, nome) {
-    Swal.fire({
-        title: 'Confiscar Hectares?',
-        text: `Arrancar as terras extras de ${nome} e devolver ao Estado? (A fazenda voltará ao tamanho de fábrica e os animais do pasto irão para o curral)`,
-        icon: 'warning', background: '#2a2a2a', color: '#fff', 
-        showCancelButton: true, confirmButtonColor: '#d32f2f', confirmButtonText: 'Confiscar Tudo'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            // Usa o seu helper nativo que recarrega a página no final
-            godAction('/api/admin/remover_hectares_extras', { jogador_id: id });
+    Swal.fire({ title: 'Buscando propriedades...', didOpen: () => Swal.showLoading() });
+    
+    fetch('/api/admin/propriedades/' + id)
+    .then(r => r.json())
+    .then(d => {
+        if (d.sucesso) {
+            if (d.propriedades.length === 0) {
+                Swal.fire('Aviso', `${nome} não possui nenhuma propriedade.`, 'info');
+                return;
+            }
+            
+            let optionsHtml = '';
+            d.propriedades.forEach(p => {
+                optionsHtml += `<option value="${p.id}">${p.nome} (${p.tipo})</option>`;
+            });
+            
+            Swal.fire({
+                title: `Selecionar Fazenda - ${nome}`,
+                html: `
+                    <p style="font-size: 13px; color: #aaa; text-align: left; margin-bottom: 10px;">Escolha qual fazenda deseja inspecionar:</p>
+                    <select id="swal-prop-id" style="width: 100%; padding: 12px; background: #111; color: #fff; border: 1px solid #444; border-radius: 6px; font-family: 'Poppins', sans-serif;">
+                        ${optionsHtml}
+                    </select>
+                `,
+                background: '#1a1a24', color: '#fff',
+                showCancelButton: true, confirmButtonText: 'Avançar para Hectares', confirmButtonColor: '#fbc02d',
+                cancelButtonText: 'Cancelar'
+            }).then((res) => {
+                if (res.isConfirmed) {
+                    const propId = document.getElementById('swal-prop-id').value;
+                    carregarLotesParaConfisco(propId);
+                }
+            });
+        } else {
+            Swal.fire('Erro', 'Falha ao buscar propriedades.', 'error');
         }
     });
 };
+
+function carregarLotesParaConfisco(propId) {
+    Swal.fire({ title: 'Buscando hectares...', didOpen: () => Swal.showLoading() });
+    
+    fetch('/api/admin/lotes/' + propId)
+    .then(r => r.json())
+    .then(d => {
+        if (d.sucesso) {
+            if (d.lotes.length === 0) {
+                Swal.fire('Aviso', 'Esta propriedade não possui hectares registrados.', 'info');
+                return;
+            }
+            
+            let lotesHtml = '';
+            d.lotes.forEach((l) => {
+                lotesHtml += `<option value="${l.id}">Hectare #${l.id} (Cultivo: ${l.cultivo} | Status: ${l.status})</option>`;
+            });
+            
+            Swal.fire({
+                title: `Selecionar Hectare Específico`,
+                html: `
+                    <p style="font-size: 13px; color: #aaa; text-align: left; margin-bottom: 10px;">Escolha o hectare exato para confiscar e limpar:</p>
+                    <select id="swal-lote-id" style="width: 100%; padding: 12px; background: #111; color: #fff; border: 1px solid #444; border-radius: 6px; font-family: 'Poppins', sans-serif;">
+                        ${lotesHtml}
+                    </select>
+                `,
+                background: '#1a1a24', color: '#fff',
+                showCancelButton: true, confirmButtonText: 'Confiscar Este Hectare', confirmButtonColor: '#d32f2f',
+                cancelButtonText: 'Voltar'
+            }).then((res) => {
+                if (res.isConfirmed) {
+                    const loteId = document.getElementById('swal-lote-id').value;
+                    executarConfiscoLote(loteId);
+                }
+            });
+        } else {
+            Swal.fire('Erro', 'Falha ao buscar hectares.', 'error');
+        }
+    });
+}
+
+function executarConfiscoLote(loteId) {
+    Swal.fire({ title: 'Confiscando hectare...', didOpen: () => Swal.showLoading() });
+    
+    fetch('/api/admin/confiscar_lote_especifico', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ lote_id: loteId })
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.sucesso) {
+            Swal.fire('Sucesso!', res.msg, 'success').then(() => location.reload());
+        } else {
+            Swal.fire('Atenção', res.erro, 'warning');
+        }
+    });
+}
+
 
 window.limparLavourasAdmin = function(id, nome) {
     Swal.fire({
@@ -139,6 +226,66 @@ window.limparLavourasAdmin = function(id, nome) {
         if (result.isConfirmed) {
             // Usa o seu helper nativo que recarrega a página no final
             godAction('/api/admin/limpar_lavouras', { jogador_id: id });
+        }
+    });
+};
+
+// ==========================================
+// 🏴‍☠️ CONFISCO CIRÚRGICO DE PROPRIEDADES
+// ==========================================
+window.abrirModalConfiscarTerra = function(jogadorId, nomeJogador) {
+    Swal.fire({ title: 'Buscando propriedades...', didOpen: () => Swal.showLoading() });
+    
+    fetch('/api/admin/propriedades/' + jogadorId)
+    .then(r => r.json())
+    .then(d => {
+        if (d.sucesso) {
+            if (d.propriedades.length === 0) {
+                Swal.fire('Aviso', `${nomeJogador} não possui nenhuma propriedade no momento.`, 'info');
+                return;
+            }
+            
+            let optionsHtml = '';
+            d.propriedades.forEach(p => {
+                optionsHtml += `<option value="${p.id}">${p.nome} (${p.tipo}) - R$ ${p.preco.toLocaleString('pt-BR')}</option>`;
+            });
+            
+            Swal.fire({
+                title: `Confiscar Fazenda de ${nomeJogador}`,
+                html: `
+                    <p style="font-size: 13px; color: #aaa; text-align: left; margin-bottom: 10px;">Selecione qual propriedade exata você deseja confiscar e devolver ao Estado:</p>
+                    <select id="select-propriedade-alvo" style="width: 100%; padding: 12px; background: #111; color: #fff; border: 1px solid #444; border-radius: 6px; font-family: 'Poppins', sans-serif;">
+                        ${optionsHtml}
+                    </select>
+                `,
+                background: '#1a1a24', color: '#fff',
+                showCancelButton: true, confirmButtonText: 'Confiscar Esta Fazenda', confirmButtonColor: '#e65100',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const propIdAlvo = document.getElementById('select-propriedade-alvo').value;
+                    executarConfiscoEspecifico(propIdAlvo);
+                }
+            });
+        } else {
+            Swal.fire('Erro', 'Não foi possível carregar as propriedades.', 'error');
+        }
+    });
+};
+
+window.executarConfiscoEspecifico = function(propId) {
+    Swal.fire({ title: 'Executando desapropriação...', didOpen: () => Swal.showLoading() });
+    
+    fetch('/api/admin/confiscar_fazenda_especifica', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ propriedade_id: propId })
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.sucesso) {
+            Swal.fire('Sucesso!', res.msg, 'success').then(() => location.reload());
+        } else {
+            Swal.fire('Atenção', res.erro, 'warning');
         }
     });
 };
