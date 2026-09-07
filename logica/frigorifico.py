@@ -188,10 +188,18 @@ def vender_lote_curral():
     
     if getattr(usuario, 'xp', None) is None:
         usuario.xp = 0
-    # 🔥 FIM DA FESTA: Dá apenas 50 XP por lote vendido, independente da quantidade!
     usuario.xp += 50
     
-    registrar_transacao(usuario.id, 'entrada', valor_total, f'Frigorífico ({quantidade}x Múltiplos) - Detalhes: {", ".join(msg_resumo)[:40]}...')
+    detalhes_str = ", ".join(msg_resumo)
+    if len(detalhes_str) > 180:
+        detalhes_str = detalhes_str[:180] + '...'
+
+    registrar_transacao(
+        usuario.id, 
+        'entrada', 
+        valor_total, 
+        f'Frigorífico ({quantidade}x Animais) - Lote: {detalhes_str}'
+    )
     
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': f'Venda concluída! O mercado te pagou R$ {valor_total:,.2f}!'})
