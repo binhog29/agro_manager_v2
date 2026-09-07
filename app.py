@@ -355,12 +355,12 @@ def receita_federal():
 
 @app.route('/api/admin/dossie/<int:jogador_id>', methods=['GET'])
 def dossie_jogador(jogador_id):
-    """Gera um Raio-X completo do jogador para a Receita Federal"""
+    """Gera um Raio-X completo do jogador para a Receita Federal com os tipos de propriedades"""
     if 'usuario' not in session: return jsonify({'sucesso': False})
     admin = Jogador.query.filter_by(username=session['usuario']).first()
     if not admin or not getattr(admin, 'is_admin', False): return jsonify({'sucesso': False})
     
-    from database import Lote, Animal, Propriedade # Importação local segura
+    from database import Lote, Animal, Propriedade
     
     alvo = db.session.get(Jogador, jogador_id)
     if not alvo: return jsonify({'sucesso': False, 'erro': 'Jogador não encontrado'})
@@ -371,12 +371,19 @@ def dossie_jogador(jogador_id):
     hectares = Lote.query.filter(Lote.fazenda_id.in_(prop_ids)).count() if prop_ids else 0
     animais = Animal.query.filter(Animal.propriedade_id.in_(prop_ids)).count() if prop_ids else 0
     
+    # 🔥 Conta cada tipo de propriedade do jogador
+    tipos_contagem = {'Chácara': 0, 'Sítio': 0, 'Fazenda': 0, 'Latifúndio': 0}
+    for p in propriedades:
+        tipo_p = p.tipo if p.tipo in tipos_contagem else 'Fazenda'
+        tipos_contagem[tipo_p] += 1
+
     return jsonify({
         'sucesso': True,
         'nome': alvo.username,
         'nivel': getattr(alvo, 'nivel', 1),
         'saldo': alvo.saldo,
-        'fazendas': len(propriedades),
+        'total_propriedades': len(propriedades),
+        'tipos': tipos_contagem,
         'hectares': hectares,
         'animais': animais
     })

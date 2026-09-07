@@ -168,7 +168,7 @@
     <!-- JAVASCRIPT DO SISTEMA FISCAL -->
     <script>
         // 1. Geração do Dossiê do Jogador
-        function abrirDossie(id) {
+    function abrirDossie(id) {
             Swal.fire({ title: 'Acessando Banco de Dados...', didOpen: () => Swal.showLoading() });
             
             fetch('/api/admin/dossie/' + id)
@@ -184,18 +184,31 @@
                                     <span style="color: #4caf50;">R$ ${d.saldo.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span>
                                 </div>
                             </div>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; font-size: 13px;">
-                                <div style="background: #181822; padding: 15px 5px; border-radius: 6px; border-top: 3px solid #ff9800;">
-                                    <i class="fas fa-map-marked-alt" style="font-size: 20px; color:#ff9800; margin-bottom: 5px;"></i><br>
-                                    <b>${d.fazendas}</b><br><span style="color:#888;">Fazendas</span>
+                            
+                            <!-- CARDS PRINCIPAIS -->
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; font-size: 13px; margin-bottom: 12px;">
+                                <div style="background: #181822; padding: 12px 5px; border-radius: 6px; border-top: 3px solid #ff9800;">
+                                    <i class="fas fa-map-marked-alt" style="font-size: 18px; color:#ffb300; margin-bottom: 4px;"></i><br>
+                                    <b style="font-size: 16px;">${d.total_propriedades}</b><br><span style="color:#888; font-size:11px;">Propriedades</span>
                                 </div>
-                                <div style="background: #181822; padding: 15px 5px; border-radius: 6px; border-top: 3px solid #8bc34a;">
-                                    <i class="fas fa-vector-square" style="font-size: 20px; color:#8bc34a; margin-bottom: 5px;"></i><br>
-                                    <b>${d.hectares}</b><br><span style="color:#888;">Hectares</span>
+                                <div style="background: #181822; padding: 12px 5px; border-radius: 6px; border-top: 3px solid #8bc34a;">
+                                    <i class="fas fa-vector-square" style="font-size: 18px; color:#8bc34a; margin-bottom: 4px;"></i><br>
+                                    <b style="font-size: 16px;">${d.hectares}</b><br><span style="color:#888; font-size:11px;">Hectares</span>
                                 </div>
-                                <div style="background: #181822; padding: 15px 5px; border-radius: 6px; border-top: 3px solid #e91e63;">
-                                    <i class="fas fa-cow" style="font-size: 20px; color:#e91e63; margin-bottom: 5px;"></i><br>
-                                    <b>${d.animais}</b><br><span style="color:#888;">Animais</span>
+                                <div style="background: #181822; padding: 12px 5px; border-radius: 6px; border-top: 3px solid #e91e63;">
+                                    <i class="fas fa-cow" style="font-size: 18px; color:#e91e63; margin-bottom: 4px;"></i><br>
+                                    <b style="font-size: 16px;">${d.animais}</b><br><span style="color:#888; font-size:11px;">Animais</span>
+                                </div>
+                            </div>
+
+                            <!-- DETALHE DOS TIPOS DE PROPRIEDADE -->
+                            <div style="background: #181822; padding: 10px; border-radius: 6px; text-align: left; font-size: 12px; color: #ccc; border: 1px solid #2a2a35;">
+                                <div style="color: #ffb300; font-weight: bold; margin-bottom: 5px; border-bottom: 1px solid #333; padding-bottom: 3px;">Detalhamento do Portfólio:</div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
+                                    <div>🏡 Chácaras: <b>${d.tipos.Chácara}</b></div>
+                                    <div>🏚️ Sítios: <b>${d.tipos.Sítio}</b></div>
+                                    <div>🏭 Fazendas: <b>${d.tipos.Fazenda}</b></div>
+                                    <div>🏰 Latifúndios: <b>${d.tipos.Latifúndio}</b></div>
                                 </div>
                             </div>
                         `,
