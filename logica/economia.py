@@ -91,6 +91,7 @@ def cotacoes_diarias():
     
     from logica.mercado import PRECOS_REAIS, calcular_fator_dia
     from logica.silo import PRECOS_VENDA
+    from logica.galpao import PRECOS_GALPAO  # 🔥 IMPORTAÇÃO DO GALPÃO ADICIONADA AQUI!
     
     fator = calcular_fator_dia(usuario.dia, usuario.mes, usuario.ano)
     
@@ -116,7 +117,9 @@ def cotacoes_diarias():
         'Ovos (Unidade)': 0.50
     }
     
-    culturas = {k.capitalize(): v for k, v in PRECOS_VENDA.items()}
+    # 🔥 JUNTA O SILO (Grãos) E O GALPÃO (Frutas/Raízes) NO MERCADO
+    culturas_combinadas = {**PRECOS_VENDA, **PRECOS_GALPAO}
+    culturas = {k.capitalize(): v for k, v in culturas_combinadas.items()}
     
     return jsonify({
         'sucesso': True,

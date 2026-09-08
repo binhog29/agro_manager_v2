@@ -27,6 +27,8 @@ from logica.infraestrutura import infra_bp
 from logica.barracao import barracao_bp
 from logica.imobiliaria import imobiliaria_bp
 from logica.admin import admin_bp
+from logica.galpao import galpao_bp
+
 
 
 app = Flask(__name__)
@@ -65,6 +67,7 @@ app.register_blueprint(infra_bp)
 app.register_blueprint(barracao_bp)
 app.register_blueprint(imobiliaria_bp)
 app.register_blueprint(admin_bp)
+app.register_blueprint(galpao_bp)
 
 
 with app.app_context():

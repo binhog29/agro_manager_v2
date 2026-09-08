@@ -1,7 +1,17 @@
 window.prepararVendaGalpao = function(itemChave, itemNome, qtdMax) {
     Swal.fire({
         title: `Vender ${itemNome}`,
-        text: `Você tem ${qtdMax} kg em estoque.`,
+        // 🔥 AQUI ENTRA O AVISO VISUAL EM HTML 🔥
+        html: `
+            <div style="color: #fff; margin-bottom: 10px;">
+                Você tem <b>${qtdMax} kg</b> em estoque.
+            </div>
+            
+            <div style="background: #1a1a1a; border: 1px dashed #ff9800; border-radius: 8px; padding: 12px; margin-top: 15px; margin-bottom: 15px; font-size: 13px; color: #ccc; text-align: left;">
+                <p style="margin: 0 0 8px 0;"><i class="fas fa-info-circle" style="color: #ff9800;"></i> O preço base de venda acompanha o <b>Fator de Mercado</b> diário.</p>
+                <p style="margin: 0;"><i class="fas fa-file-invoice-dollar" style="color: #ff9800;"></i> Serão retidos <b>4%</b> na fonte (1.5% FUNRURAL + 2.5% Logística).</p>
+            </div>
+        `,
         input: 'number',
         inputAttributes: {
             min: 1,
@@ -30,8 +40,8 @@ window.prepararVendaGalpao = function(itemChave, itemNome, qtdMax) {
             
             Swal.fire({ title: 'Carregando caminhão...', didOpen: () => Swal.showLoading() });
             
-            // Usamos a mesma rota do silo, pois o backend de vendas já suporta todos os itens!
-            fetch('/api/silo/vender', {
+            // 🔥 Rota apontando para o nosso novo backend do Galpão!
+            fetch('/api/galpao/vender', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ item: itemChave, quantidade: qtdVenda, fazenda_id: fazendaId })

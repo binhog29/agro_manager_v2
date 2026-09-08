@@ -4,10 +4,16 @@ from logica.funcionarios import obter_bonus_equipe
 
 silo_bp = Blueprint('silo', __name__)
 
+# logica/silo.py
+
+# Deixe apenas os grãos do Silo aqui!
+# logica/silo.py
+
 PRECOS_VENDA = {
-    'milho': 5.00, 'soja': 8.50, 'arroz': 7.00, 'feijao': 12.00, 'algodao': 15.00,
-    'mandioca': 2.50, 'cana': 0.80, 'tomate': 5.50, 'banana': 4.00, 'abacaxi': 3.50,
-    'melancia': 3.00, 'pimenta': 18.00, 'cacau': 35.00, 'acai': 14.00, 'cupuacu': 16.00, 'cafe': 25.00
+    'soja': 2.20,   # Saca a ~132
+    'milho': 0.85,  # Saca a ~51
+    'arroz': 1.90,  # Saca a ~95
+    'feijao': 3.50  # Mais valioso, mas produz menos
 }
 
 @silo_bp.route('/api/silo/vender', methods=['POST'])
