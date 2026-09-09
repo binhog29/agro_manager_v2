@@ -9,17 +9,17 @@ galpao_bp = Blueprint('galpao', __name__)
 # Tabela de preços base exclusiva do Galpão (Frutas, Raízes e Fibras)
 PRECOS_GALPAO = {
     'tomate': 1.10,
-    'melancia': 0.40,  # Melancia pesa muito, preço do kg é baixo
+    'melancia': 0.40,
     'abacaxi': 1.20,
-    'mandioca': 0.35,  # Venda por tonelada na indústria
+    'mandioca': 0.35,
     'banana': 1.00,
-    'cacau': 12.00,    # Produto de alto valor agregado (Ouro Negro)
+    'cacau': 12.00,
     'acai': 3.50,
     'cupuacu': 4.00,
-    'pimenta': 15.00,  # Levíssima, mas vale muito
+    'pimenta': 15.00,
     'algodao': 3.80,
     'cafe': 8.50,
-    'cana': 0.12       # Venda para usina é em centavos por quilo!
+    'cana': 0.35       # 🔥 Ajustado de 0.12 para 0.35 para compensar o ciclo de 1 ano!
 }
 
 @galpao_bp.route('/api/galpao/vender', methods=['POST'])
