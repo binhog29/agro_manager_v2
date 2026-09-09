@@ -157,6 +157,7 @@ window.abrirConcessionaria = function() {
         { id: 'escavadeira', nome: 'Escavadeira', desc: '140 HP | Obras', preco: 550000, img: 'escavadeira.png', cor: '#f9a825' },
         { id: 'colheitadeira', nome: 'Colheitadeira', desc: '320 HP | Safra de Grãos', preco: 850000, img: 'colheitadeira.png', cor: '#ffb300' },
         { id: 'pulverizador', nome: 'Pulverizador', desc: '190 HP | Defensivos', preco: 420000, img: 'pulverizador.png', cor: '#0288d1' },
+        { id: 'pulv_arrasto', nome: 'Pulv. de Arrasto', desc: 'Lento (Gasta horas do dia)', preco: 35000, img: 'pulv_arrasto.png', cor: '#0288d1' },
         { id: 'plantadeira', nome: 'Plantadeira', desc: '120 HP | -80% no Plantio', preco: 150000, img: 'plantadeira.png', cor: '#4caf50' },
         { id: 'grade_aradora', nome: 'Grade Aradora', desc: '140 HP | -80% no Preparo de Solo', preco: 65000, img: 'grade_aradora.png', cor: '#8d6e63' }, // 🔥 NOVO AQUI
         { id: 'caminhonete_usada', nome: 'Caminhonete Usada', desc: '110 HP | Frete de pequenos animais', preco: 45000, img: 'caminhonete_usada.png', cor: '#795548' },

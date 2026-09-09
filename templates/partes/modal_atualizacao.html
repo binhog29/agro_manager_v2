@@ -1,48 +1,44 @@
-<!-- templates/partes/modal_atualizacao.html -->
-<div id="modal-novidades" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 99999; display: none; justify-content: center; align-items: center; font-family: 'Poppins', sans-serif;">
-    <div style="background: #1e1e1e; border: 1px solid #333; border-radius: 12px; padding: 25px; color: #fff; max-width: 450px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); width: 90%;">
+<!-- Fundo escuro do Modal -->
+<div id="modal-atualizacao" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(5px);">
+    
+    <!-- Caixa do Modal -->
+    <div style="background: #1a1a24; border: 1px solid #333; border-radius: 12px; width: 90%; max-width: 500px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); position: relative;">
         
-        <div style="font-size: 32px; text-align: center; margin-bottom: 10px;">
-            <i class="fas fa-shield-alt" style="color: #ff5252;"></i>
-        </div>
-        
-        <h3 style="margin: 0 0 15px 0; color: #fff; font-size: 20px; text-align: center;">🚀 Atualização 2.4 - SIF e Logística Viva!</h3>
-        
-        <div style="font-size: 14px; color: #ccc; line-height: 1.6; text-align: left; background: #13131a; padding: 15px; border-radius: 6px; margin-bottom: 20px; max-height: 50vh; overflow-y: auto; border: 1px solid #2a2a35;">
+        <!-- Botão Fechar -->
+        <button onclick="document.getElementById('modal-atualizacao').style.display='none'" style="position: absolute; top: 15px; right: 15px; background: transparent; border: none; color: #888; font-size: 20px; cursor: pointer;">
+            <i class="fas fa-times"></i>
+        </button>
+
+        <!-- Conteúdo do Aviso -->
+        <div style="text-align: left; font-size: 14px; line-height: 1.6; color: #ddd; margin-top: 10px;">
+            <h3 style="color: #4caf50; text-align: center; margin-bottom: 15px; font-weight: 900;">
+                <i class="fas fa-rocket" style="color: #f9a825;"></i> Atualização v2.5: A Nova Economia
+            </h3>
             
-            <p style="margin: 0 0 10px 0;">🛡️ <b style="color: #ff5252;">SIF (Malha Fina Ativa):</b> A Inteligência Artificial da Receita Federal agora monitora transações em tempo real. Preços abusivos no leilão (lavagem de dinheiro) e vendas em massa suspeitas (exploits) gerarão confiscos e multas severas!</p>
-
-            <p style="margin: 0 0 10px 0;">🐎 <b style="color: #ff9800;">Habitats de Luxo:</b> O Haras e o Aprisco chegaram. Porém, a construção civil encareceu! Expandir a infraestrutura agora exige um verdadeiro império financeiro.</p>
-
-            <p style="margin: 0 0 10px 0;">🚚 <b style="color: #4caf50;">Logística Viva e Limites:</b> Os caminhões agora aparecem viajando no mapa global. Além disso, cada veículo da sua frota possui limite de peso e restrição de carga (Caminhão Baú só leva peixes, caminhonetes levam cargas menores, etc).</p>
-
-            <p style="margin: 0 0 8px 0;">🤖 <b style="color: #64b5f6;">RH Superinteligente:</b> Os Peões agora fazem múltiplas viagens ao Silo para garantir a ração da semana inteira, e os mecânicos cobram 15% da tabela FIPE para consertar tratores que quebrarem (cuide da manutenção!).</p>
-
+            <p style="text-align: center; margin-bottom: 20px; color: #bbb;">O Agro Manager foi rebalanceado para trazer mais realismo e recompensar o seu esforço!</p>
+            
+            <ul style="padding-left: 0; list-style: none; margin-bottom: 15px;">
+                <li style="margin-bottom: 15px; background: #222; padding: 10px; border-radius: 8px; border-left: 4px solid #fbc02d;">
+                    <b style="color: #fbc02d;"><i class="fas fa-chart-line"></i> Super Safra:</b> A produção das culturas foi <b>triplicada</b>. O lucro agora é real, basta ter estratégia!
+                </li>
+                <li style="margin-bottom: 15px; background: #222; padding: 10px; border-radius: 8px; border-left: 4px solid #0288d1;">
+                    <b style="color: #0288d1;"><i class="fas fa-tractor"></i> Fim do Aluguel Eterno:</b> O Barracão ganhou novos Pulverizadores (Arrasto e Autopropelido). Compre na Concessionária e <b>zere seus custos de aluguel</b> nos defensivos!
+                </li>
+                <li style="margin-bottom: 15px; background: #222; padding: 10px; border-radius: 8px; border-left: 4px solid #e53935;">
+                    <b style="color: #e53935;"><i class="fas fa-balance-scale"></i> ITR Justo:</b> O imposto agora é de <b>R$ 150 por hectare</b>. O iniciante paga pouco, o Latifundiário paga o preço do império!
+                </li>
+                <li style="margin-bottom: 10px; background: #222; padding: 10px; border-radius: 8px; border-left: 4px solid #8d6e63;">
+                    <b style="color: #8d6e63;"><i class="fas fa-robot"></i> Tratorista Inteligente:</b> Seus funcionários agora reconhecem seus novos equipamentos na hora de defender a lavoura contra pragas.
+                </li>
+            </ul>
+            
+            <div style="text-align: center; color: #888; font-size: 11px; margin-top: 20px;">
+                Leia o <b>Guia Completo do Fazendeiro</b> (Botão de Ajuda) para entender todas as novas mecânicas.
+            </div>
+            
+            <button onclick="document.getElementById('modal-atualizacao').style.display='none'" style="width: 100%; margin-top: 15px; background: #4caf50; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; font-size: 15px; cursor: pointer;">
+                Entendi, vamos jogar!
+            </button>
         </div>
-        
-        <button onclick="fecharEGravarNovidade()" style="background: #2e7d32; color: #fff; border: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; font-size: 16px;"><i class="fas fa-check-circle"></i> Ciente! Bora Jogar</button>
-        
     </div>
 </div>
-
-<script>
-    // ---------------------------------------------------------
-    // CONTROLE DE VERSÃO: Atualizado para 2.4
-    // ---------------------------------------------------------
-    const VERSAO_ATUAL = "2.4";
-
-    document.addEventListener("DOMContentLoaded", function() {
-        const modal = document.getElementById('modal-novidades');
-        const versaoSalva = localStorage.getItem('agro_versao_lida');
-
-        if (versaoSalva !== VERSAO_ATUAL) {
-            modal.style.display = 'flex';
-        }
-    });
-
-    function fecharEGravarNovidade() {
-        const modal = document.getElementById('modal-novidades');
-        modal.style.display = 'none';
-        localStorage.setItem('agro_versao_lida', VERSAO_ATUAL);
-    }
-</script>

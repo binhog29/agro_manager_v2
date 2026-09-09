@@ -119,10 +119,14 @@ class GerenciadorTempo:
             horas_cobradas = meses_passados * 240
             custo_rh = cobrar_folha_pagamento(jogador, horas_cobradas)
             
-            # 🔥 ITR: O Jogador paga R$ 800 mensais por CADA hectare que ele domina!
-            qtd_lotes = Lote.query.join(Propriedade).filter(Propriedade.dono_id == jogador.id).count()
-            imposto_itr = (qtd_lotes * 800.0) * meses_passados
-            
+            # 🔥 ITR: O Jogador paga R$ 150 mensais por CADA hectare real que ele domina (Proporcional!)
+            lotes_jogador = Lote.query.join(Propriedade).filter(Propriedade.dono_id == jogador.id).all()
+            imposto_itr = 0
+            for lote in lotes_jogador:
+                prop_itr = Propriedade.query.get(lote.fazenda_id)
+                area_lote = {'Chácara': 1, 'Sítio': 5, 'Fazenda': 15, 'Latifúndio': 30}.get(getattr(prop_itr, 'tipo', 'Chácara'), 1)
+                imposto_itr += (area_lote * 150.0) * meses_passados
+                
             # 🔥 TAXA DE FORTUNA: Se passar de 10 Milhões, perde 1.5% ao mês para a Receita.
             taxa_fortuna = (jogador.saldo * 0.015) * meses_passados if jogador.saldo > 10000000 else 0
             imposto_total = imposto_itr + taxa_fortuna

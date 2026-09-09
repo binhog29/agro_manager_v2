@@ -158,8 +158,8 @@ window.abrirGerenciamentoCultivo = async function(loteId, status, tipoCultivo, t
                     <button class="swal2-styled btn-painel-lav" style="background: #795548;" onclick="manejoLavoura(${loteId}, 'adubar')">
                         <i class="fas fa-poop"></i> Adubar <br><span style="font-size:9px; opacity:0.8; text-transform:none;">Gasta ${areaLote} (Tem ${dados.est_adubo})</span>
                     </button>
-                    <button class="swal2-styled btn-painel-lav" style="background: #e53935;" onclick="manejoLavoura(${loteId}, 'pulverizar')">
-                        <i class="fas fa-helicopter"></i> Pulverizar <br><span style="font-size:9px; opacity:0.8; text-transform:none;">Gasta ${areaLote} (Tem ${dados.est_veneno})</span>
+                <button class="swal2-styled btn-painel-lav" style="background: #e53935;" onclick="escolherMaquinarioVeneno(${loteId}, ${dados.tem_arrasto}, ${dados.tem_propelido})">
+                 <i class="fas fa-helicopter"></i> Pulverizar <br><span style="font-size:9px; opacity:0.8; text-transform:none;">Gasta ${areaLote} (Tem ${dados.est_veneno})</span>
                     </button>
                     
                     ${botaoIrrigacao}
@@ -345,6 +345,43 @@ window.manejoLavoura = function(loteId, acao_manejo) {
     }).then(r => r.json()).then(d => {
         if(d.sucesso) Swal.fire('Sucesso!', d.msg, 'success').then(() => location.reload());
         else Swal.fire('Atenção', d.erro, 'warning');
+    });
+};
+
+window.escolherMaquinarioVeneno = function(loteId, temArrasto, temPropelido) {
+    let btnPropelido = temPropelido 
+        ? `<button onclick="Swal.close(); manejoLavoura(${loteId}, 'pulverizar_propelido')" style="width: 100%; margin-bottom: 10px; padding: 12px; background: #0288d1; color: white; border: 1px solid #005b9f; border-radius: 8px; font-weight: bold; cursor: pointer; text-align: left;">
+            🚜 Seu Pulverizador Autopropelido<br>
+            <span style="font-size: 11px; font-weight: normal; color: #b3e5fc;">Custo R$ 0 (Patrimônio) • Serviço Rápido</span>
+           </button>`
+        : `<button onclick="Swal.close(); manejoLavoura(${loteId}, 'pulverizar_propelido')" style="width: 100%; margin-bottom: 10px; padding: 12px; background: #263238; color: white; border: 1px solid #37474f; border-radius: 8px; font-weight: bold; cursor: pointer; text-align: left;">
+            🚜 Alugar Autopropelido<br>
+            <span style="font-size: 11px; font-weight: normal;">R$ 45/ha • Rápido (Não gasta horas do dia)</span>
+           </button>`;
+
+    let btnArrasto = temArrasto
+        ? `<button onclick="Swal.close(); manejoLavoura(${loteId}, 'pulverizar_arrasto')" style="width: 100%; padding: 12px; background: #e65100; color: white; border: 1px solid #b23c00; border-radius: 8px; font-weight: bold; cursor: pointer; text-align: left;">
+            🚜 Seu Pulverizador de Arrasto<br>
+            <span style="font-size: 11px; font-weight: normal; color: #ffe0b2;">Custo R$ 0 (Patrimônio) • Serviço Lento</span>
+           </button>`
+        : `<button onclick="Swal.close(); manejoLavoura(${loteId}, 'pulverizar_arrasto')" style="width: 100%; padding: 12px; background: #263238; color: white; border: 1px solid #37474f; border-radius: 8px; font-weight: bold; cursor: pointer; text-align: left;">
+            🚜 Alugar Pulverizador de Arrasto<br>
+            <span style="font-size: 11px; font-weight: normal;">R$ 15/ha • Lento (Gasta horas do relógio do jogo)</span>
+           </button>`;
+
+    Swal.fire({
+        title: 'Escolha o Maquinário',
+        html: `
+            <div style="text-align: left; font-size: 13px; margin-bottom: 15px; color: #ccc;">
+                Qual equipamento o tratorista deve usar para aplicar o defensivo?
+            </div>
+            ${btnPropelido}
+            ${btnArrasto}
+        `,
+        background: '#1a1a24',
+        showConfirmButton: false,
+        showCancelButton: true,
+        cancelButtonText: 'Cancelar'
     });
 };
 

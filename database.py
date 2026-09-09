@@ -107,7 +107,7 @@ class Propriedade(db.Model):
     tem_represa_geral = db.Column(db.Boolean, default=False)
     tem_chiqueiro = db.Column(db.Boolean, default=False)
     tem_galinheiro = db.Column(db.Boolean, default=False)
-    tem_energia_solar = db.Column(db.Boolean, default=False) 
+    tem_energia_solar = db.Column(db.Boolean, default=False)
     nivel_seguranca = db.Column(db.Integer, default=0)
     
     represa_tem_comedouro = db.Column(db.Boolean, default=False)

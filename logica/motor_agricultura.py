@@ -147,17 +147,21 @@ class MotorAgricultura:
                     # ----------------------------------------------------
                     tem_tratorista = equipe and getattr(equipe, 'tratoristas', 0) > 0
                     area_lote = {'Chácara': 1, 'Sítio': 5, 'Fazenda': 15, 'Latifúndio': 30}.get(getattr(fazenda, 'tipo', 'Chácara'), 1)
-
+                        
                     # 🚜 Defesa contra Pragas (Veneno)
                     if getattr(lote, 'nivel_pragas', 0) > 0:
-                        pulverizador = next((m for m in dados_faz['maquinas_obj'] if m.modelo == 'Pulverizador' and m.nivel_combustivel >= 2 and m.estado_conservacao >= 1), None)
+                        # 🔥 CORREÇÃO: Agora o tratorista aceita QUALQUER UM dos pulverizadores!
+                        pulverizador = next((m for m in dados_faz['maquinas_obj'] if m.modelo in ['Pulverizador', 'Pulverizador de Arrasto'] and m.nivel_combustivel >= 2 and m.estado_conservacao >= 1), None)
+                        
                         if tem_tratorista and pulverizador and getattr(fazenda, 'est_veneno', 0) >= area_lote:
                             fazenda.est_veneno -= area_lote
                             lote.nivel_pragas = 0
                             pulverizador.nivel_combustivel -= 2
                             pulverizador.estado_conservacao -= 1
                             teve_ataque = False 
-                            msg_veneno = f"🚜 Um Tratorista usou o Pulverizador e defendeu o {lote.nome} contra pragas."
+                            
+                            # 🔥 BÔNUS: A mensagem agora avisa o nome exato da máquina que ele escolheu usar!
+                            msg_veneno = f"🚜 Um Tratorista usou o {pulverizador.modelo} e defendeu o {lote.nome} contra pragas."
                             if msg_veneno not in avisos_turno: avisos_turno.append(msg_veneno)
                             
                     if teve_ataque and getattr(lote, 'nivel_pragas', 0) > 0:

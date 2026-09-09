@@ -15,6 +15,7 @@ class Concessionaria:
         'escavadeira': {'nome': 'Escavadeira', 'tipo': 'Escavadeira', 'hp': 140, 'preco': 550000},
         'colheitadeira': {'nome': 'Colheitadeira Grãos', 'tipo': 'Colheitadeira', 'hp': 320, 'preco': 850000},
         'pulverizador': {'nome': 'Pulverizador', 'tipo': 'Implemento', 'hp': 190, 'preco': 420000},
+        'pulv_arrasto': {'nome': 'Pulverizador de Arrasto', 'tipo': 'Implemento', 'hp': 75, 'preco': 35000},
         'plantadeira': {'nome': 'Plantadeira', 'tipo': 'Implemento', 'hp': 120, 'preco': 150000},
         'grade_aradora': {'nome': 'Grade Aradora', 'tipo': 'Implemento', 'hp': 140, 'preco': 65000}, # 🔥 NOVO AQUI
         'caminhonete_usada': {'nome': 'Caminhonete Usada', 'tipo': 'Veiculo', 'hp': 110, 'preco': 45000},
@@ -46,6 +47,7 @@ def listar_barracao():
             'Escavadeira': 'escavadeira.png',
             'Colheitadeira Grãos': 'colheitadeira.png',
             'Pulverizador': 'pulverizador.png',
+            'Pulverizador de Arrasto': 'pulv_arrasto.png',
             'Plantadeira': 'plantadeira.png', # 🔥 NOVO AQUI
             'Grade Aradora': 'grade_aradora.png',
             'Caminhão Boiadeiro': 'caminhao_boiadeiro.png',

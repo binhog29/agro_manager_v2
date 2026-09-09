@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request, session
-from database import db, Jogador, Propriedade, Lote, Transacao
+from database import db, Lote, Propriedade, Jogador, Maquinario
 from logica.economia import registrar_transacao
 
 cultivo_bp = Blueprint('cultivo', __name__)
@@ -87,25 +87,25 @@ class CulturaSazonal(CulturaPerene):
         return "Ponto de Colheita", 100, 0
 
 CATALOGO_CULTIVOS = {
-    # NOME, CUSTO_SEMENTE, PRODUCAO_KG, TEMPO, PREPARO, MAQUINA_PLANTIO, MAQUINA_COLHEITA
-    'soja': Cultura('Soja', 600, 3600, 100, 'arado', 800, 1200),
-    'milho': Cultura('Milho', 450, 6000, 90, 'arado', 800, 1100),
-    'arroz': Cultura('Arroz', 500, 4200, 110, 'arado', 900, 1300),
-    'feijao': Cultura('Feijão', 400, 2000, 80, 'arado', 700, 1000),
-    'algodao': Cultura('Algodão', 800, 3000, 150, 'arado', 1200, 1800),
-    'mandioca': Cultura('Mandioca', 300, 20000, 240, 'arado', 500, 1500),
-    'tomate': Cultura('Tomate', 150, 6000, 90, 'arado', 600, 1200),
-    'abacaxi': Cultura('Abacaxi', 350, 25000, 400, 'coveado', 800, 2000),
-    'melancia': Cultura('Melancia', 250, 15000, 85, 'coveado', 600, 1400),
+    # NOME, CUSTO_SEMENTE, PRODUCAO_KG (Aumentado em 3x!), TEMPO, PREPARO, MAQUINA_PLANTIO, MAQUINA_COLHEITA
+    'soja': Cultura('Soja', 600, 10000, 100, 'arado', 800, 1200),
+    'milho': Cultura('Milho', 450, 18000, 90, 'arado', 800, 1100),
+    'arroz': Cultura('Arroz', 500, 12000, 110, 'arado', 900, 1300),
+    'feijao': Cultura('Feijão', 400, 6000, 80, 'arado', 700, 1000),
+    'algodao': Cultura('Algodão', 800, 9000, 150, 'arado', 1200, 1800),
+    'mandioca': Cultura('Mandioca', 300, 45000, 240, 'arado', 500, 1500),
+    'tomate': Cultura('Tomate', 150, 18000, 90, 'arado', 600, 1200),
+    'abacaxi': Cultura('Abacaxi', 350, 60000, 400, 'coveado', 800, 2000),
+    'melancia': Cultura('Melancia', 250, 40000, 85, 'coveado', 600, 1400),
     
-    # PERENES (Dão muito dinheiro a longo prazo, mas o investimento inicial de plantio é caríssimo)
-    'cana': CulturaPerene('Cana-de-Açúcar', 1200, 80000, 360, 'arado', 2000, 4000, tempo_descanso=30, max_ciclos=5), 
-    'banana': CulturaPerene('Banana', 800, 15000, 300, 'coveado', 1000, 1500, tempo_descanso=15, max_ciclos=8),
-    'cacau': CulturaPerene('Cacau', 1500, 1500, 500, 'coveado', 1500, 2000, tempo_descanso=45, max_ciclos=15),
-    'acai': CulturaPerene('Açaí', 1000, 5000, 730, 'coveado', 1200, 1800, tempo_descanso=30, max_ciclos=12),
-    'cupuacu': CulturaPerene('Cupuaçu', 900, 2000, 730, 'coveado', 1200, 1800, tempo_descanso=30, max_ciclos=10),
-    'pimenta': CulturaPerene('Pimenta', 500, 2500, 120, 'coveado', 800, 1200, tempo_descanso=20, max_ciclos=6),
-    'cafe': CulturaSazonal('Café Clonal', 1800, 4000, 365, 'coveado', 2000, 3000, tempo_descanso=90, max_ciclos=10, estacoes_fruto=['outono', 'inverno'])
+    # PERENES (Investimento longo agora compensa muito mais)
+    'cana': CulturaPerene('Cana-de-Açúcar', 1200, 120000, 360, 'arado', 2000, 4000, tempo_descanso=30, max_ciclos=5), 
+    'banana': CulturaPerene('Banana', 800, 35000, 300, 'coveado', 1000, 1500, tempo_descanso=15, max_ciclos=8),
+    'cacau': CulturaPerene('Cacau', 1500, 4500, 500, 'coveado', 1500, 2000, tempo_descanso=45, max_ciclos=15),
+    'acai': CulturaPerene('Açaí', 1000, 15000, 730, 'coveado', 1200, 1800, tempo_descanso=30, max_ciclos=12),
+    'cupuacu': CulturaPerene('Cupuaçu', 900, 6000, 730, 'coveado', 1200, 1800, tempo_descanso=30, max_ciclos=10),
+    'pimenta': CulturaPerene('Pimenta', 500, 7500, 120, 'coveado', 800, 1200, tempo_descanso=20, max_ciclos=6),
+    'cafe': CulturaSazonal('Café Clonal', 1800, 12000, 365, 'coveado', 2000, 3000, tempo_descanso=90, max_ciclos=10, estacoes_fruto=['outono', 'inverno'])
 }
 
 @cultivo_bp.route('/api/cultivo/detalhes', methods=['GET'])
@@ -118,18 +118,26 @@ def detalhes_cultivo():
     fazenda = Propriedade.query.get(lote.fazenda_id)
     area = MULTIPLICADOR_AREA.get(fazenda.tipo, 1)
     
+    # 🔥 LÊ AS MÁQUINAS QUE ESTÃO NO BARRACÃO DESTA FAZENDA
+    maquinas_dono = Maquinario.query.filter_by(propriedade_id=fazenda.id).all()
+    modelos_maquinas = [m.modelo for m in maquinas_dono]
+    
     resposta = {
         'sucesso': True,
         'area': area,
         'fertilidade': getattr(lote, 'fertilidade_solo', 100),
-        'pragas': getattr(lote, 'nivel_pragas', 0),
+        'pragas': max(0, getattr(lote, 'nivel_pragas', 0)),
         'produtividade': getattr(lote, 'produtividade_atual', 100),
         'est_adubo': getattr(fazenda, 'est_adubo', 0),
         'est_veneno': getattr(fazenda, 'est_veneno', 0),
         'ciclos': getattr(lote, 'ciclos_colhidos', 0),
         'descanso': getattr(lote, 'dias_descanso', 0.0),
         'status': lote.status,
-        'sistema_irrigacao': getattr(lote, 'sistema_irrigacao', 'nenhum')
+        'sistema_irrigacao': getattr(lote, 'sistema_irrigacao', 'nenhum'),
+        
+        # 🔥 VERIFICA SE O JOGADOR É DONO PELO NOME DO PRODUTO NA CONCESSIONÁRIA
+        'tem_arrasto': 'Pulverizador de Arrasto' in modelos_maquinas,
+        'tem_propelido': 'Pulverizador' in modelos_maquinas
     }
 
     if lote.tipo_cultivo and lote.status in ['plantado', 'colhendo']:
@@ -231,16 +239,48 @@ def manejo_lavoura():
         fazenda_alvo.est_adubo -= area
         lote.fertilidade_solo = min(100, getattr(lote, 'fertilidade_solo', 100) + 40)
         msg = f"Foram aplicados {area} sacos de Adubo!"
-
-    elif acao == 'pulverizar':
+        
+        
+    elif acao in ['pulverizar_arrasto', 'pulverizar_propelido', 'pulverizar']:
         if getattr(fazenda_alvo, 'est_veneno', 0) < area:
             return jsonify({'sucesso': False, 'erro': f'Sem Defensivos! Você precisa de {area} gl.'})
-        if getattr(lote, 'nivel_pragas', 0) == 0:
-            return jsonify({'sucesso': False, 'erro': 'A lavoura não tem pragas no momento!'})
+            
+        if getattr(lote, 'nivel_pragas', 0) < 0:
+            return jsonify({'sucesso': False, 'erro': 'A lavoura já está sob forte efeito residual!'})
+            
+        # 🔥 LÊ AS MÁQUINAS DO BARRACÃO PARA VER SE O JOGADOR É DONO
+        maquinas_dono = Maquinario.query.filter_by(propriedade_id=fazenda_alvo.id).all()
+        modelos_maquinas = [m.modelo for m in maquinas_dono]
+            
+        if acao == 'pulverizar_arrasto':
+            tem_maquina = 'Pulverizador de Arrasto' in modelos_maquinas
+            custo_pulverizador = 0 if tem_maquina else (15.0 * area)
+            horas_gastas = max(1, int(area / 5))
+            nome = "Pulverizador de Arrasto (Próprio)" if tem_maquina else "Arrasto (Alugado)"
+        else:
+            tem_maquina = 'Pulverizador' in modelos_maquinas
+            custo_pulverizador = 0 if tem_maquina else (45.0 * area)
+            horas_gastas = 0
+            nome = "Autopropelido (Próprio)" if tem_maquina else "Autopropelido (Alugado)"
+            
+        if usuario.saldo < custo_pulverizador:
+            return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente (R$ {custo_pulverizador:,.2f}).'})
             
         fazenda_alvo.est_veneno -= area
-        lote.nivel_pragas = 0
-        msg = f"Gastos {area} galões de Veneno. Pragas eliminadas!"
+        usuario.saldo -= custo_pulverizador
+        lote.nivel_pragas = -60
+        
+        aviso_tempo = ""
+        if horas_gastas > 0:
+            usuario.hora = min(23, getattr(usuario, 'hora', 6) + horas_gastas)
+            aviso_tempo = f" Gastou {horas_gastas} horas."
+            
+        if custo_pulverizador > 0:
+            registrar_transacao(usuario.id, 'saida', custo_pulverizador, f'Aluguel de {nome} ({area}ha)')
+            
+        msg_custo = "Custo de máquina R$ 0 (Você é dono)!" if custo_pulverizador == 0 else f"Aluguel: R$ {custo_pulverizador:,.2f}."
+        msg = f"Gastos {area} gl de veneno. {msg_custo} Lavoura blindada!{aviso_tempo}"
+        
     else:
         return jsonify({'sucesso': False, 'erro': 'Manejo inválido.'})
 
