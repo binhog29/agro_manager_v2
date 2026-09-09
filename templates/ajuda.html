@@ -16,211 +16,277 @@
             padding: 0;
         }
 
-        /* Cabeçalho Verde */
+        /* Cabeçalho Verde Premium */
         .header-guia {
-            background-color: #2e7d32;
-            padding: 20px 15px;
+            background: linear-gradient(135deg, #1b5e20, #2e7d32);
+            padding: 25px 15px;
             text-align: center;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            margin-bottom: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            margin-bottom: 25px;
+            border-bottom: 3px solid #4caf50;
         }
 
         .header-guia h1 {
             margin: 0;
-            font-size: 20px;
-            font-weight: 800;
+            font-size: 22px;
+            font-weight: 900;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
         }
 
         .header-guia p {
             margin: 5px 0 0 0;
-            font-size: 12px;
+            font-size: 13px;
             color: #c8e6c9;
+            font-weight: 600;
         }
 
         /* Container Principal */
         .container {
-            padding: 0 15px 80px 15px; /* Espaço no fundo pro botão voltar */
+            padding: 0 15px 90px 15px;
         }
 
         /* Botões Sanfona (Accordion) */
         .accordion {
-            background-color: #1e1e1e;
-            color: #4caf50;
+            background: linear-gradient(90deg, #1e1e1e, #252525);
+            color: #fff;
             cursor: pointer;
-            padding: 15px;
+            padding: 16px;
             width: 100%;
             border: 1px solid #333;
-            border-radius: 8px;
+            border-radius: 10px;
             text-align: left;
             outline: none;
-            font-size: 14px;
-            font-weight: 600;
+            font-size: 15px;
+            font-weight: 800;
             transition: 0.3s;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
             display: flex;
             align-items: center;
             font-family: 'Poppins', sans-serif;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
         }
 
         .accordion i {
-            width: 25px;
+            width: 30px;
             text-align: center;
             margin-right: 10px;
+            font-size: 18px;
         }
 
         .active, .accordion:hover {
-            background-color: #252525;
+            background: linear-gradient(90deg, #252525, #2c2c2c);
             border-color: #4caf50;
         }
 
-        /* Seta apontando pra baixo/cima */
         .accordion:after {
-            content: '\002B'; /* Símbolo de Mais */
+            content: '\002B';
             color: #888;
             font-weight: bold;
             float: right;
             margin-left: auto;
+            font-size: 18px;
         }
         .active:after {
-            content: "\2212"; /* Símbolo de Menos */
+            content: "\2212";
+            color: #4caf50;
         }
 
         /* Conteúdo que abre */
         .panel {
-            padding: 0 15px;
-            background-color: #1a1a1a;
-            border-left: 2px solid #4caf50;
+            padding: 0;
+            background-color: transparent;
             max-height: 0;
             overflow: hidden;
-            transition: max-height 0.2s ease-out;
-            margin-bottom: 10px;
-            margin-top: -5px;
-            border-radius: 0 0 8px 8px;
+            transition: max-height 0.3s ease-out;
+            margin-bottom: 15px;
+            margin-top: -8px;
+        }
+        
+        .panel-inner {
+            padding: 15px;
+            background-color: #1a1a1a;
+            border-left: 3px solid #4caf50;
+            border-right: 1px solid #333;
+            border-bottom: 1px solid #333;
+            border-radius: 0 0 10px 10px;
             font-size: 13px;
-            color: #ccc;
+            color: #ddd;
             line-height: 1.6;
         }
 
-        .panel p { margin-top: 15px; }
-        .panel ul { padding-left: 20px; margin-bottom: 15px; }
-        .panel li { margin-bottom: 8px; }
-        .panel b { color: #fff; }
+        .panel-inner p { margin: 0 0 15px 0; font-size: 14px; }
+        .panel-inner ul { padding-left: 0; list-style: none; margin: 0; }
+        
+        /* Estilo das Listas/Dicas */
+        .panel-inner li { 
+            margin-bottom: 12px; 
+            background: #222; 
+            padding: 12px; 
+            border-radius: 8px; 
+            border: 1px solid #2a2a2a;
+        }
+        .panel-inner b { font-size: 14px; }
+
+        /* Cores Específicas para Destaques */
+        .b-green { color: #4caf50; }
+        .b-yellow { color: #fbc02d; }
+        .b-red { color: #e53935; }
+        .b-blue { color: #29b6f6; }
+        .b-purple { color: #ab47bc; }
+        .b-orange { color: #ffa726; }
 
         /* Botão Vermelho de Voltar */
         .btn-voltar {
-            background-color: #e53935;
+            background: linear-gradient(to right, #d32f2f, #e53935);
             color: white;
             border: none;
             padding: 15px;
             width: calc(100% - 30px);
-            border-radius: 8px;
-            font-weight: bold;
-            font-size: 15px;
+            border-radius: 10px;
+            font-weight: 900;
+            font-size: 16px;
             font-family: 'Poppins', sans-serif;
             text-align: center;
             text-decoration: none;
             display: block;
             margin: 20px auto;
             position: fixed;
-            bottom: 10px;
+            bottom: 15px;
             left: 15px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.4);
+            box-shadow: 0 6px 12px rgba(229, 57, 53, 0.4);
+            transition: transform 0.2s;
         }
+        .btn-voltar:active { transform: scale(0.98); }
     </style>
 </head>
 <body>
 
     <div class="header-guia">
-        <h1><i class="fas fa-book"></i> Guia Completo do Fazendeiro</h1>
-        <p>Manual oficial de operações do Agro Manager (v2.5)</p>
+        <h1><i class="fas fa-book-open"></i> O Guia do Fazendeiro</h1>
+        <p>Manual Oficial de Sobrevivência e Lucro (v2.5)</p>
     </div>
 
     <div class="container">
         
-        <button class="accordion"><i class="fas fa-seedling"></i> 1. Agricultura, Solo e Inflação</button>
+        <!-- 1. AGRICULTURA -->
+        <button class="accordion"><i class="fas fa-seedling" style="color: #4caf50;"></i> 1. Agricultura e Clima</button>
         <div class="panel">
-            <p><b>Categorias de Plantio:</b></p>
-            <ul>
-                <li><b>Culturas de Entrada (Tier 1):</b> Tomate, Milho e Melancia. São baratas para plantar e giram o caixa rápido. Ideais para iniciantes.</li>
-                <li><b>Culturas de Elite (Tier 2):</b> Soja, Arroz e Algodão. Exigem alto investimento inicial, mas lotam o silo.</li>
-                <li><b>Perenes:</b> Café, Cacau, Açaí. Você gasta fortunas para plantar uma vez e colhe por vários ciclos sem precisar replantar, exigindo apenas tempo de descanso.</li>
-            </ul>
-            <p><b>Inflação Operacional:</b> Cuidado ao crescer rápido demais! Quanto maior o seu Nível e o número de terras que você possui, mais caros ficam os serviços de plantio e colheita devido ao ágio operacional.</p>
+            <div class="panel-inner">
+                <p>O sucesso da sua lavoura depende da escolha da semente e de ficar de olho nos céus!</p>
+                <ul>
+                    <li><b class="b-green">🌱 Culturas de Entrada (Tier 1):</b> Tomate, Milho e Melancia. Custam pouco para plantar, crescem rápido e garantem o giro de caixa inicial da sua fazenda.</li>
+                    <li><b class="b-yellow">🌾 Culturas de Elite (Tier 2):</b> Soja, Arroz e Algodão. Exigem alto investimento em maquinário e sementes, mas lotam o silo com colheitas gigantescas.</li>
+                    <li><b class="b-purple">🌳 Culturas Perenes:</b> Café, Cacau e Açaí. Você investe uma fortuna para plantar <i>uma única vez</i> e colhe por vários ciclos. Elas só precisam de um período de descanso pós-colheita.</li>
+                    <li><b class="b-blue">🌦️ Realismo Climático:</b> Chuvas no Verão dão bônus de crescimento! Mas cuidado: plantar durante a seca do Inverno sem um Pivô de Irrigação fará a saúde da sua planta despencar.</li>
+                </ul>
+            </div>
         </div>
 
-        <button class="accordion"><i class="fas fa-tractor"></i> 2. Concessionária e Maquinários</button>
+        <!-- 2. MAQUINÁRIO -->
+        <button class="accordion"><i class="fas fa-tractor" style="color: #fbc02d;"></i> 2. Barracão e Maquinários</button>
         <div class="panel">
-            <p>O <b>Barracão</b> é onde você guarda seu patrimônio físico. Comprar máquinas evita que você pague aluguéis caros a terceiros na hora do aperto.</p>
-            <ul>
-                <li><b>Aluguel vs. Propriedade:</b> Passar veneno alugando um trator custa caro por hectare. Se você comprar o seu próprio <i>Pulverizador</i>, você paga <b>R$ 0 de maquinário</b> para aplicar o veneno.</li>
-                <li><b>Arrasto vs. Autopropelido:</b> O Pulverizador de Arrasto é barato (R$ 35 mil), mas o tratorista gasta preciosas horas do dia para aplicar. O Autopropelido é caro (R$ 150 mil), mas o serviço é instantâneo.</li>
-                <li><b>Manutenção:</b> Máquinas quebram! O conserto custa 15% do valor do veículo zero km. Mantenha caixa para a oficina.</li>
-                <li><b>Ferro-Velho:</b> Precisou de dinheiro rápido? Você pode vender suas máquinas a qualquer momento, mas o mercado paga apenas <b>50% do valor</b> de tabela.</li>
-            </ul>
+            <div class="panel-inner">
+                <p>Alugar equipamentos de terceiros custa caro. Construa seu patrimônio!</p>
+                <ul>
+                    <li><b class="b-orange">🚜 Fim do Aluguel:</b> Comprar o seu próprio <i>Pulverizador</i> na Concessionária zera o custo (R$ 0) de maquinário na hora de aplicar defensivos nas pragas.</li>
+                    <li><b class="b-blue">💨 Arrasto vs Autopropelido:</b> O Pulverizador de Arrasto é mais barato, mas o serviço é lento e gasta horas do seu dia. O Autopropelido é premium: caro, mas o serviço é instantâneo.</li>
+                    <li><b class="b-red">⛽ Diesel e Oficina:</b> Máquinas bebem diesel e quebram. Mantenha galões no Armazém e dinheiro em caixa, pois o conserto de máquinas pesadas custa até 15% do valor do veículo zero km.</li>
+                    <li><b class="b-yellow">♻️ Ferro-Velho:</b> Ficou sem dinheiro para pagar as contas? Venda suas máquinas usadas, mas o mercado paga apenas 50% do valor de tabela.</li>
+                </ul>
+            </div>
         </div>
 
-        <button class="accordion"><i class="fas fa-users"></i> 3. Funcionários e Automação</button>
+        <!-- 3. FUNCIONÁRIOS -->
+        <button class="accordion"><i class="fas fa-users" style="color: #29b6f6;"></i> 3. Funcionários (Automação)</button>
         <div class="panel">
-            <p>Não quer cuidar da fazenda hora a hora? Contrate funcionários no <b>Alojamento (Nível 3+)</b>.</p>
-            <ul>
-                <li><b>Tratoristas:</b> A espinha dorsal da automação. Quando você avança o tempo, se uma praga atacar, o tratorista vai agir <b>SOZINHO</b>. Mas atenção: ele só trabalha se você tiver <i>Galões de Veneno</i> no estoque e uma máquina no barracão com manutenção em dia!</li>
-                <li><b>Agrônomos:</b> Aceleram o tempo de crescimento das plantas.</li>
-                <li><b>Capatazes:</b> Mestres da negociação. Cada capataz adiciona 5% de bônus no valor de venda dos seus produtos no Mercado.</li>
-                <li><b>Peões e Veterinários:</b> Cuidam automaticamente da alimentação e curam os animais antes que morram.</li>
-            </ul>
+            <div class="panel-inner">
+                <p>Expanda seu Alojamento (Nível 3+) para delegar o trabalho pesado.</p>
+                <ul>
+                    <li><b class="b-green">👷 Tratoristas (Os Protetores):</b> A espinha dorsal da sua fazenda. Se uma praga atacar enquanto o tempo avança, ele entra no seu Trator/Pulverizador e salva a lavoura SOZINHO! (Exige veneno no estoque e máquina abastecida).</li>
+                    <li><b class="b-purple">👨‍🌾 Agrônomos:</b> Gênios da biologia. Cada agrônomo acelera a velocidade de crescimento de todas as suas lavouras simultaneamente.</li>
+                    <li><b class="b-orange">💼 Capatazes:</b> Lobos do Mercado. Cada capataz adiciona +5% de lucro bruto na hora de vender seus produtos (Limitado a +25%).</li>
+                    <li><b class="b-blue">🐄 Peões e 🩺 Veterinários:</b> Essenciais para a pecuária. Eles alimentam o gado automaticamente (se o comedouro tiver ração) e evitam mortes por doenças.</li>
+                </ul>
+            </div>
         </div>
 
-        <button class="accordion"><i class="fas fa-building"></i> 4. Receita Federal (SIF) e Malha Fina</button>
+        <!-- 4. IMPOSTOS E RECEITA -->
+        <button class="accordion"><i class="fas fa-building" style="color: #e53935;"></i> 4. Receita Federal e Impostos</button>
         <div class="panel">
-            <p>A Receita Federal cobra impostos automaticamente na virada de cada mês no jogo.</p>
-            <ul>
-                <li><b>ITR (Imposto Territorial Rural):</b> Você paga <b>R$ 150 mensais por cada Hectare</b> que possui. Ter terras improdutivas vai te levar à falência rapidamente. Compre terras apenas se tiver dinheiro para plantar!</li>
-                <li><b>Folha de Pagamento:</b> A cada mês que se passa, os salários dos seus funcionários são descontados do seu caixa.</li>
-                <li><b>Taxa de Fortuna (Malha Fina):</b> Grandes fortunas chamam atenção. Se o saldo da sua conta bancária ultrapassar <b>R$ 10.000.000,00</b>, a Receita Federal passa a morder <b>1,5% ao mês</b> sobre a riqueza acumulada. Invista seu dinheiro em infraestrutura!</li>
-            </ul>
+            <div class="panel-inner">
+                <p>No Agro Manager, não existe dinheiro fácil. O Governo sempre cobra a sua parte!</p>
+                <ul>
+                    <li><b class="b-red">📜 ITR Proporcional:</b> A cada mês que passa, a Receita cobra <b>R$ 150 por Hectare</b>. Comprar um Latifúndio sem ter dinheiro para plantar significa falência por impostos!</li>
+                    <li><b class="b-orange">💸 Folha de Pagamento:</b> Sua equipe custa dinheiro por hora trabalhada. Cuidado ao contratar 5 Capatazes no início do jogo, o salário deles vai drenar sua conta bancária.</li>
+                    <li><b class="b-purple">🚨 Malha Fina (Taxa de Fortuna):</b> Guardar dinheiro debaixo do colchão é punido. Se seu saldo passar de <b>R$ 10.000.000</b>, a Receita Federal aplica uma taxa de riqueza de 1,5% ao mês. Reinvista o lucro na fazenda!</li>
+                    <li><b class="b-yellow">📈 Inflação Operacional (Ágio):</b> Quanto maior o seu Nível e Império, mais caros ficam os prestadores de serviço (Plantio e Colheita).</li>
+                </ul>
+            </div>
         </div>
 
-        <button class="accordion"><i class="fas fa-cow"></i> 5. Pecuária, Reprodução e Saúde</button>
+        <!-- 5. PECUÁRIA -->
+        <button class="accordion"><i class="fas fa-cow" style="color: #8d6e63;"></i> 5. Pecuária e Reprodução</button>
         <div class="panel">
-            <p>Crie animais para garantir uma renda diária constante.</p>
-            <ul>
-                <li><b>Habitats:</b> Cada animal exige um local específico (Curral, Haras, Represa). Você deve expandir a capacidade para ter mais animais.</li>
-                <li><b>Alimentação:</b> Animais com fome perdem saúde e morrem. Construa comedouros nos habitats e abasteça-os usando os grãos do seu Silo ou Armazém.</li>
-                <li><b>Reprodução:</b> Fêmeas e machos no mesmo local podem reproduzir. Respeite o tempo de gestação de cada espécie.</li>
-            </ul>
+            <div class="panel-inner">
+                <p>Carne, leite e ovos: a Pecuária garante uma renda previsível todos os dias.</p>
+                <ul>
+                    <li><b class="b-green">🛖 Habitats Específicos:</b> Gado vai no Curral, Porcos no Chiqueiro, Cavalos no Haras e Peixes na Represa. Expanda-os para caber mais cabeças.</li>
+                    <li><b class="b-red">🥩 Fome é Fatal:</b> Animais que ficam muito tempo com fome perdem saúde e morrem. Construa Comedouros e encha-os de Grãos/Ração diariamente.</li>
+                    <li><b class="b-purple">🍼 Reprodução Natural:</b> Mantenha Fêmeas e Machos saudáveis no mesmo recinto e a mágica acontece. Respeite o tempo de gestação (que varia de galinhas a cavalos).</li>
+                </ul>
+            </div>
         </div>
 
-        <button class="accordion"><i class="fas fa-chart-line"></i> 6. Mercado, Cotações e FUNRURAL</button>
+        <!-- 6. MERCADO -->
+        <button class="accordion"><i class="fas fa-chart-line" style="color: #66bb6a;"></i> 6. Mercado e FUNRURAL</button>
         <div class="panel">
-            <p>Venda sua produção no momento certo para maximizar o lucro.</p>
-            <ul>
-                <li><b>Cotações Variáveis:</b> Os preços no painel do mercado mudam. Não venda sua soja se o preço estiver despencando!</li>
-                <li><b>FUNRURAL:</b> Toda venda oficial sofre um desconto percentual de imposto retido na fonte.</li>
-            </ul>
+            <div class="panel-inner">
+                <p>O tempo e a economia global ditam o preço das suas mercadorias.</p>
+                <ul>
+                    <li><b class="b-yellow">📊 Lei da Oferta e Demanda:</b> As cotações sobem e descem. Segure sua Soja no Silo se o preço estiver na baixa e venda tudo quando o gráfico explodir!</li>
+                    <li><b class="b-red">🧾 FUNRURAL:</b> Toda venda agrícola passa pelo sistema bancário oficial e sofre retenção automática do imposto rural. O que cai na conta já é o valor líquido.</li>
+                </ul>
+            </div>
         </div>
 
-        <button class="accordion"><i class="fas fa-truck"></i> 7. Frota e Limites Logísticos</button>
+        <!-- 7. LOGÍSTICA -->
+        <button class="accordion"><i class="fas fa-truck" style="color: #ab47bc;"></i> 7. Frota e Logística</button>
         <div class="panel">
-            <p>Vender animais pesados ou peixes exige transporte especializado.</p>
-            <ul>
-                <li><b>Frete Terceirizado:</b> Se você não tiver caminhões, pagará uma taxa alta de frete a cada venda de gado ou peixe.</li>
-                <li><b>Sua Própria Frota:</b> Compre Caminhonetes, Caminhões Boiadeiros e Caminhões Baú na Concessionária para zerar os custos de frete nas vendas.</li>
-            </ul>
+            <div class="panel">
+            <div class="panel-inner">
+                <p>Mover animais de 500kg não é de graça. A logística come parte do seu lucro.</p>
+                <ul>
+                    <li><b class="b-orange">📦 Frete Terceirizado:</b> Se você não possuir veículos adequados, o jogo cobrará uma taxa de frete alta na venda de animais grandes ou peixes.</li>
+                    <li><b class="b-green">🚛 Frota Própria:</b> Compre Caminhões Boiadeiros e Caminhões Baú na Concessionária. Ter o veículo na garagem <b>zera</b> os custos de frete do seu império!</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- 8. DICAS DE OURO -->
+        <button class="accordion"><i class="fas fa-star" style="color: #ffeb3b;"></i> 8. Dicas de Ouro do CEO</button>
+        <div class="panel">
+            <div class="panel-inner">
+                <p>Acabou de começar? Siga este mapa para não falir na primeira semana:</p>
+                <ul>
+                    <li><b class="b-yellow">🏆 Comece Pequeno:</b> Compre a Chácara e plante <b>Milho ou Tomate</b>. O custo é baixo e o retorno é rápido.</li>
+                    <li><b class="b-red">🚫 Fuja da Automação (No Início):</b> Contratar um Tratorista para cuidar de 1 hectare vai destruir suas finanças. Faça o trabalho manual até comprar um <b>Sítio (5ha)</b>.</li>
+                    <li><b class="b-blue">💧 Solo e Pragas:</b> O jogo perdoa a falta de adubo, mas não perdoa Pragas. Tenha sempre galões de Veneno no Armazém para blindar a lavoura!</li>
+                </ul>
+            </div>
         </div>
         
     </div>
 
     <!-- Botão Fixo Embaixo -->
-    <a href="/mapa" class="btn-voltar"><i class="fas fa-arrow-left"></i> Voltar para o Mapa</a>
+    <a href="/mapa" class="btn-voltar"><i class="fas fa-arrow-left"></i> Voltar para o Jogo</a>
 
-    <!-- Script para fazer a sanfona abrir e fechar -->
+    <!-- Script da Sanfona -->
     <script>
         var acc = document.getElementsByClassName("accordion");
         var i;
 
         for (i = 0; i < acc.length; i++) {
             acc[i].addEventListener("click", function() {
-                // Fecha as outras abas ao abrir uma (opcional, pode remover esse bloco se quiser que várias fiquem abertas)
                 var currentActive = document.querySelector(".accordion.active");
                 if (currentActive && currentActive !== this) {
                     currentActive.classList.remove("active");
