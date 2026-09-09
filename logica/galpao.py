@@ -22,6 +22,7 @@ PRECOS_GALPAO = {
     'cana': 0.35       # 🔥 Ajustado de 0.12 para 0.35 para compensar o ciclo de 1 ano!
 }
 
+
 @galpao_bp.route('/api/galpao/vender', methods=['POST'])
 def vender_galpao():
     """Rota independente e exclusiva para vendas do Galpão Agrícola"""

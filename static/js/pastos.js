@@ -32,13 +32,18 @@ window.abrirGerenciamentoPasto = async function(loteId, tipoCapim, temCocho, tem
         if (a.sexo === 'F' && a.prenha) {
             tagPrenha = `<span style="background: #e91e63; color: white; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: bold; margin-left: 6px; box-shadow: 0 0 5px rgba(233,30,99,0.5);"><i class="fas fa-heart"></i> PRENHA (${Math.round(a.dias_gestacao || 0)}d)</span>`;
         }
-
+        
         return `
         <div style="background: #222; padding: 8px; margin-bottom: 6px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between; border-left: 3px solid #555;">
             <div style="text-align: left;">
                 <div style="font-weight: bold; font-size: 13px; color: #fff; text-transform: capitalize;">${a.raca} (${a.fase}) ${tagPrenha}</div>
-                <div style="font-size: 10px; color: #888;">ID: #${a.id} | Sexo: <b>${a.sexo}</b> | ${formatarPeso(a.peso)}</div>
+                
+                <!-- 🔥 AQUI FOI ADICIONADA A VARIÁVEL a.status_peso QUE VEM DO GADO.PY -->
+                <div style="font-size: 10px; color: #888;">
+                    ID: #${a.id} | Sexo: <b>${a.sexo}</b> | ${formatarPeso(a.peso)} <span style="margin-left: 5px; font-size: 11px;">${a.status_peso}</span>
+                </div>
             </div>
+            
             <div style="display: flex; gap: 4px;">
                 <div style="width: 20px; height: 20px; background: ${cAft}; color: white; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; border-radius: 3px;" title="Aftosa">A</div>
                 <div style="width: 20px; height: 20px; background: ${cBruc}; color: white; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; border-radius: 3px;" title="Brucelose">B</div>
