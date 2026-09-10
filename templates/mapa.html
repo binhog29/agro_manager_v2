@@ -135,9 +135,10 @@
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/mapa.js') }}"></script>
-    
+    <script src="{{ url_for('static', filename='js/mapa.js') }}?v=2"></script>
+    <script src="{{ url_for('static', filename='js/concessionaria.js') }}?v=2"></script>
     {% include 'partes/relogio.html' %}
+    {% include 'partes/modal_atualizacao.html' %}
     
 </body>
 </html>

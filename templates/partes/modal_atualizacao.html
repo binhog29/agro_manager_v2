@@ -1,44 +1,69 @@
-<!-- Fundo escuro do Modal -->
-<div id="modal-atualizacao" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(5px);">
+<!-- Fundo escuro do Modal com Blur aprimorado -->
+<div id="modal-atualizacao" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(8px);">
     
-    <!-- Caixa do Modal -->
-    <div style="background: #1a1a24; border: 1px solid #333; border-radius: 12px; width: 90%; max-width: 500px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); position: relative;">
+    <!-- Caixa do Modal Premium -->
+    <div style="background: linear-gradient(to bottom, #1e1e26, #141419); border: 1px solid #333; border-top: 4px solid #4caf50; border-radius: 16px; width: 90%; max-width: 480px; padding: 25px; box-shadow: 0 15px 35px rgba(0,0,0,0.7), 0 0 20px rgba(76, 175, 80, 0.15); position: relative;">
         
         <!-- Botão Fechar -->
-        <button onclick="document.getElementById('modal-atualizacao').style.display='none'" style="position: absolute; top: 15px; right: 15px; background: transparent; border: none; color: #888; font-size: 20px; cursor: pointer;">
-            <i class="fas fa-times"></i>
+        <button onclick="fecharAvisoAtualizacao()" style="position: absolute; top: 15px; right: 15px; background: transparent; border: none; color: #666; font-size: 22px; cursor: pointer; transition: color 0.2s;">
+            <i class="fas fa-times" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#666'"></i>
         </button>
 
         <!-- Conteúdo do Aviso -->
-        <div style="text-align: left; font-size: 14px; line-height: 1.6; color: #ddd; margin-top: 10px;">
-            <h3 style="color: #4caf50; text-align: center; margin-bottom: 15px; font-weight: 900;">
-                <i class="fas fa-rocket" style="color: #f9a825;"></i> Atualização v2.5: A Nova Economia
+        <div style="text-align: left; font-size: 14px; line-height: 1.6; color: #e0e0e0; margin-top: 5px;">
+            <h3 style="color: #4caf50; text-align: center; margin-bottom: 8px; font-weight: 900; font-size: 22px; font-family: 'Poppins', sans-serif;">
+                <i class="fas fa-rocket" style="color: #fbc02d; text-shadow: 0 0 10px rgba(251, 192, 45, 0.5);"></i> Atualização v2.8
             </h3>
+            <h4 style="text-align: center; color: #fff; margin-top: 0; margin-bottom: 20px; font-weight: 600;">A Nova Economia</h4>
             
-            <p style="text-align: center; margin-bottom: 20px; color: #bbb;">O Agro Manager foi rebalanceado para trazer mais realismo e recompensar o seu esforço!</p>
+            <p style="text-align: center; margin-bottom: 25px; color: #aaa; font-size: 13px;">O Agro Manager foi rebalanceado para trazer mais realismo logístico e recompensar o seu esforço e patrimônio!</p>
             
-            <ul style="padding-left: 0; list-style: none; margin-bottom: 15px;">
-                <li style="margin-bottom: 15px; background: #222; padding: 10px; border-radius: 8px; border-left: 4px solid #fbc02d;">
-                    <b style="color: #fbc02d;"><i class="fas fa-chart-line"></i> Super Safra:</b> A produção das culturas foi <b>triplicada</b>. O lucro agora é real, basta ter estratégia!
+            <ul style="padding-left: 0; list-style: none; margin-bottom: 25px;">
+                <li style="margin-bottom: 12px; background: #22222a; padding: 12px 15px; border-radius: 10px; border-left: 5px solid #fbc02d; box-shadow: inset 0 0 10px rgba(0,0,0,0.2);">
+                    <b style="color: #fbc02d; font-size: 15px;"><i class="fas fa-chart-line"></i> Super Safra:</b> A produção de todas as culturas foi <b>triplicada</b>. O lucro agora é gigantesco, basta ter estratégia!
                 </li>
-                <li style="margin-bottom: 15px; background: #222; padding: 10px; border-radius: 8px; border-left: 4px solid #0288d1;">
-                    <b style="color: #0288d1;"><i class="fas fa-tractor"></i> Fim do Aluguel Eterno:</b> O Barracão ganhou novos Pulverizadores (Arrasto e Autopropelido). Compre na Concessionária e <b>zere seus custos de aluguel</b> nos defensivos!
+                <li style="margin-bottom: 12px; background: #22222a; padding: 12px 15px; border-radius: 10px; border-left: 5px solid #0288d1; box-shadow: inset 0 0 10px rgba(0,0,0,0.2);">
+                    <b style="color: #0288d1; font-size: 15px;"><i class="fas fa-tractor"></i> Nova Concessionária:</b> Ela saiu do Barracão e agora tem um <b>ponto fixo no Mapa Estadual!</b> Vá até lá para comprar sua frota e maquinários.
                 </li>
-                <li style="margin-bottom: 15px; background: #222; padding: 10px; border-radius: 8px; border-left: 4px solid #e53935;">
-                    <b style="color: #e53935;"><i class="fas fa-balance-scale"></i> ITR Justo:</b> O imposto agora é de <b>R$ 150 por hectare</b>. O iniciante paga pouco, o Latifundiário paga o preço do império!
+                <li style="margin-bottom: 12px; background: #22222a; padding: 12px 15px; border-radius: 10px; border-left: 5px solid #e53935; box-shadow: inset 0 0 10px rgba(0,0,0,0.2);">
+                    <b style="color: #e53935; font-size: 15px;"><i class="fas fa-balance-scale"></i> ITR Justo:</b> O imposto fundiário agora é de <b>R$ 150 por hectare</b>. O iniciante paga pouco, mas o Latifundiário sentirá o peso do império.
                 </li>
-                <li style="margin-bottom: 10px; background: #222; padding: 10px; border-radius: 8px; border-left: 4px solid #8d6e63;">
-                    <b style="color: #8d6e63;"><i class="fas fa-robot"></i> Tratorista Inteligente:</b> Seus funcionários agora reconhecem seus novos equipamentos na hora de defender a lavoura contra pragas.
+                <li style="margin-bottom: 10px; background: #22222a; padding: 12px 15px; border-radius: 10px; border-left: 5px solid #8d6e63; box-shadow: inset 0 0 10px rgba(0,0,0,0.2);">
+                    <b style="color: #8d6e63; font-size: 15px;"><i class="fas fa-robot"></i> Tratorista Inteligente:</b> Seus funcionários agora vasculham a frota do barracão e escolhem a melhor máquina automaticamente.
                 </li>
             </ul>
             
-            <div style="text-align: center; color: #888; font-size: 11px; margin-top: 20px;">
-                Leia o <b>Guia Completo do Fazendeiro</b> (Botão de Ajuda) para entender todas as novas mecânicas.
+            <div style="text-align: center; color: #777; font-size: 12px; margin-top: 20px; margin-bottom: 20px;">
+                Leia o <b><i class="fas fa-book-open"></i> Guia do Fazendeiro</b> na sua Sede para entender as novas mecânicas.
             </div>
             
-            <button onclick="document.getElementById('modal-atualizacao').style.display='none'" style="width: 100%; margin-top: 15px; background: #4caf50; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; font-size: 15px; cursor: pointer;">
-                Entendi, vamos jogar!
+            <button onclick="fecharAvisoAtualizacao()" style="width: 100%; margin-top: 5px; background: linear-gradient(to right, #2e7d32, #4caf50); color: white; border: none; padding: 14px; border-radius: 10px; font-weight: 800; font-size: 16px; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; box-shadow: 0 4px 10px rgba(76, 175, 80, 0.4); transition: transform 0.2s;">
+                Entendi, Vamos Jogar!
             </button>
         </div>
     </div>
 </div>
+
+<script>
+    // Lógica 100% isolada e independente
+    const VERSAO_MODAL_ATUAL = "2.8"; // Versão nova para obrigar a exibir
+
+    document.addEventListener('DOMContentLoaded', function() {
+        if (localStorage.getItem('versao_agro_manager') !== VERSAO_MODAL_ATUAL) {
+            setTimeout(() => {
+                const modalNovo = document.getElementById('modal-atualizacao');
+                if (modalNovo) {
+                    modalNovo.style.display = 'flex';
+                }
+            }, 1000); // Aparece 1 segundo após a tela carregar
+        }
+    });
+
+    window.fecharAvisoAtualizacao = function() {
+        localStorage.setItem('versao_agro_manager', VERSAO_MODAL_ATUAL);
+        const modalNovo = document.getElementById('modal-atualizacao');
+        if (modalNovo) {
+            modalNovo.style.display = 'none';
+        }
+    };
+</script>

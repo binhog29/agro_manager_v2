@@ -4,166 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Guia do Fazendeiro - Agro Manager</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <style>
-        body {
-            background-color: #121212;
-            color: #ffffff;
-            font-family: 'Poppins', sans-serif;
-            margin: 0;
-            padding: 0;
-        }
-
-        /* Cabeçalho Verde Premium */
-        .header-guia {
-            background: linear-gradient(135deg, #1b5e20, #2e7d32);
-            padding: 25px 15px;
-            text-align: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-            margin-bottom: 25px;
-            border-bottom: 3px solid #4caf50;
-        }
-
-        .header-guia h1 {
-            margin: 0;
-            font-size: 22px;
-            font-weight: 900;
-            text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
-        }
-
-        .header-guia p {
-            margin: 5px 0 0 0;
-            font-size: 13px;
-            color: #c8e6c9;
-            font-weight: 600;
-        }
-
-        /* Container Principal */
-        .container {
-            padding: 0 15px 90px 15px;
-        }
-
-        /* Botões Sanfona (Accordion) */
-        .accordion {
-            background: linear-gradient(90deg, #1e1e1e, #252525);
-            color: #fff;
-            cursor: pointer;
-            padding: 16px;
-            width: 100%;
-            border: 1px solid #333;
-            border-radius: 10px;
-            text-align: left;
-            outline: none;
-            font-size: 15px;
-            font-weight: 800;
-            transition: 0.3s;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            font-family: 'Poppins', sans-serif;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-        }
-
-        .accordion i {
-            width: 30px;
-            text-align: center;
-            margin-right: 10px;
-            font-size: 18px;
-        }
-
-        .active, .accordion:hover {
-            background: linear-gradient(90deg, #252525, #2c2c2c);
-            border-color: #4caf50;
-        }
-
-        .accordion:after {
-            content: '\002B';
-            color: #888;
-            font-weight: bold;
-            float: right;
-            margin-left: auto;
-            font-size: 18px;
-        }
-        .active:after {
-            content: "\2212";
-            color: #4caf50;
-        }
-
-        /* Conteúdo que abre */
-        .panel {
-            padding: 0;
-            background-color: transparent;
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.3s ease-out;
-            margin-bottom: 15px;
-            margin-top: -8px;
-        }
-        
-        .panel-inner {
-            padding: 15px;
-            background-color: #1a1a1a;
-            border-left: 3px solid #4caf50;
-            border-right: 1px solid #333;
-            border-bottom: 1px solid #333;
-            border-radius: 0 0 10px 10px;
-            font-size: 13px;
-            color: #ddd;
-            line-height: 1.6;
-        }
-
-        .panel-inner p { margin: 0 0 15px 0; font-size: 14px; }
-        .panel-inner ul { padding-left: 0; list-style: none; margin: 0; }
-        
-        /* Estilo das Listas/Dicas */
-        .panel-inner li { 
-            margin-bottom: 12px; 
-            background: #222; 
-            padding: 12px; 
-            border-radius: 8px; 
-            border: 1px solid #2a2a2a;
-        }
-        .panel-inner b { font-size: 14px; }
-
-        /* Cores Específicas para Destaques */
-        .b-green { color: #4caf50; }
-        .b-yellow { color: #fbc02d; }
-        .b-red { color: #e53935; }
-        .b-blue { color: #29b6f6; }
-        .b-purple { color: #ab47bc; }
-        .b-orange { color: #ffa726; }
-
-        /* Botão Vermelho de Voltar */
-        .btn-voltar {
-            background: linear-gradient(to right, #d32f2f, #e53935);
-            color: white;
-            border: none;
-            padding: 15px;
-            width: calc(100% - 30px);
-            border-radius: 10px;
-            font-weight: 900;
-            font-size: 16px;
-            font-family: 'Poppins', sans-serif;
-            text-align: center;
-            text-decoration: none;
-            display: block;
-            margin: 20px auto;
-            position: fixed;
-            bottom: 15px;
-            left: 15px;
-            box-shadow: 0 6px 12px rgba(229, 57, 53, 0.4);
-            transition: transform 0.2s;
-        }
-        .btn-voltar:active { transform: scale(0.98); }
-    </style>
+    <!-- CONEXÃO COM O CSS EXTERNO -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ajuda.css') }}?v=1">
 </head>
 <body>
 
     <div class="header-guia">
         <h1><i class="fas fa-book-open"></i> O Guia do Fazendeiro</h1>
-        <p>Manual Oficial de Sobrevivência e Lucro (v2.5)</p>
+        <p>Manual Oficial de Sobrevivência e Lucro</p>
     </div>
 
     <div class="container">
@@ -182,16 +33,68 @@
             </div>
         </div>
 
-        <!-- 2. MAQUINÁRIO -->
+        <!-- 2. MAQUINÁRIO E FROTA -->
         <button class="accordion"><i class="fas fa-tractor" style="color: #fbc02d;"></i> 2. Barracão e Maquinários</button>
         <div class="panel">
             <div class="panel-inner">
-                <p>Alugar equipamentos de terceiros custa caro. Construa seu patrimônio!</p>
+                <p>Alugar equipamentos de terceiros drena seus lucros. Construir sua própria frota no Barracão traz benefícios imensos e automatiza a fazenda. Veja a função de cada máquina:</p>
+                
+                <div class="grid-maquinas">
+                    <div class="card-maquina">
+                        <i class="fas fa-snowplow"></i>
+                        <div class="card-maquina-info">
+                            <h4 class="b-yellow">Trator de Esteira</h4>
+                            <p>Essencial na hora de <b>Limpar Terrenos (Mato)</b>. O trator de esteira arranca madeira pesada e eleva o seu lucro na extração de R$ 1.500 para R$ 2.500 por hectare, sem cobrar taxa de aluguel.</p>
+                        </div>
+                    </div>
+                    <div class="card-maquina">
+                        <i class="fas fa-tractor"></i>
+                        <div class="card-maquina-info">
+                            <h4 class="b-orange">Trator Leve / Pesado</h4>
+                            <p>Máquinas de tração geral. São usados diariamente pelos seus <b>Tratoristas</b> (automação) para aplicar Adubo e recuperar a fertilidade do solo nas lavouras ativas sem que você precise fazer isso manualmente.</p>
+                        </div>
+                    </div>
+                    <div class="card-maquina">
+                        <i class="fas fa-tools"></i>
+                        <div class="card-maquina-info">
+                            <h4 class="b-green">Grade Aradora</h4>
+                            <p>Ao decidir <b>Arar a Terra</b>, ter uma Grade Aradora acoplada à fazenda reduz o custo deste serviço de preparo de solo em impressionantes <b>80%</b>.</p>
+                        </div>
+                    </div>
+                    <div class="card-maquina">
+                        <i class="fas fa-water"></i>
+                        <div class="card-maquina-info">
+                            <h4 class="b-blue">Escavadeira</h4>
+                            <p>Especialista em obras civis. Ao construir um <b>Bebedouro</b> no pasto, a escavadeira zera os custos de escavação, fazendo você pagar apenas o encanamento (Reduz o custo de R$ 700 para R$ 200).</p>
+                        </div>
+                    </div>
+                    <div class="card-maquina">
+                        <i class="fas fa-spray-can"></i>
+                        <div class="card-maquina-info">
+                            <h4 class="b-purple">Pulverizadores (Veneno)</h4>
+                            <p><b>Arrasto:</b> Mais barato, zera o custo de aluguel, mas gasta horas do dia do jogador para aplicar veneno.<br><b>Autopropelido:</b> Máquina de elite. Zera o aluguel e o serviço de blindar a lavoura contra pragas é instantâneo.</p>
+                        </div>
+                    </div>
+                    <div class="card-maquina">
+                        <i class="fas fa-truck-monster"></i>
+                        <div class="card-maquina-info">
+                            <h4 class="b-yellow">Colheitadeira de Grãos</h4>
+                            <p>Fundamental para o Late-Game. Comprar uma ou mais colheitadeiras reduz ou zera as taxas milionárias de aluguel de maquinário que são cobradas durante a colheita das suas safras.</p>
+                        </div>
+                    </div>
+                    <div class="card-maquina">
+                        <i class="fas fa-truck-moving"></i>
+                        <div class="card-maquina-info">
+                            <h4 class="b-red">Caminhões e Caminhonetes</h4>
+                            <p><b>Logística Própria.</b> O Boiadeiro transporta gado/porcos/cavalos/ovelhas. O Baú Frio transporta Peixes. Ter essas frotas abastecidas garante <b>Frete Grátis</b> ao arrematar lotes no leilão ou transferir animais entre suas fazendas.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <p style="margin-top: 20px;"><b>Regras Gerais do Barracão:</b></p>
                 <ul>
-                    <li><b class="b-orange">🚜 Fim do Aluguel:</b> Comprar o seu próprio <i>Pulverizador</i> na Concessionária zera o custo (R$ 0) de maquinário na hora de aplicar defensivos nas pragas.</li>
-                    <li><b class="b-blue">💨 Arrasto vs Autopropelido:</b> O Pulverizador de Arrasto é mais barato, mas o serviço é lento e gasta horas do seu dia. O Autopropelido é premium: caro, mas o serviço é instantâneo.</li>
-                    <li><b class="b-red">⛽ Diesel e Oficina:</b> Máquinas bebem diesel e quebram. Mantenha galões no Armazém e dinheiro em caixa, pois o conserto de máquinas pesadas custa até 15% do valor do veículo zero km.</li>
-                    <li><b class="b-yellow">♻️ Ferro-Velho:</b> Ficou sem dinheiro para pagar as contas? Venda suas máquinas usadas, mas o mercado paga apenas 50% do valor de tabela.</li>
+                    <li><b class="b-red">⛽ Diesel e Oficina:</b> As máquinas bebem diesel e quebram. Mantenha galões no Armazém e dinheiro em caixa. O conserto de máquinas pesadas na oficina custa cerca de 15% do valor do veículo zero km.</li>
+                    <li><b class="b-yellow">♻️ Ferro-Velho:</b> Ficou sem dinheiro para pagar as contas? Venda suas máquinas usadas, mas o mercado paga apenas 50% do valor de tabela original.</li>
                 </ul>
             </div>
         </div>
@@ -255,8 +158,8 @@
             <div class="panel-inner">
                 <p>Mover animais de 500kg não é de graça. A logística come parte do seu lucro.</p>
                 <ul>
-                    <li><b class="b-orange">📦 Frete Terceirizado:</b> Se você não possuir veículos adequados, o jogo cobrará uma taxa de frete alta na venda de animais grandes ou peixes.</li>
-                    <li><b class="b-green">🚛 Frota Própria:</b> Compre Caminhões Boiadeiros e Caminhões Baú na Concessionária. Ter o veículo na garagem <b>zera</b> os custos de frete do seu império!</li>
+                    <li><b class="b-orange">📦 Frete Terceirizado:</b> Se você não possuir veículos adequados no Barracão, o jogo cobrará uma pesada taxa de frete na compra de animais grandes ou transferência entre fazendas.</li>
+                    <li><b class="b-green">🚛 Frota Própria:</b> Compre Caminhões na Concessionária, abasteça-os com Diesel e garanta <b>Frete Grátis</b> em todas as suas operações pelo mapa de Rondônia.</li>
                 </ul>
             </div>
         </div>
@@ -269,7 +172,7 @@
                 <ul>
                     <li><b class="b-yellow">🏆 Comece Pequeno:</b> Compre a Chácara e plante <b>Milho ou Tomate</b>. O custo é baixo e o retorno é rápido.</li>
                     <li><b class="b-red">🚫 Fuja da Automação (No Início):</b> Contratar um Tratorista para cuidar de 1 hectare vai destruir suas finanças. Faça o trabalho manual até comprar um <b>Sítio (5ha)</b>.</li>
-                    <li><b class="b-blue">💧 Solo e Pragas:</b> O jogo perdoa a falta de adubo, mas não perdoa Pragas. Tenha sempre galões de Veneno no Armazém para blindar a lavoura!</li>
+                    <li><b class="b-blue">💧 Solo e Pragas:</b> O jogo perdoa a falta de adubo, mas não perdoa Pragas. Tenha sempre galões de Veneno no Armazém para blindar a lavoura contra ataques!</li>
                 </ul>
             </div>
         </div>
@@ -277,30 +180,9 @@
     </div>
 
     <!-- Botão Fixo Embaixo -->
-    <a href="/mapa" class="btn-voltar"><i class="fas fa-arrow-left"></i> Voltar para o Jogo</a>
+    <a href="/mapa" class="btn-voltar"><i class="fas fa-arrow-left"></i> VOLTAR PARA O JOGO</a>
 
-    <!-- Script da Sanfona -->
-    <script>
-        var acc = document.getElementsByClassName("accordion");
-        var i;
-
-        for (i = 0; i < acc.length; i++) {
-            acc[i].addEventListener("click", function() {
-                var currentActive = document.querySelector(".accordion.active");
-                if (currentActive && currentActive !== this) {
-                    currentActive.classList.remove("active");
-                    currentActive.nextElementSibling.style.maxHeight = null;
-                }
-
-                this.classList.toggle("active");
-                var panel = this.nextElementSibling;
-                if (panel.style.maxHeight) {
-                    panel.style.maxHeight = null;
-                } else {
-                    panel.style.maxHeight = panel.scrollHeight + "px";
-                }
-            });
-        }
-    </script>
+    <!-- CONEXÃO COM O JS EXTERNO -->
+    <script src="{{ url_for('static', filename='js/ajuda.js') }}?v=1"></script>
 </body>
 </html>

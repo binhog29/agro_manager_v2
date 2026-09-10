@@ -9,6 +9,75 @@
     
     <link rel="stylesheet" href="{{ url_for('static', filename='css/mercado.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        .seletor-qtd-loja {
+            display: flex;
+            align-items: center;
+            background: #f0f0f0;
+            border-radius: 8px;
+            overflow: hidden;
+            width: 100%;
+            max-width: 150px;
+            margin: 6px auto;
+            border: 1px solid #ccc;
+        }
+        .btn-qtd {
+            background: #e0e0e0;
+            border: none;
+            padding: 6px 12px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #333;
+        }
+        .btn-qtd:active { background: #d0d0d0; }
+        .input-qtd {
+            flex: 1;
+            border: none;
+            background: transparent;
+            text-align: center;
+            font-weight: bold;
+            font-size: 14px;
+            color: #333;
+            outline: none;
+        }
+        .btn-adicionar-carrinho {
+            background: #2e7d32;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 11px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .btn-adicionar-carrinho:active { background: #1b5e20; }
+        
+        #barra-carrinho-flutuante {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #2e7d32, #1b5e20);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 35px;
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.6);
+            z-index: 1000;
+            font-weight: bold;
+            border: 2px solid #81c784;
+            width: 90%;
+            max-width: 380px;
+            box-sizing: border-box;
+            white-space: nowrap;
+        }
+    </style>
 </head>
 <body>
 
@@ -23,106 +92,112 @@
     </h3>
 
     <div style="display: grid; grid-template-columns: 1fr; gap: 15px; margin-bottom: 40px;">
-        
         {% if not anuncios %}
             <div style="background: #1a1a1a; padding: 20px; border-radius: 12px; text-align: center; border: 1px dashed #444;">
                 <p style="color:#777; font-style: italic; margin: 0;">Nenhum jogador anunciando agora.</p>
             </div>
         {% else %}
-                    {% for anuncio in anuncios %}
+            {% for anuncio in anuncios %}
             <div style="background: #111; padding: 15px; border-radius: 12px; border: 1px solid #333; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
-                
                 <div style="display: flex; align-items: center; gap: 15px;">
                     <img src="/static/img/{{ anuncio.raca|lower }}.png" style="width: 60px; height: 60px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));">
                     <div>
                         <b style="color: #fff; text-transform: capitalize; font-size: 16px;">
-                            {% if anuncio.quantidade > 1 %}
-                                <span style="color: #ff9800;">{{ anuncio.quantidade }}x</span> 
-                            {% endif %}
+                            {% if anuncio.quantidade > 1 %}<span style="color: #ff9800;">{{ anuncio.quantidade }}x</span>{% endif %}
                             {{ anuncio.raca }}
                         </b>
                         <div style="color: #aaa; font-size: 12px; margin-top: 3px;">
                             {% if anuncio.raca|lower in ['nelore', 'angus', 'guzera', 'brahman', 'girolando'] %}
-                                ⚖️ Peso Médio: {{ "%.1f"|format(anuncio.peso_medio / 30.0) }} @ | {{ anuncio.fase }}<br>
+                                ⚖️ Peso: {{ "%.1f"|format(anuncio.peso_medio / 30.0) }} @ | {{ anuncio.fase }}<br>
                             {% else %}
-                                ⚖️ Peso Médio: {{ "%.1f"|format(anuncio.peso_medio) }} Kg | {{ anuncio.fase }}<br>
+                                ⚖️ Peso: {{ "%.1f"|format(anuncio.peso_medio) }} Kg | {{ anuncio.fase }}<br>
                             {% endif %}
-                            
                             👤 Vendedor: <b style="color: #4caf50;">{{ anuncio.vendedor_nome }}</b>
                         </div>
                     </div>
                 </div>
-
                 <div style="text-align: right;">
                     <div style="color: #4caf50; font-size: 18px; font-weight: 900; margin-bottom: 8px;">
                         R$ {{ "{:,.2f}".format(anuncio.valor).replace(',','v').replace('.',',').replace('v','.') }}
-                        <span style="font-size: 10px; color: #aaa; display: block; margin-top: -3px;">por unidade</span>
                     </div>
-                    
                     {% if anuncio.vendedor_id == user.id %}
-                        <button onclick="cancelar('{{ anuncio.id }}')" style="background: #f44336; color: white; border: none; padding: 8px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #b71c1c; font-size: 11px;">CANCELAR 1</button>
+                        <button onclick="cancelar('{{ anuncio.id }}')" style="background: #f44336; color: white; border: none; padding: 8px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 11px;">CANCELAR</button>
                     {% else %}
-                        <button onclick="prepararCompraComunidade('{{ anuncio.id }}', '{{ anuncio.raca }}', {{ anuncio.valor }})" style="background: #2e7d32; color: white; border: none; padding: 8px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #1b5e20; font-size: 11px;">COMPRAR 1</button>
+                        <button onclick="prepararCompraComunidade('{{ anuncio.id }}', '{{ anuncio.raca }}', {{ anuncio.valor }})" style="background: #2e7d32; color: white; border: none; padding: 8px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 11px;">COMPRAR</button>
                     {% endif %}
                 </div>
-                
             </div>
             {% endfor %}
-
         {% endif %}
     </div>
 
-        <div class="section-title"><i class="fas fa-truck-moving"></i> Fornecedores Oficiais (IA)</div>
+    <div class="section-title"><i class="fas fa-truck-moving"></i> Fornecedores Oficiais (IA)</div>
     <div class="grid-ia">
         {% for item in anuncios_ia %}
-        <div class="ia-card">
+        <div class="ia-card" style="text-align: center;" data-id-ia="{{ item.id_ia }}">
             <h4>{{ item.id_ia }}</h4>
-            <img src="/static/img/{{ item.id_ia }}.png" onerror="this.src='/static/img/nelore.png'">
+            <img src="/static/img/{{ item.id_ia }}.png" onerror="this.src='/static/img/nelore.png'" style="margin: 0 auto; display: block;">
             
-            <!-- 👉 AQUI ADICIONAMOS O EXIBIDOR DE PESO/ARROBA -->
-            <div style="color: #4caf50; font-size: 12px; font-weight: bold; margin-bottom: 5px;">
+            <div style="color: #4caf50; font-size: 12px; font-weight: bold; margin: 5px 0;">
                 ⚖️ <span id="peso-{{ item.id_ia }}">{{ item.peso_texto }}</span>
             </div>
 
-            <select id="fase-{{ item.id_ia }}" class="seletor" onchange="atualizarPrecoDinamico('{{ item.id_ia }}')">
-                <option value="filhote">Filhote</option>
-                <option value="adulto" selected>Adulto</option>
-            </select>
-            <select id="sexo-{{ item.id_ia }}" class="seletor">
-                <option value="M">Macho</option>
-                <option value="F">Fêmea</option>
-            </select>
+            <div style="display: flex; gap: 5px; justify-content: center; margin-bottom: 5px;">
+                <select id="fase-{{ item.id_ia }}" class="seletor" onchange="atualizarPrecoDinamico('{{ item.id_ia }}')" style="font-size: 11px; padding: 4px;">
+                    <option value="filhote">Filhote</option>
+                    <option value="adulto" selected>Adulto</option>
+                </select>
+                <select id="sexo-{{ item.id_ia }}" class="seletor" onchange="atualizarPrecoDinamico('{{ item.id_ia }}')" style="font-size: 11px; padding: 4px;">
+                    <option value="M">Macho</option>
+                    <option value="F">Fêmea</option>
+                </select>
+            </div>
 
-            <div class="preco-tag">R$ <span id="val-{{ item.id_ia }}">{{ item.valor|int }}</span></div>
+            <div class="seletor-qtd-loja">
+                <button class="btn-qtd" onclick="alterarQtd('{{ item.id_ia }}', -1)">-</button>
+                <input type="number" id="qtd-{{ item.id_ia }}" class="input-qtd" value="1" min="1" max="100">
+                <button class="btn-qtd" onclick="alterarQtd('{{ item.id_ia }}', 1)">+</button>
+            </div>
+
+            <div class="preco-tag" style="margin: 4px 0;">R$ <span id="val-{{ item.id_ia }}">{{ item.valor|int }}</span> un</div>
             
-            <button class="btn-comprar" onclick="prepararCompraIA('{{ item.id_ia }}')">COMPRAR</button>
+            <!-- BOTÃO EXPLÍCITO DE ADICIONAR AO CARRINHO -->
+            <button class="btn-adicionar-carrinho" onclick="adicionarAoCarrinho('{{ item.id_ia }}')">
+                <i class="fas fa-cart-plus"></i> Adicionar
+            </button>
         </div>
         {% endfor %}
     </div>
+
+    <!-- BARRA FLUTUANTE DE CARRINHO -->
+    <div id="barra-carrinho-flutuante">
+        <div style="font-size: 12px; cursor: pointer;" onclick="abrirResumoCarrinho()">
+            <i class="fas fa-shopping-cart"></i> <span id="txt-qtd-total">0</span> itens | <b id="txt-valor-total" style="color: #a5d6a7;">R$ 0,00</b>
+            <div style="font-size: 9px; text-decoration: underline; color: #ddd;">Ver Carrinho</div>
+        </div>
+        <button onclick="abrirModalLogisticaIA()" style="background: white; color: #2e7d32; border: none; padding: 8px 16px; border-radius: 20px; font-weight: 900; cursor: pointer; font-size: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.3);">
+            PAGAR &gt;
+        </button>
+    </div>
     
-    <script src="{{ url_for('static', filename='js/mercado.js') }}?v=2"></script>
+    <script src="{{ url_for('static', filename='js/mercado.js') }}?v=9"></script>
     
+    <!-- MODAL DE LOGÍSTICA DE FRETE -->
     <div id="modal-logistica" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center;">
         <div style="background: #2a2a2a; padding: 20px; border-radius: 15px; width: 90%; max-width: 400px; border: 1px solid #444;">
-            
             <div style="text-align: center; margin-bottom: 15px;">
                 <img id="img-veiculo" src="/static/img/caminhao_boiadeiro.png" alt="Caminhão Boiadeiro" style="width: 120px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));">
                 <h3 style="margin: 10px 0 0 0;"><i class="fas fa-truck"></i> Logística de Entrega</h3>
-                <small style="color: #aaa;">Entrega Expressa (Fase 1)</small>
             </div>
             
             <div style="margin: 15px 0; background: #1a1a1a; padding: 10px; border-radius: 8px;">
-    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-        <input type="checkbox" id="check-caminhao-proprio" onchange="atualizarTotalModal()" disabled>
-        <span>Usar Caminhão Próprio (Frete Grátis)</span>
-    </label>
-    <small style="color: #777; font-size: 11px;">* Você ainda não possui um caminhão. Adquira na loja.</small>
-</div>
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                    <input type="checkbox" id="check-caminhao-proprio" onchange="atualizarTotalModal()" disabled>
+                    <span>Usar Caminhão Próprio (Frete Grátis)</span>
+                </label>
+            </div>
 
-            <p style="text-align: center;">Comprando: <b id="modal-animal-nome" style="color:#4caf50; text-transform: capitalize; font-size: 18px;"></b></p>
-            
-            <label>Quantidade de Cabeças:</label>
-            <input type="number" id="modal-quantidade" class="seletor" value="1" min="1" oninput="atualizarTotalModal()">
+            <p style="text-align: center; font-size: 13px; color: #ccc;">Lote no Carrinho:<br><b id="modal-animal-nome" style="color:#4caf50; font-size: 14px;"></b></p>
             
             <label>Destino (Suas Propriedades):</label>
             <select id="modal-destino" class="seletor" style="font-size: 16px; padding: 10px;">
@@ -131,13 +206,13 @@
                 {% endfor %}
             </select>
             
-            <div style="margin-top: 15px; font-size: 18px; text-align: center; background: #111; padding: 10px; border-radius: 8px;">
-                Total: <b style="color:#4caf50;">R$ <span id="modal-total-calc">0</span></b>
+            <div style="margin-top: 15px; font-size: 16px; text-align: center; background: #111; padding: 10px; border-radius: 8px;">
+                <span id="modal-total-calc">Total: R$ 0,00</span>
             </div>
 
             <div style="display: flex; gap: 10px; margin-top: 20px;">
-                <button onclick="fecharModal()" style="flex: 1; background: #555; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold;">Cancelar</button>
-                <button onclick="confirmarCompra()" style="flex: 1; background: #2e7d32; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold;">Confirmar</button>
+                <button onclick="fecharModal()" style="flex: 1; background: #555; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer;">Cancelar</button>
+                <button onclick="confirmarCompra()" style="flex: 1; background: #2e7d32; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer;">Confirmar</button>
             </div>
         </div>
     </div>

@@ -1,35 +1,13 @@
-// CONTROLE DE ATUALIZAÇÕES DO JOGO
-const VERSAO_ATUAL = "1.2"; 
-
 document.addEventListener('DOMContentLoaded', function() {
     
-    // Injeta estilo CSS para a animação da rodovia
+    // Injeta estilo CSS para a animação da rodovia e prioridade máxima dos modais
     const estiloAnimacao = document.createElement('style');
     estiloAnimacao.innerHTML = `
         @keyframes dashAnim { to { stroke-dashoffset: -20; } }
         .rota-tracejada-animada { animation: dashAnim 0.8s linear infinite; }
+        .swal2-container { z-index: 99999 !important; } /* 🔥 Joga o modal acima de qualquer barra ou menu */
     `;
     document.head.appendChild(estiloAnimacao);
-
-    if (localStorage.getItem('versao_agro_manager') !== VERSAO_ATUAL) {
-        setTimeout(() => {
-            showSweet(
-                "🚀 Atualização " + VERSAO_ATUAL,
-                `<div style="text-align: left; font-size: 14px; line-height: 1.6; color: #444;">
-                    <b style="color: #111;">Novidades do Jogo:</b><br><br>
-                    🚚 <b style="color: #2e7d32;">Logística Viva:</b> O transporte de animais agora é feito em tempo real pelo mapa global!<br><br>
-                    🌱 <b style="color: #2e7d32;">Lavoura Orgânica:</b> As plantas crescem de forma orgânica e realista, abandonando o formato de "Bolinhas".<br><br>
-                    🐓 <b style="color: #2e7d32;">Visuais 2D:</b> Todos os Habitats ganharam animações e itens.
-                </div>`,
-                `<button class="sweet-btn" style="background: #2e7d32; color: white;" onclick="fecharAvisoAtualizacao()">Continuar Jogando</button>`
-            );
-        }, 1000);
-    }
-
-    window.fecharAvisoAtualizacao = function() {
-        localStorage.setItem('versao_agro_manager', VERSAO_ATUAL);
-        closeModal();
-    }
 
     // 1. Configuração do Mapa Leaflet
     const imageHeight = 1920; 
@@ -40,7 +18,7 @@ document.addEventListener('DOMContentLoaded', function() {
         crs: L.CRS.Simple, minZoom: -2, maxZoom: 2, 
         zoomControl: false, attributionControl: false 
     });
-    
+
     L.imageOverlay('/static/img/mapa_real.png', mapBounds).addTo(map);
     map.fitBounds(mapBounds);
 
@@ -137,249 +115,88 @@ document.addEventListener('DOMContentLoaded', function() {
         { nome: 'Alta Floresta', lat: 64, lng: 227 }, { nome: 'Rolim de Moura', lat: 42, lng: 345 }, { nome: 'Ji-Paraná', lat: 22, lng: 564 }
     ];
 
-        fetch('/api/mapa_global')
-        .then(r => r.json())
-        .then(data => {
-            todasAsTerras = data;
-            
-            let cidadeSalvaNome = localStorage.getItem('cidade_aberta_agro');
-            if (cidadeSalvaNome) {
-                let cidadeSalva = CIDADES.find(c => c.nome === cidadeSalvaNome);
-                if (cidadeSalva) {
-                    let terrasDaCidade = todasAsTerras.filter(f => f.cidade === cidadeSalva.nome);
-                    darZoomNaRegiao(cidadeSalva, terrasDaCidade, true); 
-                } else renderizarAncoras();
-            } else renderizarAncoras();
-
-            // 🔥 NOVO: CARREGA A FROTA EM TRÂNSITO NO MAPA
-            fetch('/api/mapa_frota')
-            .then(r => r.json())
-            .then(frota => {
-                // Injeta CSS da rodovia animada se houver caminhões
-                if (frota.length > 0 && !document.getElementById('css-rodovia')) {
-                    const style = document.createElement('style');
-                    style.id = 'css-rodovia';
-                    style.innerHTML = `@keyframes trac { to { stroke-dashoffset: -20; } } .rota-animada { animation: trac 1s linear infinite; }`;
-                    document.head.appendChild(style);
-                }
-
-                frota.forEach(viagem => {
-                    const terraOrigem = todasAsTerras.find(t => t.id === viagem.origem_id);
-                    const terraDestino = todasAsTerras.find(t => t.id === viagem.destino_id);
-                    
-                    if(terraOrigem && terraDestino) {
-                        const cidOrigem = CIDADES.find(c => c.nome === terraOrigem.cidade);
-                        const cidDestino = CIDADES.find(c => c.nome === terraDestino.cidade);
-                        
-                        if(cidOrigem && cidDestino) {
-                            let ptO = [cidOrigem.lat, cidOrigem.lng];
-                            let ptD = [cidDestino.lat, cidDestino.lng];
-                            
-                            // Se transferiu dentro da mesma cidade, puxa os pontos um pouco para o lado pra ver a reta
-                            if (cidOrigem.nome === cidDestino.nome) {
-                                ptO = [cidOrigem.lat - 20, cidOrigem.lng - 20];
-                                ptD = [cidDestino.lat + 20, cidDestino.lng + 20];
-                            }
-                            
-                            // Desenha a Rodovia Animada
-                            L.polyline([ptO, ptD], {color: '#ff9800', weight: 4, dashArray: '10, 10', className: 'rota-animada'}).addTo(map);
-                            
-                            // Acha o meio do caminho para estacionar o ícone do Caminhão
-                            let midLat = (ptO[0] + ptD[0]) / 2;
-                            let midLng = (ptO[1] + ptD[1]) / 2;
-                            let virarX = ptD[1] > ptO[1] ? 'scaleX(-1)' : 'scaleX(1)';
-                            
-                            let truckHtml = `
-                                <div style="font-size:30px; filter: drop-shadow(2px 5px 5px rgba(0,0,0,0.8)); transform: ${virarX};">🚚</div>
-                                <div style="background:#222; border: 1px solid #ff9800; color:#fff; font-size:10px; padding:2px 5px; border-radius:4px; white-space:nowrap; position:absolute; top:-15px; left:-20px; box-shadow: 0 4px 6px rgba(0,0,0,0.6);">
-                                    ${viagem.qtd} Cab. (Faltam ${viagem.horas_restantes}h)
-                                </div>
-                            `;
-                            L.marker([midLat, midLng], {icon: L.divIcon({html: truckHtml, className: '', iconSize:[40,40]})}).addTo(map);
-                        }
-                    }
-                });
-            });
-        }).catch(erro => console.error(erro));
-    
+    // Carregamento Único do Mapa Global
     fetch('/api/mapa_global')
-        .then(r => r.json())
-        .then(data => {
-            todasAsTerras = data;
-            
-            // Fluxo Normal do Mapa
-            let cidadeSalvaNome = localStorage.getItem('cidade_aberta_agro');
-            if (cidadeSalvaNome) {
-                let cidadeSalva = CIDADES.find(c => c.nome === cidadeSalvaNome);
-                if (cidadeSalva) {
-                    let terrasDaCidade = todasAsTerras.filter(f => f.cidade === cidadeSalva.nome);
-                    darZoomNaRegiao(cidadeSalva, terrasDaCidade, true); 
-                } else renderizarAncoras();
+    .then(r => r.json())
+    .then(data => {
+        todasAsTerras = data;
+        
+        let cidadeSalvaNome = localStorage.getItem('cidade_aberta_agro');
+        if (cidadeSalvaNome) {
+            let cidadeSalva = CIDADES.find(c => c.nome === cidadeSalvaNome);
+            if (cidadeSalva) {
+                let terrasDaCidade = todasAsTerras.filter(f => f.cidade === cidadeSalva.nome);
+                darZoomNaRegiao(cidadeSalva, terrasDaCidade, true); 
             } else renderizarAncoras();
-            
-            // 🔥 NOVO: BOTÃO FLUTUANTE DA FROTA EM TRÂNSITO
-            fetch('/api/mapa_frota')
-            .then(r => r.json())
-            .then(frota => {
-                if (frota.length > 0) {
-                    // Cria o botão de Logística no canto inferior esquerdo
-                    let btnFrota = document.getElementById('btn-frota-ativa');
-                    if (!btnFrota) {
-                        btnFrota = document.createElement('div');
-                        btnFrota.id = 'btn-frota-ativa';
-                        btnFrota.style.cssText = `
-                            position: fixed; bottom: 85px; left: 20px; 
-                            background: #e65100; color: white; border-radius: 8px; 
-                            padding: 10px 15px; display: flex; align-items: center; gap: 10px; 
-                            box-shadow: 0 4px 8px rgba(0,0,0,0.6); z-index: 1000; cursor: pointer;
-                            border: 2px solid #ffb300; font-weight: bold; font-size: 13px;
-                            transition: transform 0.2s;
-                        `;
-                        // Efeito de hover
-                        btnFrota.onmouseover = () => btnFrota.style.transform = 'scale(1.05)';
-                        btnFrota.onmouseout = () => btnFrota.style.transform = 'scale(1)';
-                        document.body.appendChild(btnFrota);
-                    }
-                    
-                    btnFrota.innerHTML = `<i class="fas fa-truck-moving" style="font-size: 18px;"></i> <span>${frota.length} Transporte(s)</span>`;
-                    
-                    // Ação ao clicar no botão: Abre o relatório de viagens
-                    btnFrota.onclick = () => {
-                        let htmlList = '<div style="text-align: left; max-height: 45vh; overflow-y: auto; padding-right: 5px;">';
-                        frota.forEach(viagem => {
-                            let orig = todasAsTerras.find(t => t.id === viagem.origem_id);
-                            let dest = todasAsTerras.find(t => t.id === viagem.destino_id);
-                            let nomeO = orig ? orig.nome : "Origem Desconhecida";
-                            let nomeD = dest ? dest.nome : "Destino Desconhecido";
-                            
-                            htmlList += `
-                            <div style="background: #222; border-left: 4px solid #ff9800; padding: 10px; border-radius: 6px; margin-bottom: 8px; border-right: 1px solid #333; border-top: 1px solid #333; border-bottom: 1px solid #333;">
-                                <div style="color: #fff; font-weight: bold; margin-bottom: 8px; font-size: 14px;">
-                                    <i class="fas fa-truck"></i> Carga: ${viagem.qtd} cabeças
-                                </div>
-                                <div style="font-size: 12px; color: #aaa; margin-bottom: 2px;"><b>De:</b> ${nomeO}</div>
-                                <div style="font-size: 12px; color: #aaa;"><b>Para:</b> ${nomeD}</div>
-                                <div style="margin-top: 8px; font-size: 12px; color: #4caf50; background: #111; padding: 5px; border-radius: 4px; text-align: center; font-weight: bold;">
-                                    <i class="fas fa-clock"></i> Chega em ${viagem.horas_restantes} horas do jogo
-                                </div>
+        } else renderizarAncoras();
+
+        // Carrega a Frota em Trânsito
+        fetch('/api/mapa_frota')
+        .then(r => r.json())
+        .then(frota => {
+            if (frota.length > 0) {
+                let btnFrota = document.getElementById('btn-frota-ativa');
+                if (!btnFrota) {
+                    btnFrota = document.createElement('div');
+                    btnFrota.id = 'btn-frota-ativa';
+                    btnFrota.style.cssText = `
+                        position: fixed; bottom: 85px; left: 20px; 
+                        background: #e65100; color: white; border-radius: 8px; 
+                        padding: 10px 15px; display: flex; align-items: center; gap: 10px; 
+                        box-shadow: 0 4px 8px rgba(0,0,0,0.6); z-index: 1000; cursor: pointer;
+                        border: 2px solid #ffb300; font-weight: bold; font-size: 13px;
+                        transition: transform 0.2s;
+                    `;
+                    btnFrota.onmouseover = () => btnFrota.style.transform = 'scale(1.05)';
+                    btnFrota.onmouseout = () => btnFrota.style.transform = 'scale(1)';
+                    document.body.appendChild(btnFrota);
+                }
+                
+                btnFrota.innerHTML = `<i class="fas fa-truck-moving" style="font-size: 18px;"></i> <span>${frota.length} Transporte(s)</span>`;
+                
+                btnFrota.onclick = () => {
+                    let htmlList = '<div style="text-align: left; max-height: 45vh; overflow-y: auto; padding-right: 5px;">';
+                    frota.forEach(viagem => {
+                        let orig = todasAsTerras.find(t => t.id === viagem.origem_id);
+                        let dest = todasAsTerras.find(t => t.id === viagem.destino_id);
+                        let nomeO = orig ? orig.nome : "Origem Desconhecida";
+                        let nomeD = dest ? dest.nome : "Destino Desconhecido";
+                        
+                        htmlList += `
+                        <div style="background: #222; border-left: 4px solid #ff9800; padding: 10px; border-radius: 6px; margin-bottom: 8px; border: 1px solid #333;">
+                            <div style="color: #fff; font-weight: bold; margin-bottom: 8px; font-size: 14px;">
+                                <i class="fas fa-truck"></i> Carga: ${viagem.qtd} cabeças
                             </div>
-                            `;
-                        });
-                        htmlList += '</div>';
-                        
-                        Swal.fire({
-                            title: '🚛 Logística em Andamento',
-                            html: htmlList,
-                            background: '#1a1a1a', color: '#fff',
-                            showConfirmButton: true, confirmButtonText: 'Fechar', confirmButtonColor: '#555'
-                        });
-                    };
-                } else {
-                    // Se não tiver caminhões na rua, o botão some automaticamente
-                    let btnFrota = document.getElementById('btn-frota-ativa');
-                    if (btnFrota) btnFrota.remove();
-                }
-            });
-        }).catch(erro => console.error(erro));
-
-    // ==========================================
-    // 🚚 O MOTOR DA ANIMAÇÃO DO CAMINHÃO 
-    // ==========================================
-    function iniciarAnimacaoViagem(origemId, destinoId, msgFinal) {
-        renderizarAncoras(); 
-        document.getElementById('painel-cidade-topo').style.display = 'none';
-
-        const terraOrigem = todasAsTerras.find(t => t.id === origemId);
-        const terraDestino = todasAsTerras.find(t => t.id === destinoId);
-
-        if (!terraOrigem || !terraDestino) {
-            Swal.fire('Chegou! 🚚', msgFinal, 'success');
-            return;
-        }
-
-        const cidOrigem = CIDADES.find(c => c.nome === terraOrigem.cidade);
-        const cidDestino = CIDADES.find(c => c.nome === terraDestino.cidade);
-
-        if (!cidOrigem || !cidDestino) return;
-
-        let ptOrigem = [cidOrigem.lat, cidOrigem.lng];
-        let ptDestino = [cidDestino.lat, cidDestino.lng];
-
-        // Se transferiu dentro da mesma cidade, cria uma rotazinha falsa na volta do quarteirão
-        if (cidOrigem.nome === cidDestino.nome) {
-            ptDestino = [cidDestino.lat + 40, cidDestino.lng + 40];
-        }
-
-        // Foca a câmera abrangendo as duas cidades
-        map.flyToBounds([ptOrigem, ptDestino], { padding: [100, 100], duration: 1.5 });
-
-        // Espera o Zoom da câmera terminar
-        setTimeout(() => {
-            // Desenha a Rodovia animada
-            const rota = L.polyline([ptOrigem, ptDestino], {
-                color: '#ff9800', weight: 4, dashArray: '10, 10', className: 'rota-tracejada-animada'
-            }).addTo(map);
-
-            // Descobre pra qual lado o caminhão deve virar o rosto (o caminhão 🚛 olha pra esquerda)
-            const movendoParaDireita = ptDestino[1] > ptOrigem[1];
-            const virarEixoX = movendoParaDireita ? 'scaleX(-1)' : 'scaleX(1)';
-
-            const caminhaoIcon = L.divIcon({
-                html: `<div style="font-size:35px; filter: drop-shadow(2px 5px 5px rgba(0,0,0,0.8)); transform: ${virarEixoX};">🚛</div>`,
-                className: '', iconSize: [40, 40], iconAnchor: [20, 20]
-            });
-
-            const caminhaoMarker = L.marker(ptOrigem, {icon: caminhaoIcon}).addTo(map);
-
-            // Matemática da Velocidade
-            const dx = ptDestino[0] - ptOrigem[0];
-            const dy = ptDestino[1] - ptOrigem[1];
-            const distancia = Math.sqrt(dx*dx + dy*dy);
-            
-            // O caminhão viaja a 200 pixels por segundo. Duração Mínima: 3s. Máxima: 8s.
-            let tempoDeViagemS = Math.min(8, Math.max(3, distancia / 200)); 
-            const duracaoMs = tempoDeViagemS * 1000;
-            const startTime = performance.now();
-
-            function animarCaminhao(currentTime) {
-                let tempoDecorrido = currentTime - startTime;
-                let progresso = tempoDecorrido / duracaoMs;
-
-                if (progresso >= 1) {
-                    caminhaoMarker.setLatLng(ptDestino);
+                            <div style="font-size: 12px; color: #aaa; margin-bottom: 2px;"><b>De:</b> ${nomeO}</div>
+                            <div style="font-size: 12px; color: #aaa;"><b>Para:</b> ${nomeD}</div>
+                            <div style="margin-top: 8px; font-size: 12px; color: #4caf50; background: #111; padding: 5px; border-radius: 4px; text-align: center; font-weight: bold;">
+                                <i class="fas fa-clock"></i> Chega em ${viagem.horas_restantes} horas do jogo
+                            </div>
+                        </div>
+                        `;
+                    });
+                    htmlList += '</div>';
                     
-                    setTimeout(() => {
-                        map.removeLayer(caminhaoMarker);
-                        map.removeLayer(rota);
-                        
-                        Swal.fire({
-                            title: 'Carga Entregue! 📍', text: msgFinal, icon: 'success',
-                            background: '#2a2a2a', color: '#fff', confirmButtonColor: '#2e7d32'
-                        }).then(() => {
-                            // Entra na cidade de destino para o jogador ver seus novos animais
-                            let terrasDestino = todasAsTerras.filter(f => f.cidade === cidDestino.nome);
-                            darZoomNaRegiao(cidDestino, terrasDestino);
-                        });
-                    }, 500); // Pausa de 0.5s pra o jogador ver o caminhão parado no destino
-                    return;
-                }
-
-                let latAtual = ptOrigem[0] + (dx * progresso);
-                let lngAtual = ptOrigem[1] + (dy * progresso);
-                caminhaoMarker.setLatLng([latAtual, lngAtual]);
-
-                requestAnimationFrame(animarCaminhao);
+                    Swal.fire({
+                        title: '🚛 Logística em Andamento',
+                        html: htmlList,
+                        background: '#1a1a1a', color: '#fff',
+                        showConfirmButton: true, confirmButtonText: 'Fechar', confirmButtonColor: '#555'
+                    });
+                };
+            } else {
+                let btnFrota = document.getElementById('btn-frota-ativa');
+                if (btnFrota) btnFrota.remove();
             }
-
-            requestAnimationFrame(animarCaminhao);
-
-        }, 1600); 
-    }
-    // ==========================================
-
+        });
+    }).catch(erro => console.error(erro));
+    
+    // Renderização de Âncoras do Mapa
     function renderizarAncoras() {
-        layerPropriedades.clearLayers(); layerAncoras.clearLayers();      
+        layerPropriedades.clearLayers(); 
+        layerAncoras.clearLayers();      
 
+        // 1. Cidades
         CIDADES.forEach(cidade => {
             let terrasDaCidade = todasAsTerras.filter(f => f.cidade === cidade.nome);
             if(terrasDaCidade.length > 0) {
@@ -394,8 +211,221 @@ document.addEventListener('DOMContentLoaded', function() {
                 L.marker([cidade.lat, cidade.lng], {icon: cityIcon}).addTo(layerAncoras).on('click', () => darZoomNaRegiao(cidade, terrasDaCidade));
             }
         });
+
+        // 2. Concessionária
+        let latConcessionaria = 940;  
+        let lngConcessionaria = 620;  
+        let htmlConcessionaria = `
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; cursor: pointer; transition: transform 0.2s;" onclick="abrirConcessionaria()" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+                <div style="background: linear-gradient(135deg, #fbc02d, #f57f17); border: 1px solid #fff; color: #111; font-size: 11px; font-weight: bold; padding: 3px 8px; border-radius: 8px; box-shadow: 0px 4px 8px rgba(0,0,0,0.6); white-space: nowrap; margin-bottom: 2px;">
+                    <i class="fas fa-tractor"></i> Máquinas
+                </div>
+                <i class="fas fa-map-marker" style="color: #fbc02d; font-size: 34px; filter: drop-shadow(0px 4px 5px rgba(0,0,0,0.8));"></i>
+            </div>`;
+        let iconConcessionaria = L.divIcon({ html: htmlConcessionaria, className: '', iconSize: [120, 70], iconAnchor: [60, 68] });
+        L.marker([latConcessionaria, lngConcessionaria], {icon: iconConcessionaria}).addTo(layerAncoras);
+        
+        // 3. Leilão / Mercado
+        let latLeilao = 1150; 
+        let lngLeilao = 680;  
+        let htmlLeilao = `
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; cursor: pointer; transition: transform 0.2s;" onclick="window.location.href='/mercado'" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+                <div style="background: linear-gradient(135deg, #f57c00, #e65100); border: 1px solid #fff; color: #fff; font-size: 11px; font-weight: bold; padding: 3px 8px; border-radius: 8px; box-shadow: 0px 4px 8px rgba(0,0,0,0.6); white-space: nowrap; margin-bottom: 2px;">
+                    <i class="fas fa-gavel"></i> Leilão
+                </div>
+                <i class="fas fa-map-marker" style="color: #f57c00; font-size: 34px; filter: drop-shadow(0px 4px 5px rgba(0,0,0,0.8));"></i>
+            </div>`;
+        let iconLeilao = L.divIcon({ html: htmlLeilao, className: '', iconSize: [120, 70], iconAnchor: [60, 68] });
+        L.marker([latLeilao, lngLeilao], {icon: iconLeilao}).addTo(layerAncoras);
+
+        // 4. Loja Agrícola
+        let latLoja = 1050; 
+        let lngLoja = 550;  
+        let htmlLoja = `
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; cursor: pointer; transition: transform 0.2s;" onclick="abrirLoja()" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+                <div style="background: linear-gradient(135deg, #4caf50, #1b5e20); border: 1px solid #fff; color: #fff; font-size: 11px; font-weight: bold; padding: 3px 8px; border-radius: 8px; box-shadow: 0px 4px 8px rgba(0,0,0,0.6); white-space: nowrap; margin-bottom: 2px;">
+                    <i class="fas fa-store"></i> Loja
+                </div>
+                <i class="fas fa-map-marker" style="color: #4caf50; font-size: 34px; filter: drop-shadow(0px 4px 5px rgba(0,0,0,0.8));"></i>
+            </div>`;
+        let iconLoja = L.divIcon({ html: htmlLoja, className: '', iconSize: [120, 70], iconAnchor: [60, 68] });
+        L.marker([latLoja, lngLoja], {icon: iconLoja}).addTo(layerAncoras);
+    }
+    
+    // ==========================================
+    // 🚜 SISTEMA DA CONCESSIONÁRIA
+    // ==========================================
+    window.abrirConcessionaria = function() {
+        const minhasTerras = todasAsTerras.filter(t => t.e_minha);
+        if(minhasTerras.length === 0) {
+            Swal.fire('Atenção', 'Você precisa comprar uma propriedade antes de adquirir máquinas!', 'warning');
+            return;
+        }
+
+        let selectFazenda = `<select id="conc-fazenda-destino" style="width:100%; padding:12px; border-radius:8px; border:1px solid #444; background:#111; color:#fff; margin-bottom:15px; font-family: 'Poppins', sans-serif; font-size: 14px; outline: none;">`;
+        minhasTerras.forEach(t => { selectFazenda += `<option value="${t.id}">${t.nome}</option>`; });
+        selectFazenda += `</select>`;
+
+        const catalogo = [
+            { chave: 'trator_leve', nome: 'Trator Leve', preco: 85000, desc: 'Tração geral. Usado na adubação automática.', imagem: 'trator_leve.png', icon: 'fa-tractor', cor: '#ff9800' },
+            { chave: 'trator_pesado', nome: 'Trator Pesado', preco: 350000, desc: 'Alta potência e confiabilidade diária.', imagem: 'trator_pesado.png', icon: 'fa-tractor', cor: '#f57c00' },
+            { chave: 'trator_esteira', nome: 'Trator de Esteira', preco: 450000, desc: 'Desmatamento pesado. Extrai +R$1.000 por Hectare.', imagem: 'trator_esteira.png', icon: 'fa-snowplow', cor: '#fbc02d' },
+            { chave: 'escavadeira', nome: 'Escavadeira', preco: 550000, desc: 'Zera custos de escavação em bebedouros e represas.', imagem: 'escavadeira.png', icon: 'fa-water', cor: '#03a9f4' },
+            { chave: 'colheitadeira', nome: 'Colheitadeira Grãos', preco: 850000, desc: 'Zera as taxas de aluguel na colheita.', imagem: 'colheitadeira.png', icon: 'fa-truck-monster', cor: '#4caf50' },
+            { chave: 'pulverizador', nome: 'Pulverizador Autopropelido', preco: 420000, desc: 'Aplica defensivos sem custo de aluguel.', imagem: 'pulverizador.png', icon: 'fa-spray-can', cor: '#ab47bc' },
+            { chave: 'pulv_arrasto', nome: 'Pulverizador de Arrasto', preco: 35000, desc: 'Econômico. Zera aluguel, mas gasta horas.', imagem: 'pulv_arrasto.png', icon: 'fa-spray-can', cor: '#9c27b0' },
+            { chave: 'plantadeira', nome: 'Plantadeira', preco: 150000, desc: 'Reduz os custos logísticos no plantio.', imagem: 'plantadeira.png', icon: 'fa-seedling', cor: '#8bc34a' },
+            { chave: 'grade_aradora', nome: 'Grade Aradora', preco: 65000, desc: 'Reduz em 80% o custo para Arar a terra.', imagem: 'grade_aradora.png', icon: 'fa-tools', cor: '#795548' },
+            { chave: 'caminhonete_usada', nome: 'Caminhonete Usada', preco: 45000, desc: 'Frete grátis básico para lotes pequenos.', imagem: 'caminhonete_usada.png', icon: 'fa-truck-pickup', cor: '#9e9e9e' },
+            { chave: 'caminhonete_nova', nome: 'Caminhonete Nova', preco: 180000, desc: 'Maior capacidade e menos gastos na oficina.', imagem: 'caminhonete_nova.png', icon: 'fa-truck-pickup', cor: '#e0e0e0' },
+            { chave: 'caminhao_boiadeiro', nome: 'Caminhão Boiadeiro', preco: 250000, desc: 'Frete grátis para Gado, Porcos e Cavalos.', imagem: 'caminhao_boiadeiro.png', icon: 'fa-truck', cor: '#8d6e63' },
+            { chave: 'caminhao_bau', nome: 'Caminhão Baú (Frios)', preco: 200000, desc: 'Frete grátis para logística de Peixes.', imagem: 'caminhao_bau.png', icon: 'fa-snowflake', cor: '#81d4fa' }
+        ];
+
+        let htmlList = `<div style="text-align:left; color:#fff; font-family: 'Poppins', sans-serif;">`;
+        htmlList += `<label style="color:#aaa; font-size:12px;"><b>1. Onde estacionar a máquina?</b></label><br>${selectFazenda}`;
+        htmlList += `<label style="color:#aaa; font-size:12px;"><b>2. Veículos e Implementos:</b></label><div style="max-height: 50vh; overflow-y: auto; padding-right: 5px; margin-top:5px; display: grid; gap: 10px;">`;
+        
+        catalogo.forEach(m => {
+            htmlList += `
+            <div style="background: #1a1a24; border: 1px solid #333; padding: 12px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; gap: 15px; align-items: center; width: 65%;">
+                    <div style="background: #111; border: 1px solid #444; min-width: 60px; height: 60px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                        <img src="/static/img/${m.imagem}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" style="max-width: 50px; max-height: 50px; object-fit: contain;">
+                        <i class="fas ${m.icon}" style="font-size: 24px; color: ${m.cor}; display: none;"></i>
+                    </div>
+                    <div>
+                        <div style="font-weight: 900; font-size: 14px; color: #fff;">${m.nome}</div>
+                        <div style="font-size: 11px; color: #888; line-height: 1.4; margin-top: 3px;">${m.desc}</div>
+                    </div>
+                </div>
+                <div style="text-align: right; width: 35%;">
+                    <div style="color: #4caf50; font-weight: 900; font-size: 15px; margin-bottom: 6px;">R$ ${m.preco.toLocaleString('pt-BR')}</div>
+                    <button onclick="confirmarCompraMaquina('${m.chave}', '${m.nome}', ${m.preco})" style="background: linear-gradient(135deg, #2e7d32, #1b5e20); color: white; border: none; padding: 8px 10px; border-radius: 6px; font-weight: bold; font-size: 11px; cursor: pointer; width: 100%;">
+                        <i class="fas fa-shopping-cart"></i> COMPRAR
+                    </button>
+                </div>
+            </div>`;
+        });
+        htmlList += `</div></div>`;
+
+        Swal.fire({
+            title: '<span style="color:#fbc02d;"><i class="fas fa-tractor"></i> Concessionária Premium</span>',
+            html: htmlList, background: '#121212', color: '#fff',
+            showConfirmButton: false, showCloseButton: true, width: '95%'
+        });
+    }
+    
+    window.confirmarCompraMaquina = function(chave, nome, preco) {
+        let fazenda_id = document.getElementById('conc-fazenda-destino').value;
+        if(!fazenda_id) { Swal.fire('Atenção', 'Selecione uma fazenda primeiro!', 'warning'); return; }
+
+        Swal.fire({
+            title: `Confirmar Compra?`,
+            html: `O veículo <b>${nome}</b> será entregue no barracão.<br><br><span style="color:#f44336; font-size: 18px; font-weight: bold;">- R$ ${preco.toLocaleString('pt-BR')}</span>`,
+            icon: 'question', showCancelButton: true, confirmButtonText: 'Comprar', cancelButtonText: 'Cancelar',
+            background: '#1a1a24', color: '#fff', confirmButtonColor: '#2e7d32'
+        }).then((res) => {
+            if(res.isConfirmed) {
+                Swal.fire({ title: 'Despachando Carga...', background: '#1a1a24', color: '#fff', didOpen: () => Swal.showLoading() });
+                fetch('/api/barracao/comprar', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ chave_maquina: chave, fazenda_id: parseInt(fazenda_id) })
+                }).then(r => r.json()).then(d => {
+                    if(d.sucesso) Swal.fire('Entregue! 🚜', d.msg, 'success').then(() => location.reload());
+                    else Swal.fire('Negado', d.erro, 'error');
+                });
+            }
+        });
+    }
+    
+        // ==========================================
+    // 🏪 SISTEMA DA LOJA AGRÍCOLA COMPLETO
+    // ==========================================
+    window.abrirLoja = function() {
+        const minhasTerras = todasAsTerras.filter(t => t.e_minha);
+        if(minhasTerras.length === 0) {
+            Swal.fire('Atenção', 'Você precisa de uma propriedade para receber os insumos!', 'warning');
+            return;
+        }
+
+        let selectFazenda = `<select id="loja-fazenda-destino" style="width:100%; padding:12px; border-radius:8px; border:1px solid #444; background:#111; color:#fff; margin-bottom:15px; font-family: 'Poppins', sans-serif; font-size: 14px; outline: none;">`;
+        minhasTerras.forEach(t => { selectFazenda += `<option value="${t.id}">${t.nome}</option>`; });
+        selectFazenda += `</select>`;
+
+        const catalogoLoja = [
+            { chave: 'sal', nome: 'Sal Mineral', preco: 25 },
+            { chave: 'racao', nome: 'Ração (Gado/Porco)', preco: 40 },
+            { chave: 'racao_peixe', nome: 'Ração de Peixe', preco: 35 },
+            { chave: 'adubo', nome: 'Adubo NPK', preco: 50 },
+            { chave: 'veneno', nome: 'Defensivos Agrícolas', preco: 80 },
+            { chave: 'combustivel', nome: 'Galão de Diesel', preco: 150 },
+            { chave: 'vacina_aftosa', nome: 'Vacina Aftosa', preco: 50 },
+            { chave: 'vacina_brucelose', nome: 'Vacina Brucelose', preco: 60 },
+            { chave: 'medicamento_geral', nome: 'Medicamento Geral', preco: 30 },
+            { chave: 'suplemento_engorda', nome: 'Suplemento Engorda', preco: 40 },
+            { chave: 'soja', nome: 'Sementes de Soja', preco: 350 },
+            { chave: 'milho', nome: 'Sementes de Milho', preco: 200 },
+            { chave: 'arroz', nome: 'Sementes de Arroz', preco: 180 },
+            { chave: 'feijao', nome: 'Sementes de Feijão', preco: 250 },
+            { chave: 'algodao', nome: 'Sementes de Algodão', preco: 400 },
+            { chave: 'cafe', nome: 'Mudas de Café', preco: 500 }
+        ];
+
+        let htmlList = `<div style="text-align:left; color:#fff; font-family: 'Poppins', sans-serif;">`;
+        htmlList += `<label style="color:#aaa; font-size:12px;"><b>1. Destino da Carga (Suas Fazendas):</b></label><br>${selectFazenda}`;
+        htmlList += `<label style="color:#aaa; font-size:12px;"><b>2. Insumos e Sementes:</b></label>`;
+        htmlList += `<div style="max-height: 55vh; overflow-y: auto; padding-right: 8px; margin-top:8px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">`;
+        
+        catalogoLoja.forEach(m => {
+            htmlList += `
+            <div style="background: #1a1a24; border: 1px solid #333; padding: 12px; border-radius: 10px; text-align: center; display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                    <div style="height: 50px; display: flex; align-items: center; justify-content: center; margin-bottom: 6px;">
+                        <img src="/static/img/${m.chave}.png" onerror="this.src='/static/img/adubo.png'" style="max-height: 45px; max-width: 45px; object-fit: contain;">
+                    </div>
+                    <div style="font-weight: bold; font-size: 13px; color: #fff; margin-bottom: 2px; line-height: 1.3;">${m.nome}</div>
+                    <div style="color: #4caf50; font-weight: 900; font-size: 14px; margin-bottom: 10px;">R$ ${m.preco.toLocaleString('pt-BR')}</div>
+                </div>
+                <button onclick="confirmarCompraLoja('${m.chave}', '${m.nome}', ${m.preco})" style="background: linear-gradient(135deg, #2e7d32, #1b5e20); color: white; border: none; padding: 8px; border-radius: 6px; font-weight: bold; font-size: 11px; cursor: pointer; width: 100%;">
+                    <i class="fas fa-shopping-cart"></i> COMPRAR
+                </button>
+            </div>`;
+        });
+        htmlList += `</div></div>`;
+
+        Swal.fire({
+            title: '<span style="color:#4caf50;"><i class="fas fa-store"></i> Loja Agrícola</span>',
+            html: htmlList, background: '#121212', color: '#fff',
+            showConfirmButton: false, showCloseButton: true, width: '92%'
+        });
     }
 
+    window.confirmarCompraLoja = function(chave, nome, preco) {
+        let fazenda_id = document.getElementById('loja-fazenda-destino').value;
+        if(!fazenda_id) { Swal.fire('Atenção', 'Selecione uma fazenda primeiro!', 'warning'); return; }
+
+        Swal.fire({
+            title: `Comprar ${nome}`,
+            html: `Quantas unidades você deseja comprar?<br><br><span style="color:#aaa; font-size: 13px;">Preço unitário: R$ ${preco.toLocaleString('pt-BR')}</span>`,
+            input: 'number', inputAttributes: { min: 1, value: 1 },
+            showCancelButton: true, confirmButtonText: 'Comprar', cancelButtonText: 'Cancelar',
+            background: '#1a1a24', color: '#fff', confirmButtonColor: '#2e7d32'
+        }).then((res) => {
+            if(res.isConfirmed && res.value > 0) {
+                Swal.fire({ title: 'Despachando Carga...', background: '#1a1a24', color: '#fff', didOpen: () => Swal.showLoading() });
+                fetch('/api/loja/comprar', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ item: chave, quantidade: parseInt(res.value), fazenda_id: parseInt(fazenda_id) })
+                }).then(r => r.json()).then(d => {
+                    if(d.sucesso) Swal.fire('Entregue! 📦', d.msg, 'success');
+                    else Swal.fire('Atenção', d.erro, 'warning');
+                });
+            }
+        });
+    }
+
+    // Função de Zoom na Região
     function darZoomNaRegiao(cidade, terras, rapido = false) {
         layerAncoras.clearLayers(); layerPropriedades.clearLayers();
         localStorage.setItem('cidade_aberta_agro', cidade.nome);
@@ -445,4 +475,5 @@ document.addEventListener('DOMContentLoaded', function() {
         renderizarAncoras();             
         map.flyToBounds(mapBounds, { duration: 1.5 });
     }
+
 });
