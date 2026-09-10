@@ -87,25 +87,25 @@ class CulturaSazonal(CulturaPerene):
         return "Ponto de Colheita", 100, 0
 
 CATALOGO_CULTIVOS = {
-    # NOME, CUSTO_SEMENTE, PRODUCAO_KG (Aumentado em 3x!), TEMPO, PREPARO, MAQUINA_PLANTIO, MAQUINA_COLHEITA
-    'soja': Cultura('Soja', 600, 10000, 100, 'arado', 800, 1200),
-    'milho': Cultura('Milho', 450, 18000, 90, 'arado', 800, 1100),
-    'arroz': Cultura('Arroz', 500, 12000, 110, 'arado', 900, 1300),
-    'feijao': Cultura('Feijão', 400, 6000, 80, 'arado', 700, 1000),
-    'algodao': Cultura('Algodão', 800, 9000, 150, 'arado', 1200, 1800),
-    'mandioca': Cultura('Mandioca', 300, 45000, 240, 'arado', 500, 1500),
-    'tomate': Cultura('Tomate', 150, 18000, 90, 'arado', 600, 1200),
-    'abacaxi': Cultura('Abacaxi', 350, 60000, 400, 'coveado', 800, 2000),
-    'melancia': Cultura('Melancia', 250, 40000, 85, 'coveado', 600, 1400),
+    # NOME, CUSTO_SEMENTE, PRODUCAO_KG (Balanceada!), TEMPO, PREPARO, MAQUINA_PLANTIO, MAQUINA_COLHEITA
+    'soja': Cultura('Soja', 600, 5000, 100, 'arado', 800, 1200),
+    'milho': Cultura('Milho', 450, 9000, 90, 'arado', 800, 1100),
+    'arroz': Cultura('Arroz', 500, 7000, 110, 'arado', 900, 1300),
+    'feijao': Cultura('Feijão', 400, 3000, 80, 'arado', 700, 1000),
+    'algodao': Cultura('Algodão', 800, 4500, 150, 'arado', 1200, 1800),
+    'mandioca': Cultura('Mandioca', 300, 25000, 240, 'arado', 500, 1500),
+    'tomate': Cultura('Tomate', 150, 10000, 90, 'arado', 600, 1200),
+    'abacaxi': Cultura('Abacaxi', 350, 30000, 400, 'coveado', 800, 2000),
+    'melancia': Cultura('Melancia', 250, 20000, 85, 'coveado', 600, 1400),
     
-    # PERENES (Investimento longo agora compensa muito mais)
-    'cana': CulturaPerene('Cana-de-Açúcar', 1200, 110000, 360, 'arado', 2000, 4000, tempo_descanso=30, max_ciclos=5), 
-    'banana': CulturaPerene('Banana', 800, 29000, 300, 'coveado', 1000, 1500, tempo_descanso=15, max_ciclos=8),
-    'cacau': CulturaPerene('Cacau', 1500, 4500, 500, 'coveado', 1500, 2000, tempo_descanso=45, max_ciclos=15),
-    'acai': CulturaPerene('Açaí', 1000, 15000, 730, 'coveado', 1200, 1800, tempo_descanso=30, max_ciclos=12),
-    'cupuacu': CulturaPerene('Cupuaçu', 900, 6000, 730, 'coveado', 1200, 1800, tempo_descanso=30, max_ciclos=10),
-    'pimenta': CulturaPerene('Pimenta', 500, 7500, 120, 'coveado', 800, 1200, tempo_descanso=20, max_ciclos=6),
-    'cafe': CulturaSazonal('Café Clonal', 1800, 12000, 365, 'coveado', 2000, 3000, tempo_descanso=90, max_ciclos=10, estacoes_fruto=['outono', 'inverno'])
+    # PERENES (Ainda dão muito lucro, mas sem quebrar a economia)
+    'cana': CulturaPerene('Cana-de-Açúcar', 1200, 70000, 360, 'arado', 2000, 4000, tempo_descanso=30, max_ciclos=5), 
+    'banana': CulturaPerene('Banana', 800, 18000, 300, 'coveado', 1000, 1500, tempo_descanso=15, max_ciclos=8),
+    'cacau': CulturaPerene('Cacau', 1500, 2500, 500, 'coveado', 1500, 2000, tempo_descanso=45, max_ciclos=15),
+    'acai': CulturaPerene('Açaí', 1000, 8000, 730, 'coveado', 1200, 1800, tempo_descanso=30, max_ciclos=12),
+    'cupuacu': CulturaPerene('Cupuaçu', 900, 3500, 730, 'coveado', 1200, 1800, tempo_descanso=30, max_ciclos=10),
+    'pimenta': CulturaPerene('Pimenta', 500, 4000, 120, 'coveado', 800, 1200, tempo_descanso=20, max_ciclos=6),
+    'cafe': CulturaSazonal('Café Clonal', 1800, 6000, 365, 'coveado', 2000, 3000, tempo_descanso=90, max_ciclos=10, estacoes_fruto=['outono', 'inverno'])
 }
 
 @cultivo_bp.route('/api/cultivo/detalhes', methods=['GET'])
