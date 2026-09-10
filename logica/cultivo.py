@@ -99,8 +99,8 @@ CATALOGO_CULTIVOS = {
     'melancia': Cultura('Melancia', 250, 40000, 85, 'coveado', 600, 1400),
     
     # PERENES (Investimento longo agora compensa muito mais)
-    'cana': CulturaPerene('Cana-de-Açúcar', 1200, 120000, 360, 'arado', 2000, 4000, tempo_descanso=30, max_ciclos=5), 
-    'banana': CulturaPerene('Banana', 800, 35000, 300, 'coveado', 1000, 1500, tempo_descanso=15, max_ciclos=8),
+    'cana': CulturaPerene('Cana-de-Açúcar', 1200, 110000, 360, 'arado', 2000, 4000, tempo_descanso=30, max_ciclos=5), 
+    'banana': CulturaPerene('Banana', 800, 30000, 300, 'coveado', 1000, 1500, tempo_descanso=15, max_ciclos=8),
     'cacau': CulturaPerene('Cacau', 1500, 4500, 500, 'coveado', 1500, 2000, tempo_descanso=45, max_ciclos=15),
     'acai': CulturaPerene('Açaí', 1000, 15000, 730, 'coveado', 1200, 1800, tempo_descanso=30, max_ciclos=12),
     'cupuacu': CulturaPerene('Cupuaçu', 900, 6000, 730, 'coveado', 1200, 1800, tempo_descanso=30, max_ciclos=10),
@@ -326,6 +326,10 @@ def colher():
 
     local_armazenamento = "Silo de Grãos" if tipo in itens_silo_graos else "Galpão Agrícola"
 
+    # 🔥 BLINDAGEM DE ESCOPO: Garante que as variáveis sempre existam para qualquer cultura
+    colheita_parcial = False
+    proporcao_colhida = 1.0
+
     if tipo in itens_silo_graos:
         total_silo = sum(getattr(fazenda_alvo, f'est_{i}', 0) for i in itens_silo_graos if hasattr(fazenda_alvo, f'est_{i}'))
         espaco_livre = fazenda_alvo.cap_silo - total_silo
@@ -334,16 +338,24 @@ def colher():
             return jsonify({'sucesso': False, 'erro': 'Silo Cheio! Expanda o silo ou venda os grãos atuais.'})
             
         kg_a_colher = min(kg_totais_disponiveis, espaco_livre)
-
+        
     colheita_parcial = kg_a_colher < kg_totais_disponiveis
     proporcao_colhida = kg_a_colher / kg_totais_disponiveis if kg_totais_disponiveis > 0 else 1
     
-    # 🔥 BALANCEAMENTO: A colheita também sofre inflação se for um milionário
-    qtd_prop = Propriedade.query.filter_by(dono_id=usuario.id).count()
-    fator_inflacao = 1.0 + (getattr(usuario, 'nivel', 1) * 0.02) + (qtd_prop * 0.05)
+    # 🔥 CORREÇÃO DA COLHEITA: Verifica se o jogador possui a Colheitadeira no Barracão desta fazenda
+    maquinas_dono = Maquinario.query.filter_by(propriedade_id=fazenda_alvo.id).all()
+    modelos_maquinas = [m.modelo for m in maquinas_dono]
+    tem_colheitadeira_propria = 'Colheitadeira Grãos' in modelos_maquinas
 
-    custo_base = dna_planta.custo_maquina_colheita * area * proporcao_colhida
-    custo_real = int(custo_base * fator_inflacao)
+    if tem_colheitadeira_propria:
+        custo_real = 0  # 🚜 Tem a máquina própria? Aluguel/serviço zerado!
+    else:
+        # 🔥 BALANCEAMENTO: A colheita sofre inflação se for terceirizada e o jogador for rico/latifundiário
+        qtd_prop = Propriedade.query.filter_by(dono_id=usuario.id).count()
+        fator_inflacao = 1.0 + (getattr(usuario, 'nivel', 1) * 0.02) + (qtd_prop * 0.05)
+
+        custo_base = dna_planta.custo_maquina_colheita * area * proporcao_colhida
+        custo_real = int(custo_base * fator_inflacao)
 
     if usuario.saldo < custo_real:
         return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente para bancar as colheitadeiras (R$ {custo_real:,.2f}).'})
@@ -356,8 +368,9 @@ def colher():
         return jsonify({'sucesso': False, 'erro': 'Erro de estoque.'})
     
     usuario.saldo -= custo_real
-    registrar_transacao(usuario.id, 'saida', custo_real, f'Aluguel de Colheitadeiras ({area}ha)')
-
+    if custo_real > 0:
+        registrar_transacao(usuario.id, 'saida', custo_real, f'Aluguel de Colheitadeiras ({area}ha)')
+        
     msg_final = ""
     if colheita_parcial:
         nova_produtividade = produtividade - (produtividade * proporcao_colhida)
@@ -367,7 +380,12 @@ def colher():
     else:
         lote.fertilidade_solo = max(0, getattr(lote, 'fertilidade_solo', 100) - 30)
         dna_planta.processar_pos_colheita(lote)
-        msg_final = f'Colheita finalizada! {kg_a_colher} kg armazenados no {local_armazenamento}.'
+        
+        # 🔥 ADICIONADO: Informa explicitamente se usou a colheitadeira própria ou se pagou aluguel
+        if tem_colheitadeira_propria:
+            msg_final = f'Colheita finalizada! {kg_a_colher} kg armazenados no {local_armazenamento}. 🚜 (Colheitadeira Própria: Taxa de Aluguel Zerada!)'
+        else:
+            msg_final = f'Colheita finalizada! {kg_a_colher} kg armazenados no {local_armazenamento}.'
 
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': msg_final})
