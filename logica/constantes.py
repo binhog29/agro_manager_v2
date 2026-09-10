@@ -11,23 +11,26 @@ INFO_ESPECIES = {
     'peixe_medio': {'racas': ['tambaqui', 'pacu', 'matrinxa', 'tucunare', 'curimata', 'piau', 'jaraqui'], 'peso_jovem': 0.5, 'peso_adulto': 3.0, 'gestacao': 0, 'ganho_dia': 0.1, 'dieta': 'racao'}
 }
 
-# 🔥 ATUALIZADO: Tempos de colheita mais dinâmicos e balanceados!
-INFO_CULTIVOS = {
-    'feijao':   {'dias_semente': 3,  'dias_broto': 8,   'dias_colheita': 20,   'agua_necessaria': 30},
-    'melancia': {'dias_semente': 3,  'dias_broto': 10,  'dias_colheita': 25,   'agua_necessaria': 30},
-    'milho':    {'dias_semente': 4,  'dias_broto': 10,  'dias_colheita': 25,   'agua_necessaria': 40},
-    'soja':     {'dias_semente': 5,  'dias_broto': 12,  'dias_colheita': 30,   'agua_necessaria': 50},
-    'arroz':    {'dias_semente': 5,  'dias_broto': 15,  'dias_colheita': 35,   'agua_necessaria': 80},
-    'pimenta':  {'dias_semente': 5,  'dias_broto': 15,  'dias_colheita': 40,   'agua_necessaria': 40},
-    'algodao':  {'dias_semente': 6,  'dias_broto': 20,  'dias_colheita': 45,   'agua_necessaria': 60},
-    'mandioca': {'dias_semente': 8,  'dias_broto': 25,  'dias_colheita': 60,   'agua_necessaria': 20},
-    'banana':   {'dias_semente': 10, 'dias_broto': 30,  'dias_colheita': 80,   'agua_necessaria': 50},
-    'cana':     {'dias_semente': 10, 'dias_broto': 30,  'dias_colheita': 90,   'agua_necessaria': 50},
-    'cafe':     {'dias_semente': 15, 'dias_broto': 45,  'dias_colheita': 120,  'agua_necessaria': 40},
-    'cupuacu':  {'dias_semente': 20, 'dias_broto': 60,  'dias_colheita': 150,  'agua_necessaria': 60},
-    'cacau':    {'dias_semente': 20, 'dias_broto': 60,  'dias_colheita': 150,  'agua_necessaria': 60},
-    'acai':     {'dias_semente': 25, 'dias_broto': 70,  'dias_colheita': 180,  'agua_necessaria': 70},
-    'tomate':   {'dias_semente': 3,  'dias_broto': 10,  'dias_colheita': 25,   'agua_necessaria': 40}
+CATALOGO_CULTIVOS = {
+    # NOME, CUSTO_SEMENTE, PRODUCAO_KG (Balanceada!), TEMPO, PREPARO, MAQUINA_PLANTIO, MAQUINA_COLHEITA
+    'soja': Cultura('Soja', 600, 5000, 100, 'arado', 800, 1200),
+    'milho': Cultura('Milho', 450, 9000, 90, 'arado', 800, 1100),
+    'arroz': Cultura('Arroz', 500, 7000, 110, 'arado', 900, 1300),
+    'feijao': Cultura('Feijão', 400, 3000, 80, 'arado', 700, 1000),
+    'algodao': Cultura('Algodão', 800, 4500, 150, 'arado', 1200, 1800),
+    'mandioca': Cultura('Mandioca', 300, 25000, 240, 'arado', 500, 1500),
+    'tomate': Cultura('Tomate', 150, 10000, 90, 'arado', 600, 1200),
+    'abacaxi': Cultura('Abacaxi', 350, 30000, 400, 'coveado', 800, 2000),
+    'melancia': Cultura('Melancia', 250, 20000, 85, 'coveado', 600, 1400),
+    
+    # PERENES (Ainda dão muito lucro, mas sem quebrar a economia)
+    'cana': CulturaPerene('Cana-de-Açúcar', 1200, 70000, 360, 'arado', 2000, 4000, tempo_descanso=30, max_ciclos=5), 
+    'banana': CulturaPerene('Banana', 800, 18000, 300, 'coveado', 1000, 1500, tempo_descanso=15, max_ciclos=8),
+    'cacau': CulturaPerene('Cacau', 1500, 2500, 500, 'coveado', 1500, 2000, tempo_descanso=45, max_ciclos=15),
+    'acai': CulturaPerene('Açaí', 1000, 8000, 730, 'coveado', 1200, 1800, tempo_descanso=30, max_ciclos=12),
+    'cupuacu': CulturaPerene('Cupuaçu', 900, 3500, 730, 'coveado', 1200, 1800, tempo_descanso=30, max_ciclos=10),
+    'pimenta': CulturaPerene('Pimenta', 500, 4000, 120, 'coveado', 800, 1200, tempo_descanso=20, max_ciclos=6),
+    'cafe': CulturaSazonal('Café Clonal', 1800, 6000, 365, 'coveado', 2000, 3000, tempo_descanso=90, max_ciclos=10, estacoes_fruto=['outono', 'inverno'])
 }
 
 TABELA_PRECOS = {

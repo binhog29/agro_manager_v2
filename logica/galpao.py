@@ -6,22 +6,21 @@ from logica.funcionarios import obter_bonus_equipe
 
 galpao_bp = Blueprint('galpao', __name__)
 
-# Tabela de preços base exclusiva do Galpão (Frutas, Raízes e Fibras)
+# Tabela de preços base exclusiva do Galpão (Meio-Termo Excelente)
 PRECOS_GALPAO = {
-    'tomate': 1.10,
-    'melancia': 0.40,
-    'abacaxi': 1.20,
-    'mandioca': 0.35,
-    'banana': 1.00,
-    'cacau': 12.00,
-    'acai': 3.50,
-    'cupuacu': 4.00,
-    'pimenta': 15.00,
-    'algodao': 3.80,
-    'cafe': 8.50,
-    'cana': 0.35       # 🔥 Ajustado de 0.12 para 0.35 para compensar o ciclo de 1 ano!
+    'tomate': 0.90,
+    'melancia': 0.30,
+    'abacaxi': 1.00,
+    'mandioca': 0.25,
+    'banana': 0.60,      # Caiu de 1.00 para 0.60 (Ainda dá lucro ótimo!)
+    'cacau': 9.00,       # Caiu de 12.00 para 9.00
+    'acai': 2.80,
+    'cupuacu': 3.20,
+    'pimenta': 12.00,
+    'algodao': 3.00,
+    'cafe': 6.50,
+    'cana': 0.20       
 }
-
 
 @galpao_bp.route('/api/galpao/vender', methods=['POST'])
 def vender_galpao():

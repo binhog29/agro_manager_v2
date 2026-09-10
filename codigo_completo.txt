@@ -255,17 +255,27 @@ def api_mapa_frota():
     props = Propriedade.query.filter_by(dono_id=usuario.id).all()
     prop_ids = [p.id for p in props]
     
-    # Procura animais e máquinas na rodovia que pertencem ou têm destino nas terras do usuário
-    em_viagem_animais = Animal.query.filter(Animal.onde_esta == 'caminhao', (Animal.propriedade_id.in_(prop_ids) | Animal.destino_id.in_(prop_ids))).all()
-    em_viagem_maq = Maquinario.query.filter(Maquinario.horas_viagem > 0, (Maquinario.propriedade_id.in_(prop_ids) | Maquinario.destino_id.in_(prop_ids))).all()
+    if not prop_ids:
+        return jsonify([])
+    
+    em_viagem_animais = Animal.query.filter(
+        Animal.onde_esta == 'caminhao',
+        db.or_(Animal.propriedade_id.in_(prop_ids), Animal.destino_id.in_(prop_ids))
+    ).all()
+    
+    em_viagem_maq = Maquinario.query.filter(
+        Maquinario.horas_viagem > 0,
+        db.or_(Maquinario.propriedade_id.in_(prop_ids), Maquinario.destino_id.in_(prop_ids))
+    ).all()
     
     viagens = {}
     
+    # Processa animais
     for a in em_viagem_animais:
         orig_id = a.propriedade_id
         dest_id = a.destino_id or a.propriedade_id
         horas = a.horas_viagem
-        chave = f"{orig_id}_{dest_id}_{horas}"
+        chave = f"animal_{orig_id}_{dest_id}_{horas}" # Chave única para animais
         
         if chave not in viagens:
             viagens[chave] = {
@@ -277,11 +287,12 @@ def api_mapa_frota():
             }
         viagens[chave]['qtd_animais'] += 1
         
+    # Processa máquinas separadamente para nunca sumirem se não houver gado
     for m in em_viagem_maq:
         orig_id = m.propriedade_id
         dest_id = m.destino_id or m.propriedade_id
         horas = m.horas_viagem
-        chave = f"{orig_id}_{dest_id}_{horas}"
+        chave = f"maq_{orig_id}_{dest_id}_{horas}" # Chave única para máquinas
         
         if chave not in viagens:
             viagens[chave] = {
@@ -1678,7 +1689,7 @@ def comprar_lote_ia():
             custo_frete = 0.0
     else:
         custo_frete = total_animais * frete_cabeca
-        custo_final_com_frete = custo_total_geral + custo_frete
+    custo_final_com_frete = custo_total_geral + custo_frete
 
     if usuario.saldo < custo_final_com_frete:
         return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente! Custa R$ {custo_final_com_frete:,.2f}'})
@@ -2400,7 +2411,7 @@ CATALOGO_CULTIVOS = {
     
     # PERENES (Investimento longo agora compensa muito mais)
     'cana': CulturaPerene('Cana-de-Açúcar', 1200, 110000, 360, 'arado', 2000, 4000, tempo_descanso=30, max_ciclos=5), 
-    'banana': CulturaPerene('Banana', 800, 30000, 300, 'coveado', 1000, 1500, tempo_descanso=15, max_ciclos=8),
+    'banana': CulturaPerene('Banana', 800, 29000, 300, 'coveado', 1000, 1500, tempo_descanso=15, max_ciclos=8),
     'cacau': CulturaPerene('Cacau', 1500, 4500, 500, 'coveado', 1500, 2000, tempo_descanso=45, max_ciclos=15),
     'acai': CulturaPerene('Açaí', 1000, 15000, 730, 'coveado', 1200, 1800, tempo_descanso=30, max_ciclos=12),
     'cupuacu': CulturaPerene('Cupuaçu', 900, 6000, 730, 'coveado', 1200, 1800, tempo_descanso=30, max_ciclos=10),
@@ -2620,13 +2631,16 @@ def colher():
     
     kg_totais_disponiveis = int(dna_planta.producao_kg * area * (produtividade / 100.0) * multiplicador_trator)
 
+    # 🔥 BALANCEAMENTO PERENE: Reduz para 30% nas colheitas rápidas subsequentes (após a 1ª colheita)
+    if getattr(dna_planta, 'tipo_biologia', 'anual') in ['perene', 'sazonal'] and getattr(lote, 'ciclos_colhidos', 0) > 0:
+        kg_totais_disponiveis = int(kg_totais_disponiveis * 0.3)
+
     itens_silo_graos = ['soja', 'milho', 'arroz', 'feijao']
     kg_a_colher = kg_totais_disponiveis
     espaco_livre = 9999999 
 
     local_armazenamento = "Silo de Grãos" if tipo in itens_silo_graos else "Galpão Agrícola"
 
-    # 🔥 BLINDAGEM DE ESCOPO: Garante que as variáveis sempre existam para qualquer cultura
     colheita_parcial = False
     proporcao_colhida = 1.0
 
@@ -2642,15 +2656,13 @@ def colher():
     colheita_parcial = kg_a_colher < kg_totais_disponiveis
     proporcao_colhida = kg_a_colher / kg_totais_disponiveis if kg_totais_disponiveis > 0 else 1
     
-    # 🔥 CORREÇÃO DA COLHEITA: Verifica se o jogador possui a Colheitadeira no Barracão desta fazenda
     maquinas_dono = Maquinario.query.filter_by(propriedade_id=fazenda_alvo.id).all()
     modelos_maquinas = [m.modelo for m in maquinas_dono]
     tem_colheitadeira_propria = 'Colheitadeira Grãos' in modelos_maquinas
 
     if tem_colheitadeira_propria:
-        custo_real = 0  # 🚜 Tem a máquina própria? Aluguel/serviço zerado!
+        custo_real = 0  
     else:
-        # 🔥 BALANCEAMENTO: A colheita sofre inflação se for terceirizada e o jogador for rico/latifundiário
         qtd_prop = Propriedade.query.filter_by(dono_id=usuario.id).count()
         fator_inflacao = 1.0 + (getattr(usuario, 'nivel', 1) * 0.02) + (qtd_prop * 0.05)
 
@@ -2681,7 +2693,6 @@ def colher():
         lote.fertilidade_solo = max(0, getattr(lote, 'fertilidade_solo', 100) - 30)
         dna_planta.processar_pos_colheita(lote)
         
-        # 🔥 ADICIONADO: Informa explicitamente se usou a colheitadeira própria ou se pagou aluguel
         if tem_colheitadeira_propria:
             msg_final = f'Colheita finalizada! {kg_a_colher} kg armazenados no {local_armazenamento}. 🚜 (Colheitadeira Própria: Taxa de Aluguel Zerada!)'
         else:
@@ -6177,9 +6188,6 @@ from logica.economia import registrar_transacao
 
 barracao_bp = Blueprint('barracao', __name__)
 
-# ==========================================
-# OOP: CATÁLOGO DE MAQUINÁRIOS (Concessionária)
-# ==========================================
 class Concessionaria:
     CATALOGO = {
         'trator_leve': {'nome': 'Trator Leve', 'tipo': 'Trator', 'hp': 75, 'preco': 85000},
@@ -6190,51 +6198,52 @@ class Concessionaria:
         'pulverizador': {'nome': 'Pulverizador', 'tipo': 'Implemento', 'hp': 190, 'preco': 420000},
         'pulv_arrasto': {'nome': 'Pulverizador de Arrasto', 'tipo': 'Implemento', 'hp': 75, 'preco': 35000},
         'plantadeira': {'nome': 'Plantadeira', 'tipo': 'Implemento', 'hp': 120, 'preco': 150000},
-        'grade_aradora': {'nome': 'Grade Aradora', 'tipo': 'Implemento', 'hp': 140, 'preco': 65000}, # 🔥 NOVO AQUI
+        'grade_aradora': {'nome': 'Grade Aradora', 'tipo': 'Implemento', 'hp': 140, 'preco': 65000},
         'caminhonete_usada': {'nome': 'Caminhonete Usada', 'tipo': 'Veiculo', 'hp': 110, 'preco': 45000},
         'caminhonete_nova': {'nome': 'Caminhonete Nova', 'tipo': 'Veiculo', 'hp': 160, 'preco': 180000},
         'caminhao_boiadeiro': {'nome': 'Caminhão Boiadeiro', 'tipo': 'Caminhao', 'hp': 300, 'preco': 250000},
         'caminhao_bau': {'nome': 'Caminhão Baú (Frios)', 'tipo': 'Caminhao', 'hp': 250, 'preco': 200000},
-        'caminhao_prancha': {'nome': 'Caminhão Prancha', 'tipo': 'Caminhao', 'hp': 400, 'preco': 380000} # 🔥 AQUI O GUINCHO!
-    
+        'caminhao_prancha': {'nome': 'Caminhão Prancha', 'tipo': 'Caminhao', 'hp': 400, 'preco': 380000}
     }
+
+def get_imagem(modelo):
+    mapa = {
+        'Trator Leve': 'trator_leve.png',
+        'Trator Pesado': 'trator_pesado.png',
+        'Trator de Esteira': 'trator_esteira.png',
+        'Escavadeira': 'escavadeira.png',
+        'Colheitadeira Grãos': 'colheitadeira.png',
+        'Pulverizador': 'pulverizador.png',
+        'Pulverizador de Arrasto': 'pulv_arrasto.png',
+        'Plantadeira': 'plantadeira.png',
+        'Grade Aradora': 'grade_aradora.png',
+        'Caminhão Boiadeiro': 'caminhao_boiadeiro.png',
+        'Caminhão Baú (Frios)': 'caminhao_bau.png',
+        'Caminhonete Usada': 'caminhonete_usada.png',
+        'Caminhonete Nova': 'caminhonete_nova.png',
+        'Caminhão Prancha': 'caminhao_prancha.png'
+    }
+    return mapa.get(modelo, 'trator.png')
 
 @barracao_bp.route('/api/barracao/listar', methods=['GET'])
 def listar_barracao():
-    if 'usuario' not in session: return jsonify({'sucesso': False})
+    if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Não autenticado'})
     
     jogador = Jogador.query.filter_by(username=session['usuario']).first()
     fazenda_id = request.args.get('fazenda_id')
     
-    if not fazenda_id: return jsonify({'sucesso': False})
+    if not fazenda_id: return jsonify({'sucesso': False, 'erro': 'ID não fornecido'})
     
     fazenda = Propriedade.query.filter_by(id=fazenda_id, dono_id=jogador.id).first()
-    if not fazenda: return jsonify({'sucesso': False})
+    if not fazenda: return jsonify({'sucesso': False, 'erro': 'Fazenda não encontrada'})
 
+    # Traz somente as máquinas que estão na fazenda e paradas (não em viagem)
     maquinas = Maquinario.query.filter(
-        Maquinario.propriedade_id == fazenda.id, 
-        (Maquinario.horas_viagem == None) | (Maquinario.horas_viagem <= 0)
+        Maquinario.propriedade_id == fazenda.id,
+        db.or_(Maquinario.horas_viagem == None, Maquinario.horas_viagem <= 0)
     ).all()
-    limite_vagas = fazenda.cap_barracao if getattr(fazenda, 'cap_barracao', 0) > 0 else 4
     
-    def get_imagem(modelo):
-        mapa = {
-            'Trator Leve': 'trator_leve.png',
-            'Trator Pesado': 'trator_pesado.png',
-            'Trator de Esteira': 'trator_esteira.png',
-            'Escavadeira': 'escavadeira.png',
-            'Colheitadeira Grãos': 'colheitadeira.png',
-            'Pulverizador': 'pulverizador.png',
-            'Pulverizador de Arrasto': 'pulv_arrasto.png',
-            'Plantadeira': 'plantadeira.png', 
-            'Grade Aradora': 'grade_aradora.png',
-            'Caminhão Boiadeiro': 'caminhao_boiadeiro.png',
-            'Caminhão Baú (Frios)': 'caminhao_bau.png',
-            'Caminhonete Usada': 'caminhonete_usada.png',
-            'Caminhonete Nova': 'caminhonete_nova.png',
-            'Caminhão Prancha': 'caminhao_prancha.png' # 🔥 ADICIONADO AQUI!
-        }
-        return mapa.get(modelo, 'trator.png')
+    limite_vagas = fazenda.cap_barracao if getattr(fazenda, 'cap_barracao', 0) > 0 else 4
     
     lista = [{
         'id': m.id,
@@ -6245,14 +6254,14 @@ def listar_barracao():
         'combustivel': m.nivel_combustivel,
         'ipva': m.ipva_pago,
         'imagem': get_imagem(m.modelo),
-        'em_viagem': getattr(m, 'horas_viagem', 0) > 0,
-        'horas_restantes': getattr(m, 'horas_viagem', 0)
+        'em_viagem': bool(getattr(m, 'horas_viagem', 0) and m.horas_viagem > 0),
+        'horas_restantes': getattr(m, 'horas_viagem', 0) or 0
     } for m in maquinas]
     
     return jsonify({
         'sucesso': True, 
         'maquinas': lista, 
-        'estoque_diesel': getattr(fazenda, 'est_combustivel', 0),
+        'estoque_diesel': getattr(fazenda, 'est_combustivel', 0) or 0,
         'limite_vagas': limite_vagas
     })
 
@@ -6260,7 +6269,7 @@ def listar_barracao():
 def comprar_maquina():
     if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
     jogador = Jogador.query.filter_by(username=session['usuario']).first()
-    dados = request.get_json()
+    dados = request.get_json() or {}
     
     chave = dados.get('chave_maquina')
     fazenda_id = dados.get('fazenda_id')
@@ -6287,7 +6296,9 @@ def comprar_maquina():
         modelo=maquina_info['nome'],
         potencia_hp=maquina_info['hp'],
         estado_conservacao=100,
-        nivel_combustivel=100
+        nivel_combustivel=100,
+        horas_viagem=0,
+        destino_id=None
     )
     
     db.session.add(nova_maquina)
@@ -6303,7 +6314,7 @@ def comprar_maquina():
 def vender_maquina():
     if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
     jogador = Jogador.query.filter_by(username=session['usuario']).first()
-    dados = request.get_json()
+    dados = request.get_json() or {}
     
     maquina = Maquinario.query.get(dados.get('maquina_id'))
     if not maquina: return jsonify({'sucesso': False, 'erro': 'Máquina não encontrada.'})
@@ -6311,14 +6322,12 @@ def vender_maquina():
     fazenda = Propriedade.query.filter_by(id=maquina.propriedade_id, dono_id=jogador.id).first()
     if not fazenda: return jsonify({'sucesso': False, 'erro': 'Acesso negado.'})
 
-    # Busca o preço original na concessionária
     preco_base = 0
     for chave, info in Concessionaria.CATALOGO.items():
         if info['nome'] == maquina.modelo:
             preco_base = info['preco']
             break
             
-    # O ferro-velho paga 50% do valor da tabela
     valor_venda = preco_base * 0.50 if preco_base > 0 else 10000.0
     
     jogador.saldo += valor_venda
@@ -6326,14 +6335,13 @@ def vender_maquina():
     
     db.session.delete(maquina)
     db.session.commit()
-    
     return jsonify({'sucesso': True, 'msg': f'{maquina.modelo} vendido por R$ {valor_venda:,.2f}!'})
 
 @barracao_bp.route('/api/barracao/expandir', methods=['POST'])
 def expandir_barracao():
     if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
     jogador = Jogador.query.filter_by(username=session['usuario']).first()
-    dados = request.get_json()
+    dados = request.get_json() or {}
     fazenda_id = dados.get('fazenda_id')
     
     fazenda = Propriedade.query.filter_by(id=fazenda_id, dono_id=jogador.id).first()
@@ -6346,20 +6354,18 @@ def expandir_barracao():
         return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente. A obra custa R$ {CUSTO_EXPANSAO:,.2f}.'})
 
     jogador.saldo -= CUSTO_EXPANSAO
-    
     capacidade_atual = fazenda.cap_barracao if getattr(fazenda, 'cap_barracao', 0) > 0 else 4
     fazenda.cap_barracao = capacidade_atual + VAGAS_ADCIONAIS
 
     registrar_transacao(jogador.id, 'saida', CUSTO_EXPANSAO, f'Engenharia: Expansão do Barracão (+{VAGAS_ADCIONAIS} vagas)')
     db.session.commit()
-    
     return jsonify({'sucesso': True, 'msg': f'Barracão expandido! Agora você tem {fazenda.cap_barracao} vagas.'})
 
 @barracao_bp.route('/api/barracao/manutencao', methods=['POST'])
 def manutencao_maquina():
-    if 'usuario' not in session: return jsonify({'sucesso': False})
+    if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
     jogador = Jogador.query.filter_by(username=session['usuario']).first()
-    dados = request.get_json()
+    dados = request.get_json() or {}
     
     maquina = Maquinario.query.get(dados.get('maquina_id'))
     if not maquina: return jsonify({'sucesso': False, 'erro': 'Máquina não encontrada.'})
@@ -6368,21 +6374,13 @@ def manutencao_maquina():
         return jsonify({'sucesso': False, 'erro': 'A máquina já está em perfeito estado!'})
         
     dano = 100 - maquina.estado_conservacao
-    
-    # 🔥 NOVO: Custo de manutenção inteligente e proporcional ao valor da máquina!
     preco_base = 0
     for chave, info in Concessionaria.CATALOGO.items():
         if info['nome'] == maquina.modelo:
             preco_base = info['preco']
             break
             
-    # O conserto de 100% de dano custa 15% do valor de um veículo zero km.
-    # Exemplo: Caminhonete de 45.000 = 6.750 o conserto total. (1% = R$ 67,50)
-    # Exemplo: Colheitadeira de 850.000 = 127.500 o conserto total. (1% = R$ 1.275,00)
-    if preco_base > 0:
-        custo_reparo = dano * (preco_base * 0.0015) 
-    else:
-        custo_reparo = dano * 350.0 # Fallback de segurança
+    custo_reparo = dano * (preco_base * 0.0015) if preco_base > 0 else dano * 350.0
     
     if jogador.saldo < custo_reparo:
         return jsonify({'sucesso': False, 'erro': f'Faltou dinheiro pro mecânico. Custa R$ {custo_reparo:,.2f}.'})
@@ -6396,11 +6394,12 @@ def manutencao_maquina():
 
 @barracao_bp.route('/api/barracao/abastecer', methods=['POST'])
 def abastecer_maquina():
-    if 'usuario' not in session: return jsonify({'sucesso': False})
+    if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
     jogador = Jogador.query.filter_by(username=session['usuario']).first()
-    dados = request.get_json()
+    dados = request.get_json() or {}
     
     maquina = Maquinario.query.get(dados.get('maquina_id'))
+    if not maquina: return jsonify({'sucesso': False, 'erro': 'Máquina não encontrada.'})
     fazenda = Propriedade.query.filter_by(id=maquina.propriedade_id, dono_id=jogador.id).first()
     
     if not fazenda: return jsonify({'sucesso': False, 'erro': 'Acesso negado.'})
@@ -6424,7 +6423,7 @@ def abastecer_maquina():
 def transferir_maquina():
     if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
     usuario = Jogador.query.filter_by(username=session['usuario']).first()
-    dados = request.get_json()
+    dados = request.get_json() or {}
     
     maquina_id = dados.get('maquina_id')
     destino_id = int(dados.get('destino_id', 0))
@@ -6444,38 +6443,34 @@ def transferir_maquina():
     limite = prop_destino.cap_barracao if getattr(prop_destino, 'cap_barracao', 0) > 0 else 4
     atual = Maquinario.query.filter_by(propriedade_id=prop_destino.id).count()
     
-    # 🎯 Se for usar o caminhão prancha junto com a máquina, precisa de 2 vagas lá!
     if usa_prancha and maquina.tipo not in ['Veiculo', 'Caminhao']:
         if atual + 1 >= limite:
-             return jsonify({'sucesso': False, 'erro': f'Barracão lotado! Você precisa de 2 vagas no destino (A Prancha viaja junto com {maquina.modelo}). Limite: {limite}.'})
+             return jsonify({'sucesso': False, 'erro': f'Barracão lotado no destino! Precisa de 2 vagas (a prancha viaja junto). Limite: {limite}.'})
     else:
         if atual >= limite:
-            return jsonify({'sucesso': False, 'erro': f'O Barracão de destino está lotado! O limite lá é de {limite} vagas.'})
+            return jsonify({'sucesso': False, 'erro': f'O Barracão de destino está lotado! Limite: {limite} vagas.'})
         
     cidade_origem = prop_origem.nome.split(" de ")[-1]
     cidade_destino = prop_destino.nome.split(" de ")[-1]
     tempo_viagem = 6 if cidade_origem == cidade_destino else 24
     
-    custo_transporte = 0.0
-    
     if maquina.tipo in ['Veiculo', 'Caminhao']:
-        # 🛻 RODA SOZINHO (Só gasta o próprio diesel/saúde)
         if maquina.nivel_combustivel < 15 or maquina.estado_conservacao < 5:
-            return jsonify({'sucesso': False, 'erro': f'O {maquina.modelo} precisa ter pelo menos 15% de diesel e 5% de condição para ir dirigindo.'})
+            return jsonify({'sucesso': False, 'erro': f'O {maquina.modelo} precisa ter no mínimo 15% de combustível e 5% de conservação para ir rodando.'})
         maquina.nivel_combustivel -= 15
         maquina.estado_conservacao -= 5
     else:
-        # 🚜 PRECISA SER REBOCADO
         if usa_prancha:
             prancha = Maquinario.query.filter(
                 Maquinario.propriedade_id == prop_origem.id,
                 Maquinario.modelo == 'Caminhão Prancha',
+                db.or_(Maquinario.horas_viagem == None, Maquinario.horas_viagem <= 0),
                 Maquinario.nivel_combustivel >= 15,
                 Maquinario.estado_conservacao >= 5
             ).first()
             
             if not prancha:
-                return jsonify({'sucesso': False, 'erro': 'Nenhum Caminhão Prancha livre e abastecido nesta fazenda!'})
+                return jsonify({'sucesso': False, 'erro': 'Nenhum Caminhão Prancha disponível e abastecido nesta fazenda!'})
             
             prancha.nivel_combustivel -= 15
             prancha.estado_conservacao -= 5
@@ -7128,7 +7123,7 @@ document.addEventListener('DOMContentLoaded', function() {
     estiloAnimacao.innerHTML = `
         @keyframes dashAnim { to { stroke-dashoffset: -20; } }
         .rota-tracejada-animada { animation: dashAnim 0.8s linear infinite; }
-        .swal2-container { z-index: 99999 !important; } /* 🔥 Joga o modal acima de qualquer barra ou menu */
+        .swal2-container { z-index: 99999 !important; }
     `;
     document.head.appendChild(estiloAnimacao);
 
@@ -7253,7 +7248,7 @@ document.addEventListener('DOMContentLoaded', function() {
             } else renderizarAncoras();
         } else renderizarAncoras();
 
-        // Carrega a Frota em Trânsito (Blindado contra erros)
+        // Carrega a Frota em Trânsito
         fetch('/api/mapa_frota')
         .then(r => r.json())
         .then(frota => {
@@ -7319,13 +7314,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (btnFrota) btnFrota.remove();
             }
         }).catch(err => console.error("Erro ao carregar a frota do mapa:", err));
+    });
 
     // Renderização de Âncoras do Mapa
     function renderizarAncoras() {
         layerPropriedades.clearLayers(); 
         layerAncoras.clearLayers();      
 
-        // 1. Cidades
         CIDADES.forEach(cidade => {
             let terrasDaCidade = todasAsTerras.filter(f => f.cidade === cidade.nome);
             if(terrasDaCidade.length > 0) {
@@ -7341,7 +7336,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        // 2. Concessionária
         let latConcessionaria = 940;  
         let lngConcessionaria = 620;  
         let htmlConcessionaria = `
@@ -7354,7 +7348,6 @@ document.addEventListener('DOMContentLoaded', function() {
         let iconConcessionaria = L.divIcon({ html: htmlConcessionaria, className: '', iconSize: [120, 70], iconAnchor: [60, 68] });
         L.marker([latConcessionaria, lngConcessionaria], {icon: iconConcessionaria}).addTo(layerAncoras);
         
-        // 3. Leilão / Mercado
         let latLeilao = 1150; 
         let lngLeilao = 680;  
         let htmlLeilao = `
@@ -7367,7 +7360,6 @@ document.addEventListener('DOMContentLoaded', function() {
         let iconLeilao = L.divIcon({ html: htmlLeilao, className: '', iconSize: [120, 70], iconAnchor: [60, 68] });
         L.marker([latLeilao, lngLeilao], {icon: iconLeilao}).addTo(layerAncoras);
 
-        // 4. Loja Agrícola
         let latLoja = 1050; 
         let lngLoja = 550;  
         let htmlLoja = `
@@ -7381,9 +7373,6 @@ document.addEventListener('DOMContentLoaded', function() {
         L.marker([latLoja, lngLoja], {icon: iconLoja}).addTo(layerAncoras);
     }
     
-    // ==========================================
-    // 🚜 SISTEMA DA CONCESSIONÁRIA
-    // ==========================================
     window.abrirConcessionaria = function() {
         const minhasTerras = todasAsTerras.filter(t => t.e_minha);
         if(minhasTerras.length === 0) {
@@ -7469,9 +7458,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-        // ==========================================
-    // 🏪 SISTEMA DA LOJA AGRÍCOLA COMPLETO
-    // ==========================================
     window.abrirLoja = function() {
         const minhasTerras = todasAsTerras.filter(t => t.e_minha);
         if(minhasTerras.length === 0) {
@@ -7554,8 +7540,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-
-    // Função de Zoom na Região
+    
     function darZoomNaRegiao(cidade, terras, rapido = false) {
         layerAncoras.clearLayers(); layerPropriedades.clearLayers();
         localStorage.setItem('cidade_aberta_agro', cidade.nome);
@@ -7605,11 +7590,8 @@ document.addEventListener('DOMContentLoaded', function() {
         renderizarAncoras();             
         map.flyToBounds(mapBounds, { duration: 1.5 });
     }
-        
-    });
 
 });
-
 
 ============================================================
 ARQUIVO: ./static/js/perfil.js
