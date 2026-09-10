@@ -5,7 +5,7 @@ document.addEventListener('DOMContentLoaded', function() {
     estiloAnimacao.innerHTML = `
         @keyframes dashAnim { to { stroke-dashoffset: -20; } }
         .rota-tracejada-animada { animation: dashAnim 0.8s linear infinite; }
-        .swal2-container { z-index: 99999 !important; } /* 🔥 Joga o modal acima de qualquer barra ou menu */
+        .swal2-container { z-index: 99999 !important; }
     `;
     document.head.appendChild(estiloAnimacao);
 
@@ -134,7 +134,7 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch('/api/mapa_frota')
         .then(r => r.json())
         .then(frota => {
-            if (frota.length > 0) {
+            if (Array.isArray(frota) && frota.length > 0) {
                 let btnFrota = document.getElementById('btn-frota-ativa');
                 if (!btnFrota) {
                     btnFrota = document.createElement('div');
@@ -162,15 +162,22 @@ document.addEventListener('DOMContentLoaded', function() {
                         let nomeO = orig ? orig.nome : "Origem Desconhecida";
                         let nomeD = dest ? dest.nome : "Destino Desconhecido";
                         
+                        let cargaText = "";
+                        if (viagem.qtd_animais && viagem.qtd_animais > 0) cargaText += `${viagem.qtd_animais} cabeça(s)<br>`;
+                        if (viagem.maquinas && Array.isArray(viagem.maquinas) && viagem.maquinas.length > 0) {
+                            cargaText += `Máquina: ${viagem.maquinas.join(', ')}`;
+                        }
+                        if (cargaText === "") cargaText = "Carga Indefinida";
+
                         htmlList += `
                         <div style="background: #222; border-left: 4px solid #ff9800; padding: 10px; border-radius: 6px; margin-bottom: 8px; border: 1px solid #333;">
                             <div style="color: #fff; font-weight: bold; margin-bottom: 8px; font-size: 14px;">
-                                <i class="fas fa-truck"></i> Carga: ${viagem.qtd} cabeças
+                                <i class="fas fa-truck"></i> Carga: <span style="color:#ffb300;">${cargaText}</span>
                             </div>
                             <div style="font-size: 12px; color: #aaa; margin-bottom: 2px;"><b>De:</b> ${nomeO}</div>
                             <div style="font-size: 12px; color: #aaa;"><b>Para:</b> ${nomeD}</div>
                             <div style="margin-top: 8px; font-size: 12px; color: #4caf50; background: #111; padding: 5px; border-radius: 4px; text-align: center; font-weight: bold;">
-                                <i class="fas fa-clock"></i> Chega em ${viagem.horas_restantes} horas do jogo
+                                <i class="fas fa-clock"></i> Chega em ${viagem.horas_restantes || 0} horas do jogo
                             </div>
                         </div>
                         `;
@@ -188,15 +195,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 let btnFrota = document.getElementById('btn-frota-ativa');
                 if (btnFrota) btnFrota.remove();
             }
-        });
-    }).catch(erro => console.error(erro));
-    
+        }).catch(err => console.error("Erro ao carregar a frota do mapa:", err));
+    });
+
     // Renderização de Âncoras do Mapa
     function renderizarAncoras() {
         layerPropriedades.clearLayers(); 
         layerAncoras.clearLayers();      
 
-        // 1. Cidades
         CIDADES.forEach(cidade => {
             let terrasDaCidade = todasAsTerras.filter(f => f.cidade === cidade.nome);
             if(terrasDaCidade.length > 0) {
@@ -212,7 +218,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        // 2. Concessionária
         let latConcessionaria = 940;  
         let lngConcessionaria = 620;  
         let htmlConcessionaria = `
@@ -225,7 +230,6 @@ document.addEventListener('DOMContentLoaded', function() {
         let iconConcessionaria = L.divIcon({ html: htmlConcessionaria, className: '', iconSize: [120, 70], iconAnchor: [60, 68] });
         L.marker([latConcessionaria, lngConcessionaria], {icon: iconConcessionaria}).addTo(layerAncoras);
         
-        // 3. Leilão / Mercado
         let latLeilao = 1150; 
         let lngLeilao = 680;  
         let htmlLeilao = `
@@ -238,7 +242,6 @@ document.addEventListener('DOMContentLoaded', function() {
         let iconLeilao = L.divIcon({ html: htmlLeilao, className: '', iconSize: [120, 70], iconAnchor: [60, 68] });
         L.marker([latLeilao, lngLeilao], {icon: iconLeilao}).addTo(layerAncoras);
 
-        // 4. Loja Agrícola
         let latLoja = 1050; 
         let lngLoja = 550;  
         let htmlLoja = `
@@ -252,9 +255,6 @@ document.addEventListener('DOMContentLoaded', function() {
         L.marker([latLoja, lngLoja], {icon: iconLoja}).addTo(layerAncoras);
     }
     
-    // ==========================================
-    // 🚜 SISTEMA DA CONCESSIONÁRIA
-    // ==========================================
     window.abrirConcessionaria = function() {
         const minhasTerras = todasAsTerras.filter(t => t.e_minha);
         if(minhasTerras.length === 0) {
@@ -279,7 +279,8 @@ document.addEventListener('DOMContentLoaded', function() {
             { chave: 'caminhonete_usada', nome: 'Caminhonete Usada', preco: 45000, desc: 'Frete grátis básico para lotes pequenos.', imagem: 'caminhonete_usada.png', icon: 'fa-truck-pickup', cor: '#9e9e9e' },
             { chave: 'caminhonete_nova', nome: 'Caminhonete Nova', preco: 180000, desc: 'Maior capacidade e menos gastos na oficina.', imagem: 'caminhonete_nova.png', icon: 'fa-truck-pickup', cor: '#e0e0e0' },
             { chave: 'caminhao_boiadeiro', nome: 'Caminhão Boiadeiro', preco: 250000, desc: 'Frete grátis para Gado, Porcos e Cavalos.', imagem: 'caminhao_boiadeiro.png', icon: 'fa-truck', cor: '#8d6e63' },
-            { chave: 'caminhao_bau', nome: 'Caminhão Baú (Frios)', preco: 200000, desc: 'Frete grátis para logística de Peixes.', imagem: 'caminhao_bau.png', icon: 'fa-snowflake', cor: '#81d4fa' }
+            { chave: 'caminhao_bau', nome: 'Caminhão Baú (Frios)', preco: 200000, desc: 'Frete grátis para logística de Peixes.', imagem: 'caminhao_bau.png', icon: 'fa-snowflake', cor: '#81d4fa' },
+            { chave: 'caminhao_prancha', nome: 'Caminhão Prancha', preco: 380000, desc: 'Transporta maquinário pesado entre fazendas de graça.', imagem: 'caminhao_prancha.png', icon: 'fa-truck-loading', cor: '#d84315' }
         ];
 
         let htmlList = `<div style="text-align:left; color:#fff; font-family: 'Poppins', sans-serif;">`;
@@ -339,9 +340,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-        // ==========================================
-    // 🏪 SISTEMA DA LOJA AGRÍCOLA COMPLETO
-    // ==========================================
     window.abrirLoja = function() {
         const minhasTerras = todasAsTerras.filter(t => t.e_minha);
         if(minhasTerras.length === 0) {
@@ -424,8 +422,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-
-    // Função de Zoom na Região
+    
     function darZoomNaRegiao(cidade, terras, rapido = false) {
         layerAncoras.clearLayers(); layerPropriedades.clearLayers();
         localStorage.setItem('cidade_aberta_agro', cidade.nome);

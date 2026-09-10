@@ -317,7 +317,9 @@ class Maquinario(db.Model):
     
     ipva_pago = db.Column(db.Boolean, default=True)  
     implemento_acoplado = db.Column(db.String(50), default='nenhum') 
-
+    destino_id = db.Column(db.Integer, nullable=True)
+    horas_viagem = db.Column(db.Integer, default=0)
+    
 # ==============================================================
 # ECONOMIA E MERCADO
 # ==============================================================

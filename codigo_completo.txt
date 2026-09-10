@@ -255,21 +255,43 @@ def api_mapa_frota():
     props = Propriedade.query.filter_by(dono_id=usuario.id).all()
     prop_ids = [p.id for p in props]
     
-    # Procura animais trancados no caminhão
-    em_viagem = Animal.query.filter(Animal.propriedade_id.in_(prop_ids), Animal.onde_esta == 'caminhao').all()
+    # Procura animais e máquinas na rodovia que pertencem ou têm destino nas terras do usuário
+    em_viagem_animais = Animal.query.filter(Animal.onde_esta == 'caminhao', (Animal.propriedade_id.in_(prop_ids) | Animal.destino_id.in_(prop_ids))).all()
+    em_viagem_maq = Maquinario.query.filter(Maquinario.horas_viagem > 0, (Maquinario.propriedade_id.in_(prop_ids) | Maquinario.destino_id.in_(prop_ids))).all()
     
     viagens = {}
-    for a in em_viagem:
-        # Agrupa pelo mesmo destino e mesma duração restante
-        chave = f"{a.propriedade_id}_{a.destino_id}_{a.horas_viagem}"
+    
+    for a in em_viagem_animais:
+        orig_id = a.propriedade_id
+        dest_id = a.destino_id or a.propriedade_id
+        horas = a.horas_viagem
+        chave = f"{orig_id}_{dest_id}_{horas}"
+        
         if chave not in viagens:
             viagens[chave] = {
-                'origem_id': a.propriedade_id,
-                'destino_id': a.destino_id,
-                'horas_restantes': a.horas_viagem,
-                'qtd': 0
+                'origem_id': orig_id, 
+                'destino_id': dest_id, 
+                'horas_restantes': horas, 
+                'qtd_animais': 0, 
+                'maquinas': []
             }
-        viagens[chave]['qtd'] += 1
+        viagens[chave]['qtd_animais'] += 1
+        
+    for m in em_viagem_maq:
+        orig_id = m.propriedade_id
+        dest_id = m.destino_id or m.propriedade_id
+        horas = m.horas_viagem
+        chave = f"{orig_id}_{dest_id}_{horas}"
+        
+        if chave not in viagens:
+            viagens[chave] = {
+                'origem_id': orig_id, 
+                'destino_id': dest_id, 
+                'horas_restantes': horas, 
+                'qtd_animais': 0, 
+                'maquinas': []
+            }
+        viagens[chave]['maquinas'].append(m.modelo)
         
     return jsonify(list(viagens.values()))
 
@@ -950,7 +972,9 @@ class Maquinario(db.Model):
     
     ipva_pago = db.Column(db.Boolean, default=True)  
     implemento_acoplado = db.Column(db.String(50), default='nenhum') 
-
+    destino_id = db.Column(db.Integer, nullable=True)
+    horas_viagem = db.Column(db.Integer, default=0)
+    
 # ==============================================================
 # ECONOMIA E MERCADO
 # ==============================================================
@@ -1117,7 +1141,7 @@ if __name__ == '__main__':
 
 
 ============================================================
-ARQUIVO: ./migrar_frota.py
+ARQUIVO: ./migrar_maquinas.py
 ============================================================
 
 import sqlite3
@@ -1126,106 +1150,16 @@ def consertar_banco():
     try:
         conn = sqlite3.connect('banco_dados.db')
         cursor = conn.cursor()
-        cursor.execute("ALTER TABLE animais ADD COLUMN destino_id INTEGER")
-        cursor.execute("ALTER TABLE animais ADD COLUMN habitat_destino VARCHAR(50)")
-        cursor.execute("ALTER TABLE animais ADD COLUMN horas_viagem INTEGER DEFAULT 0")
+        cursor.execute("ALTER TABLE maquinarios ADD COLUMN destino_id INTEGER")
+        cursor.execute("ALTER TABLE maquinarios ADD COLUMN horas_viagem INTEGER DEFAULT 0")
         conn.commit()
         conn.close()
-        print("✅ Colunas de Logística e Frota adicionadas com sucesso!")
+        print("✅ Colunas de Logística de Máquinas adicionadas com sucesso!")
     except Exception as e:
         print("⚠️ As colunas já existem ou ocorreu um erro:", e)
 
 if __name__ == '__main__':
     consertar_banco()
-
-
-============================================================
-ARQUIVO: ./migrar_haras.py
-============================================================
-
-import sqlite3
-
-def consertar_banco():
-    try:
-        conn = sqlite3.connect('banco_dados.db')
-        cursor = conn.cursor()
-        
-        colunas = [
-            "cap_haras INTEGER DEFAULT 10",
-            "tem_haras BOOLEAN DEFAULT 0",
-            "haras_tem_comedouro BOOLEAN DEFAULT 0",
-            "haras_qtd_racao FLOAT DEFAULT 0.0",
-            "cap_aprisco INTEGER DEFAULT 30",
-            "tem_aprisco BOOLEAN DEFAULT 0",
-            "aprisco_tem_comedouro BOOLEAN DEFAULT 0",
-            "aprisco_qtd_racao FLOAT DEFAULT 0.0"
-        ]
-        
-        for col in colunas:
-            try: cursor.execute(f"ALTER TABLE propriedades ADD COLUMN {col}")
-            except: pass
-                
-        conn.commit()
-        conn.close()
-        print("✅ Haras e Aprisco adicionados ao banco com sucesso!")
-    except Exception as e:
-        print("⚠️ Ocorreu um erro:", e)
-
-if __name__ == '__main__':
-    consertar_banco()
-
-
-============================================================
-ARQUIVO: ./migrar_perenes.py
-============================================================
-
-import sqlite3
-
-def preparar_banco_para_perenes():
-    print("🚜 Preparando o solo do banco de dados para culturas perenes...")
-    conn = sqlite3.connect('banco_dados.db')
-    cursor = conn.cursor()
-    
-    try:
-        cursor.execute("ALTER TABLE lotes ADD COLUMN ciclos_colhidos INTEGER DEFAULT 0;")
-        print("✅ Coluna 'ciclos_colhidos' (para envelhecimento) adicionada com sucesso!")
-    except sqlite3.OperationalError as e:
-        print("⚠️ Coluna 'ciclos_colhidos' já existe ou erro:", e)
-        
-    try:
-        cursor.execute("ALTER TABLE lotes ADD COLUMN dias_descanso FLOAT DEFAULT 0.0;")
-        print("✅ Coluna 'dias_descanso' (para pausa da safra) adicionada com sucesso!")
-    except sqlite3.OperationalError as e:
-        print("⚠️ Coluna 'dias_descanso' já existe ou erro:", e)
-
-    conn.commit()
-    conn.close()
-    print("🚀 Banco de dados blindado e pronto para a nova biologia!")
-
-if __name__ == '__main__':
-    preparar_banco_para_perenes()
-
-
-============================================================
-ARQUIVO: ./migrar_tempo.py
-============================================================
-
-import sqlite3
-
-def migrar_clima():
-    conn = sqlite3.connect('banco_dados.db')
-    cursor = conn.cursor()
-    try:
-        cursor.execute("ALTER TABLE jogadores ADD COLUMN clima_atual VARCHAR(20) DEFAULT 'sol';")
-        cursor.execute("ALTER TABLE jogadores ADD COLUMN estacao_atual VARCHAR(20) DEFAULT 'primavera';")
-        print("✅ Clima e Estação adicionados com sucesso aos Jogadores!")
-    except Exception as e:
-        print("⚠️ Colunas já existem ou houve erro:", e)
-    conn.commit()
-    conn.close()
-
-if __name__ == '__main__':
-    migrar_clima()
 
 
 ============================================================
@@ -1572,7 +1506,7 @@ def ver_mercado():
                            TABELA_PRECOS=TABELA_PRECOS,
                            minhas_terras=minhas_terras,
                            user=usuario)
-                           
+
 @mercado_bp.route('/api/mercado/comprar_lote_ia', methods=['POST'])
 def comprar_lote_ia():
     if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
@@ -1593,15 +1527,20 @@ def comprar_lote_ia():
     
     # 1. Validações prévias de saldo e espaço
     custo_total_geral = 0.0
-    total_animais = sum(item['quantidade'] for item in carrinho)
+    total_animais = sum(int(item.get('quantidade', 0)) for item in carrinho)
     
     animais_para_adicionar = []
     
+    habitat = 'curral'
+    frete_cabeca = 50.0
+    modelos_aceitos = ['Caminhão Boiadeiro']
+    familia_animal = 'bovino_corte'
+    
     for item in carrinho:
-        raca = item['raca']
-        fase = item['fase'].lower()
-        sexo = item['sexo'].upper()
-        qtd = int(item['quantidade'])
+        raca = item.get('raca', '')
+        fase = item.get('fase', '').lower()
+        sexo = item.get('sexo', 'M').upper()
+        qtd = int(item.get('quantidade', 1))
         raca_lower = raca.lower()
         
         if raca not in TABELA_PRECOS: return jsonify({'sucesso': False, 'erro': f'Raça inválida: {raca}'})
@@ -1679,7 +1618,7 @@ def comprar_lote_ia():
             novo = Animal(propriedade_id=propriedade.id, raca=raca, fase=fase.capitalize(), sexo=sexo, peso=peso_animal, onde_esta=habitat, origem='Mercado Oficial')
             animais_para_adicionar.append(novo)
 
-    # Cálculo do frete
+    # Cálculo do frete cravado em pedra
     if usa_caminhao:
         frota_disponivel = Maquinario.query.filter(
             Maquinario.propriedade_id == propriedade.id, 
@@ -1690,21 +1629,69 @@ def comprar_lote_ia():
         
         if not frota_disponivel:
             return jsonify({'sucesso': False, 'erro': 'Sem frota disponível no barracão desta fazenda!'})
+
+        def get_cap(modelo, familia):
+            if modelo == 'Caminhão Baú (Frios)': return 200
+            if modelo == 'Caminhão Boiadeiro':
+                if familia in ['suino', 'ovino']: return 60
+                if familia in ['ave']: return 200
+                if familia == 'equino': return 10
+                return 20
+            if 'Caminhonete' in modelo:
+                if familia in ['suino', 'ovino']: return 10
+                if familia in ['ave']: return 50
+                if familia == 'equino': return 1
+                return 2
+            return 0
             
-        for v in frota_disponivel[:1]: # Consome um veículo da frota
+        frota_disponivel.sort(key=lambda v: get_cap(v.modelo, familia_animal), reverse=True)
+        
+        espaco_necessario = 0.0
+        for item in carrinho:
+            fase_item = item.get('fase', '').lower()
+            qtd_item = int(item.get('quantidade', 0))
+            if fase_item in ['filhote', 'jovem']: 
+                espaco_necessario += (0.5 * qtd_item)
+            else: 
+                espaco_necessario += (1.0 * qtd_item)
+                
+        restante = espaco_necessario
+        caminhoes_usados = []
+        
+        for v in frota_disponivel:
+            if restante <= 0: break
+            cap_v = get_cap(v.modelo, familia_animal)
+            if cap_v > 0:
+                restante -= cap_v
+                caminhoes_usados.append(v)
+                
+        for v in caminhoes_usados:
             v.nivel_combustivel -= 15
             v.estado_conservacao -= 5
-        custo_frete = 0.0
+            
+        # 🔥 MATEMÁTICA CORRIGIDA DO FRETE PARCIAL NO MERCADO
+        if restante > 0:
+            espaco_medio = espaco_necessario / total_animais if total_animais > 0 else 1.0
+            animais_fora = restante / espaco_medio
+            custo_frete = animais_fora * frete_cabeca
+        else:
+            custo_frete = 0.0
     else:
         custo_frete = total_animais * frete_cabeca
-
-    custo_final_com_frete = custo_total_geral + custo_frete
+        custo_final_com_frete = custo_total_geral + custo_frete
 
     if usuario.saldo < custo_final_com_frete:
         return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente! Custa R$ {custo_final_com_frete:,.2f}'})
 
     usuario.saldo -= custo_final_com_frete
-    texto_frete = " (Frete Grátis Frota)" if usa_caminhao else " + Frete"
+    
+    if usa_caminhao and custo_frete == 0:
+        texto_frete = " (Frete Grátis)"
+    elif usa_caminhao:
+        texto_frete = f" (Frota Parcial + Frete R$ {custo_frete:,.2f})"
+    else:
+        texto_frete = " + Frete Terceirizado"
+        
     registrar_transacao(usuario.id, 'saida', custo_final_com_frete, f'Compra de Lote Completo ({total_animais} animais){texto_frete}')
 
     if getattr(usuario, 'xp', None) is None: usuario.xp = 0
@@ -1714,7 +1701,7 @@ def comprar_lote_ia():
     db.session.commit()
     
     return jsonify({'sucesso': True, 'msg': f'Lote de {total_animais} animais entregue com sucesso!'})
-                           
+
 
 ============================================================
 ARQUIVO: ./logica/tempo.py
@@ -2412,8 +2399,8 @@ CATALOGO_CULTIVOS = {
     'melancia': Cultura('Melancia', 250, 40000, 85, 'coveado', 600, 1400),
     
     # PERENES (Investimento longo agora compensa muito mais)
-    'cana': CulturaPerene('Cana-de-Açúcar', 1200, 120000, 360, 'arado', 2000, 4000, tempo_descanso=30, max_ciclos=5), 
-    'banana': CulturaPerene('Banana', 800, 35000, 300, 'coveado', 1000, 1500, tempo_descanso=15, max_ciclos=8),
+    'cana': CulturaPerene('Cana-de-Açúcar', 1200, 110000, 360, 'arado', 2000, 4000, tempo_descanso=30, max_ciclos=5), 
+    'banana': CulturaPerene('Banana', 800, 30000, 300, 'coveado', 1000, 1500, tempo_descanso=15, max_ciclos=8),
     'cacau': CulturaPerene('Cacau', 1500, 4500, 500, 'coveado', 1500, 2000, tempo_descanso=45, max_ciclos=15),
     'acai': CulturaPerene('Açaí', 1000, 15000, 730, 'coveado', 1200, 1800, tempo_descanso=30, max_ciclos=12),
     'cupuacu': CulturaPerene('Cupuaçu', 900, 6000, 730, 'coveado', 1200, 1800, tempo_descanso=30, max_ciclos=10),
@@ -2639,6 +2626,10 @@ def colher():
 
     local_armazenamento = "Silo de Grãos" if tipo in itens_silo_graos else "Galpão Agrícola"
 
+    # 🔥 BLINDAGEM DE ESCOPO: Garante que as variáveis sempre existam para qualquer cultura
+    colheita_parcial = False
+    proporcao_colhida = 1.0
+
     if tipo in itens_silo_graos:
         total_silo = sum(getattr(fazenda_alvo, f'est_{i}', 0) for i in itens_silo_graos if hasattr(fazenda_alvo, f'est_{i}'))
         espaco_livre = fazenda_alvo.cap_silo - total_silo
@@ -2647,16 +2638,24 @@ def colher():
             return jsonify({'sucesso': False, 'erro': 'Silo Cheio! Expanda o silo ou venda os grãos atuais.'})
             
         kg_a_colher = min(kg_totais_disponiveis, espaco_livre)
-
+        
     colheita_parcial = kg_a_colher < kg_totais_disponiveis
     proporcao_colhida = kg_a_colher / kg_totais_disponiveis if kg_totais_disponiveis > 0 else 1
     
-    # 🔥 BALANCEAMENTO: A colheita também sofre inflação se for um milionário
-    qtd_prop = Propriedade.query.filter_by(dono_id=usuario.id).count()
-    fator_inflacao = 1.0 + (getattr(usuario, 'nivel', 1) * 0.02) + (qtd_prop * 0.05)
+    # 🔥 CORREÇÃO DA COLHEITA: Verifica se o jogador possui a Colheitadeira no Barracão desta fazenda
+    maquinas_dono = Maquinario.query.filter_by(propriedade_id=fazenda_alvo.id).all()
+    modelos_maquinas = [m.modelo for m in maquinas_dono]
+    tem_colheitadeira_propria = 'Colheitadeira Grãos' in modelos_maquinas
 
-    custo_base = dna_planta.custo_maquina_colheita * area * proporcao_colhida
-    custo_real = int(custo_base * fator_inflacao)
+    if tem_colheitadeira_propria:
+        custo_real = 0  # 🚜 Tem a máquina própria? Aluguel/serviço zerado!
+    else:
+        # 🔥 BALANCEAMENTO: A colheita sofre inflação se for terceirizada e o jogador for rico/latifundiário
+        qtd_prop = Propriedade.query.filter_by(dono_id=usuario.id).count()
+        fator_inflacao = 1.0 + (getattr(usuario, 'nivel', 1) * 0.02) + (qtd_prop * 0.05)
+
+        custo_base = dna_planta.custo_maquina_colheita * area * proporcao_colhida
+        custo_real = int(custo_base * fator_inflacao)
 
     if usuario.saldo < custo_real:
         return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente para bancar as colheitadeiras (R$ {custo_real:,.2f}).'})
@@ -2669,8 +2668,9 @@ def colher():
         return jsonify({'sucesso': False, 'erro': 'Erro de estoque.'})
     
     usuario.saldo -= custo_real
-    registrar_transacao(usuario.id, 'saida', custo_real, f'Aluguel de Colheitadeiras ({area}ha)')
-
+    if custo_real > 0:
+        registrar_transacao(usuario.id, 'saida', custo_real, f'Aluguel de Colheitadeiras ({area}ha)')
+        
     msg_final = ""
     if colheita_parcial:
         nova_produtividade = produtividade - (produtividade * proporcao_colhida)
@@ -2680,7 +2680,12 @@ def colher():
     else:
         lote.fertilidade_solo = max(0, getattr(lote, 'fertilidade_solo', 100) - 30)
         dna_planta.processar_pos_colheita(lote)
-        msg_final = f'Colheita finalizada! {kg_a_colher} kg armazenados no {local_armazenamento}.'
+        
+        # 🔥 ADICIONADO: Informa explicitamente se usou a colheitadeira própria ou se pagou aluguel
+        if tem_colheitadeira_propria:
+            msg_final = f'Colheita finalizada! {kg_a_colher} kg armazenados no {local_armazenamento}. 🚜 (Colheitadeira Própria: Taxa de Aluguel Zerada!)'
+        else:
+            msg_final = f'Colheita finalizada! {kg_a_colher} kg armazenados no {local_armazenamento}.'
 
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': msg_final})
@@ -3361,7 +3366,7 @@ ARQUIVO: ./logica/motor_biologico.py
 ============================================================
 
 # logica/motor_biologico.py
-from database import db, Animal, Lote, Propriedade
+from database import db, Animal, Lote, Propriedade, Maquinario
 from logica.motor_agricultura import MotorAgricultura
 from logica.motor_pecuaria import MotorPecuaria
 from logica.motor_avicultura import MotorAvicultura
@@ -3385,6 +3390,55 @@ class MotorBiologico:
         else:
             lotes = Lote.query.all()
             animais = Animal.query.all()
+
+                # ==========================================
+        # 🚚 LOGÍSTICA: ATUALIZA O TEMPO DE VIAGEM DA FROTA (ANIMAIS)
+        # ==========================================
+        chegadas = {}
+        for a in animais:
+            if getattr(a, 'onde_esta', '') == 'caminhao':
+                a.horas_viagem = max(0, int(getattr(a, 'horas_viagem', 0)) - horas_avancadas)
+                
+                if a.horas_viagem <= 0 and getattr(a, 'destino_id', None):
+                    dest_id = a.destino_id
+                    if dest_id not in chegadas: chegadas[dest_id] = 0
+                    chegadas[dest_id] += 1
+                    
+                    a.propriedade_id = a.destino_id
+                    a.onde_esta = getattr(a, 'habitat_destino', 'curral')
+                    a.destino_id = None
+                    a.habitat_destino = None
+
+        for dest_id, qtd in chegadas.items():
+            fazenda_dest = Propriedade.query.get(dest_id)
+            nome_fazenda = fazenda_dest.nome if fazenda_dest else "sua propriedade"
+            avisos_turno.append(f"🚚 Logística Concluída! {qtd} animais desembarcaram com segurança em: {nome_fazenda}.")
+
+        # ==========================================
+        # 🚜 LOGÍSTICA: TRANSPORTE DE MÁQUINAS (PRANCHA)
+        # ==========================================
+        maquinas = Maquinario.query.filter(Maquinario.propriedade_id.in_(prop_ids)).all() if prop_ids else []
+        chegadas_maq = {}
+        
+        for m in maquinas:
+            if getattr(m, 'destino_id', None) is not None and getattr(m, 'horas_viagem', 0) > 0:
+                m.horas_viagem = max(0, int(getattr(m, 'horas_viagem', 0)) - horas_avancadas)
+                
+                if m.horas_viagem <= 0:
+                    dest_id = m.destino_id
+                    if dest_id not in chegadas_maq: chegadas_maq[dest_id] = 0
+                    chegadas_maq[dest_id] += 1
+                    
+                    m.propriedade_id = dest_id
+                    m.destino_id = None
+                    m.horas_viagem = 0
+
+        for dest_id, qtd in chegadas_maq.items():
+            fazenda_dest = Propriedade.query.get(dest_id)
+            nome_fazenda = fazenda_dest.nome if fazenda_dest else "sua propriedade"
+            avisos_turno.append(f"🚜 Guincho/Prancha: {qtd} máquina(s) chegaram no barracão de: {nome_fazenda}.")
+
+        # ==========================================
 
         # 1. O Maestro chama a Agricultura
         MotorAgricultura.processar_lotes(lotes, dias, self.clima_atual, self.jogador, avisos_turno)
@@ -5192,7 +5246,6 @@ def manejar_curral():
             return jsonify({'sucesso': False, 'erro': 'Número de pasto inválido.'})
             
     elif destino == 'curral':
-        # 🔥 CORREÇÃO: Verificando o limite do curral!
         limite_curral = getattr(fazenda_alvo, 'cap_curral', 10)
         animais_no_curral = Animal.query.filter_by(propriedade_id=fazenda_alvo.id, onde_esta='curral').count()
         
@@ -5259,7 +5312,6 @@ def manejar_lote():
         except ValueError:
             return jsonify({'sucesso': False, 'erro': 'Erro no ID do pasto.'})
     else:
-        # 🔥 CORREÇÃO: Verificando as vagas do curral no retorno em lote!
         limite_curral = getattr(fazenda_alvo, 'cap_curral', 10)
         animais_no_curral = Animal.query.filter_by(propriedade_id=fazenda_alvo.id, onde_esta='curral').count()
         vagas_livres = limite_curral - animais_no_curral
@@ -5277,7 +5329,6 @@ def manejar_lote():
     if movidos > 0:
         if getattr(usuario, 'xp', None) is None:
             usuario.xp = 0
-        # 🔥 FIM DA FESTA: Apenas 15 XP fixos por operação de manejo do peão!
         usuario.xp += 15
 
     db.session.commit()
@@ -5405,6 +5456,7 @@ def aplicar_insumo():
         animal.medicado = True
     elif acao == 'suplemento':
         animal.suplementado = True 
+        animal.peso = float(animal.peso or 0.0) + 15.0 
     
     if getattr(jogador, 'xp', None) is None:
         jogador.xp = 0
@@ -5478,9 +5530,10 @@ def tratamento_lote():
             animal.vacinado_brucelose = True
         elif tipo == 'medicamento':
             animal.medicado = True
-            animal.saude = min(100, float(animal.saude or 100) + 30) 
+            animal.saude = min(100.0, float(animal.saude or 100.0) + 30.0) 
         elif tipo == 'suplemento':
             animal.suplementado = True
+            animal.peso = float(animal.peso or 0.0) + 15.0
             
     if getattr(jogador, 'xp', None) is None:
         jogador.xp = 0
@@ -5583,8 +5636,8 @@ def transferir_lote():
     dados = request.get_json()
     
     animal_ids = dados.get('animal_ids', [])
-    fazenda_origem_id = int(dados.get('fazenda_origem_id'))
-    fazenda_destino_id = int(dados.get('fazenda_destino_id'))
+    fazenda_origem_id = int(dados.get('fazenda_origem_id', 0))
+    fazenda_destino_id = int(dados.get('fazenda_destino_id', 0))
     usa_caminhao = dados.get('usa_caminhao', False)
     
     if not animal_ids: return jsonify({'sucesso': False, 'erro': 'Nenhum animal selecionado.'})
@@ -5612,7 +5665,6 @@ def transferir_lote():
             familia_animal = f
             break
             
-    # 🎯 Descobre o habitat de destino e as regras de frete
     if familia_animal == 'ave' or any(t in raca_lower for t in ['galinha', 'pato', 'peru', 'ave']):
         habitat = 'galinheiro'
         if not getattr(prop_destino, 'tem_galinheiro', False): return jsonify({'sucesso': False, 'erro': f'O destino não possui Galinheiro!'})
@@ -5653,7 +5705,6 @@ def transferir_lote():
     if animais_no_destino + quantidade > limite:
         return jsonify({'sucesso': False, 'erro': f'Lotação excedida! O {habitat.capitalize()} de destino só tem {limite - animais_no_destino} vagas.'})
         
-    # 🚚 Lógica de Frete vs Caminhão Próprio E FROTA MULTIPLA
     custo_frete = 0.0
     
     if usa_caminhao:
@@ -5664,9 +5715,6 @@ def transferir_lote():
             Maquinario.estado_conservacao >= 5
         ).all()
         
-        if not frota_disponivel:
-            return jsonify({'sucesso': False, 'erro': 'A fazenda de ORIGEM não tem frota livre e compatível para a viagem!'})
-            
         def get_cap(modelo):
             if modelo == 'Caminhão Baú (Frios)': return 200
             if modelo == 'Caminhão Boiadeiro':
@@ -5690,22 +5738,25 @@ def transferir_lote():
                 
         restante = espaco_necessario
         caminhoes_usados = []
-        cap_total = 0
         
         for v in frota_disponivel:
             if restante <= 0: break
             cap_v = get_cap(v.modelo)
             if cap_v > 0:
-                cap_total += cap_v
                 restante -= cap_v
                 caminhoes_usados.append(v)
                 
-        if restante > 0:
-            return jsonify({'sucesso': False, 'erro': f'Sua frota suporta apenas {int(cap_total)} animais deste tamanho! Compre mais caminhões na Origem ou pague o Frete.'})
-            
         for v in caminhoes_usados:
             v.nivel_combustivel -= 15
             v.estado_conservacao -= 5
+            v.propriedade_id = prop_destino.id
+            
+        if restante > 0:
+            espaco_medio = espaco_necessario / quantidade if quantidade > 0 else 1.0
+            animais_fora = restante / espaco_medio
+            custo_frete = animais_fora * frete_cabeca
+        else:
+            custo_frete = 0.0
     else:
         custo_frete = quantidade * frete_cabeca
         
@@ -5717,7 +5768,6 @@ def transferir_lote():
         from logica.economia import registrar_transacao
         registrar_transacao(usuario.id, 'saida', custo_frete, f'Logística: Frete de Transferência ({quantidade} cabeças)')
         
-    # 🔥 MÁGICA DO TEMPO BASEADO NA DISTÂNCIA
     tempo_viagem = 24 if usa_caminhao else 48
     cidade_origem = prop_origem.nome.split(" de ")[-1]
     cidade_destino = prop_destino.nome.split(" de ")[-1]
@@ -5733,14 +5783,13 @@ def transferir_lote():
         a.onde_esta = 'caminhao' 
         
     if getattr(usuario, 'xp', None) is None: usuario.xp = 0
-    # 🔥 FIM DA FESTA: Apenas 20 XP por viagem de caminhão!
     usuario.xp += 20
         
     db.session.commit()
     
-    meio_transporte = "com a sua frota própria" if usa_caminhao else "por transportadora terceirizada"
-    return jsonify({'sucesso': True, 'msg': f'Carga despachada {meio_transporte}! Os animais chegarão na fazenda "{prop_destino.nome}" em {tempo_viagem} horas.'})
-
+    meio_transporte = "com a sua frota própria" if usa_caminhao and custo_frete == 0 else "com frota parcial e transportadora" if usa_caminhao else "por transportadora terceirizada"
+    return jsonify({'sucesso': True, 'msg': f'Carga despachada {meio_transporte}! Os caminhões e os animais vão desembarcar na fazenda "{prop_destino.nome}".'})
+        
 
 ============================================================
 ARQUIVO: ./logica/habitats.py
@@ -6080,31 +6129,42 @@ def expandir_curral():
     if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
     
     jogador = Jogador.query.filter_by(username=session.get('usuario')).first()
-    dados = request.get_json()
+    dados = request.get_json() or {}
     fazenda_id = dados.get('fazenda_id')
+    pacote = dados.get('pacote', 'pequeno') # Descobre qual o pacote escolhido
     
-    # 🔥 CORREÇÃO 1: Pega a fazenda exata onde o jogador está
+    # 🔥 TABELA DE PACOTES DE OBRAS DO CURRAL
+    PACOTES_OBRA_CURRAL = {
+        'pequeno': {'custo': 6000.0, 'capacidade': 5},
+        'medio': {'custo': 55000.0, 'capacidade': 50},
+        'grande': {'custo': 250000.0, 'capacidade': 250},
+        'gigante': {'custo': 900000.0, 'capacidade': 1000}
+    }
+
+    if pacote not in PACOTES_OBRA_CURRAL:
+        return jsonify({'sucesso': False, 'erro': 'Pacote de obra inválido.'})
+
+    custo_expansao = PACOTES_OBRA_CURRAL[pacote]['custo']
+    aumento_capacidade = PACOTES_OBRA_CURRAL[pacote]['capacidade']
+
     fazenda = Propriedade.query.filter_by(id=fazenda_id, dono_id=jogador.id).first()
     if not fazenda:
         return jsonify({'sucesso': False, 'erro': 'Fazenda não encontrada.'})
     
-    custo_expansao = 6000.0
-    
     if jogador.saldo < custo_expansao: 
-        return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente. Custa R$ {custo_expansao:,.2f}.'})
+        return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente. O projeto custa R$ {custo_expansao:,.2f}.'})
     
     jogador.saldo -= custo_expansao
-    fazenda.cap_curral = getattr(fazenda, 'cap_curral', 10) + 5
+    fazenda.cap_curral = getattr(fazenda, 'cap_curral', 10) + aumento_capacidade
     
-    # 🔥 CORREÇÃO 2: Registra a saída no extrato para não parecer "de graça"
-    registrar_transacao(jogador.id, 'saida', custo_expansao, 'Engenharia: Expansão do Tronco/Curral (+5 vagas)')
+    registrar_transacao(jogador.id, 'saida', custo_expansao, f'Engenharia: Expansão do Tronco/Curral (+{aumento_capacidade} vagas)')
     
     if getattr(jogador, 'xp', None) is None:
         jogador.xp = 0
-    jogador.xp += 10
+    jogador.xp += 15
     
     db.session.commit()
-    return jsonify({'sucesso': True, 'msg': 'Obras concluídas! Curral expandido em +5 vagas.'})
+    return jsonify({'sucesso': True, 'msg': f'Obras concluídas! Curral expandido em +{aumento_capacidade} vagas.'})
 
 
 ============================================================
@@ -6134,7 +6194,9 @@ class Concessionaria:
         'caminhonete_usada': {'nome': 'Caminhonete Usada', 'tipo': 'Veiculo', 'hp': 110, 'preco': 45000},
         'caminhonete_nova': {'nome': 'Caminhonete Nova', 'tipo': 'Veiculo', 'hp': 160, 'preco': 180000},
         'caminhao_boiadeiro': {'nome': 'Caminhão Boiadeiro', 'tipo': 'Caminhao', 'hp': 300, 'preco': 250000},
-        'caminhao_bau': {'nome': 'Caminhão Baú (Frios)', 'tipo': 'Caminhao', 'hp': 250, 'preco': 200000}
+        'caminhao_bau': {'nome': 'Caminhão Baú (Frios)', 'tipo': 'Caminhao', 'hp': 250, 'preco': 200000},
+        'caminhao_prancha': {'nome': 'Caminhão Prancha', 'tipo': 'Caminhao', 'hp': 400, 'preco': 380000} # 🔥 AQUI O GUINCHO!
+    
     }
 
 @barracao_bp.route('/api/barracao/listar', methods=['GET'])
@@ -6149,7 +6211,10 @@ def listar_barracao():
     fazenda = Propriedade.query.filter_by(id=fazenda_id, dono_id=jogador.id).first()
     if not fazenda: return jsonify({'sucesso': False})
 
-    maquinas = Maquinario.query.filter_by(propriedade_id=fazenda.id).all()
+    maquinas = Maquinario.query.filter(
+        Maquinario.propriedade_id == fazenda.id, 
+        (Maquinario.horas_viagem == None) | (Maquinario.horas_viagem <= 0)
+    ).all()
     limite_vagas = fazenda.cap_barracao if getattr(fazenda, 'cap_barracao', 0) > 0 else 4
     
     def get_imagem(modelo):
@@ -6161,12 +6226,13 @@ def listar_barracao():
             'Colheitadeira Grãos': 'colheitadeira.png',
             'Pulverizador': 'pulverizador.png',
             'Pulverizador de Arrasto': 'pulv_arrasto.png',
-            'Plantadeira': 'plantadeira.png', # 🔥 NOVO AQUI
+            'Plantadeira': 'plantadeira.png', 
             'Grade Aradora': 'grade_aradora.png',
             'Caminhão Boiadeiro': 'caminhao_boiadeiro.png',
             'Caminhão Baú (Frios)': 'caminhao_bau.png',
             'Caminhonete Usada': 'caminhonete_usada.png',
-            'Caminhonete Nova': 'caminhonete_nova.png'
+            'Caminhonete Nova': 'caminhonete_nova.png',
+            'Caminhão Prancha': 'caminhao_prancha.png' # 🔥 ADICIONADO AQUI!
         }
         return mapa.get(modelo, 'trator.png')
     
@@ -6178,7 +6244,9 @@ def listar_barracao():
         'saude': m.estado_conservacao,
         'combustivel': m.nivel_combustivel,
         'ipva': m.ipva_pago,
-        'imagem': get_imagem(m.modelo)
+        'imagem': get_imagem(m.modelo),
+        'em_viagem': getattr(m, 'horas_viagem', 0) > 0,
+        'horas_restantes': getattr(m, 'horas_viagem', 0)
     } for m in maquinas]
     
     return jsonify({
@@ -6351,6 +6419,84 @@ def abastecer_maquina():
     
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': f'{gasto} galões de Diesel transferidos pro tanque!'})
+
+@barracao_bp.route('/api/barracao/transferir', methods=['POST'])
+def transferir_maquina():
+    if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
+    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    dados = request.get_json()
+    
+    maquina_id = dados.get('maquina_id')
+    destino_id = int(dados.get('destino_id', 0))
+    usa_prancha = dados.get('usa_prancha', False)
+    
+    maquina = Maquinario.query.get(maquina_id)
+    if not maquina: return jsonify({'sucesso': False, 'erro': 'Máquina não encontrada.'})
+    if getattr(maquina, 'horas_viagem', 0) > 0: return jsonify({'sucesso': False, 'erro': 'Esta máquina já está na estrada!'})
+    
+    prop_origem = Propriedade.query.get(maquina.propriedade_id)
+    prop_destino = Propriedade.query.get(destino_id)
+    
+    if not prop_origem or prop_origem.dono_id != usuario.id: return jsonify({'sucesso': False, 'erro': 'Origem inválida.'})
+    if not prop_destino or prop_destino.dono_id != usuario.id: return jsonify({'sucesso': False, 'erro': 'Destino inválido.'})
+    if prop_origem.id == prop_destino.id: return jsonify({'sucesso': False, 'erro': 'A máquina já está nesta fazenda.'})
+    
+    limite = prop_destino.cap_barracao if getattr(prop_destino, 'cap_barracao', 0) > 0 else 4
+    atual = Maquinario.query.filter_by(propriedade_id=prop_destino.id).count()
+    
+    # 🎯 Se for usar o caminhão prancha junto com a máquina, precisa de 2 vagas lá!
+    if usa_prancha and maquina.tipo not in ['Veiculo', 'Caminhao']:
+        if atual + 1 >= limite:
+             return jsonify({'sucesso': False, 'erro': f'Barracão lotado! Você precisa de 2 vagas no destino (A Prancha viaja junto com {maquina.modelo}). Limite: {limite}.'})
+    else:
+        if atual >= limite:
+            return jsonify({'sucesso': False, 'erro': f'O Barracão de destino está lotado! O limite lá é de {limite} vagas.'})
+        
+    cidade_origem = prop_origem.nome.split(" de ")[-1]
+    cidade_destino = prop_destino.nome.split(" de ")[-1]
+    tempo_viagem = 6 if cidade_origem == cidade_destino else 24
+    
+    custo_transporte = 0.0
+    
+    if maquina.tipo in ['Veiculo', 'Caminhao']:
+        # 🛻 RODA SOZINHO (Só gasta o próprio diesel/saúde)
+        if maquina.nivel_combustivel < 15 or maquina.estado_conservacao < 5:
+            return jsonify({'sucesso': False, 'erro': f'O {maquina.modelo} precisa ter pelo menos 15% de diesel e 5% de condição para ir dirigindo.'})
+        maquina.nivel_combustivel -= 15
+        maquina.estado_conservacao -= 5
+    else:
+        # 🚜 PRECISA SER REBOCADO
+        if usa_prancha:
+            prancha = Maquinario.query.filter(
+                Maquinario.propriedade_id == prop_origem.id,
+                Maquinario.modelo == 'Caminhão Prancha',
+                Maquinario.nivel_combustivel >= 15,
+                Maquinario.estado_conservacao >= 5
+            ).first()
+            
+            if not prancha:
+                return jsonify({'sucesso': False, 'erro': 'Nenhum Caminhão Prancha livre e abastecido nesta fazenda!'})
+            
+            prancha.nivel_combustivel -= 15
+            prancha.estado_conservacao -= 5
+            prancha.destino_id = prop_destino.id
+            prancha.horas_viagem = tempo_viagem
+        else:
+            custo_transporte = 500.0 if cidade_origem == cidade_destino else 1500.0
+            if usuario.saldo < custo_transporte:
+                return jsonify({'sucesso': False, 'erro': f'Você precisa de R$ {custo_transporte:,.2f} para pagar o guincho terceirizado.'})
+            usuario.saldo -= custo_transporte
+            registrar_transacao(usuario.id, 'saida', custo_transporte, f'Logística: Guincho Terceirizado para {maquina.modelo}')
+    
+    maquina.destino_id = prop_destino.id
+    maquina.horas_viagem = tempo_viagem
+    
+    if getattr(usuario, 'xp', None) is None: usuario.xp = 0
+    usuario.xp += 15
+    
+    db.session.commit()
+    msg_extra = "foi rodando pela estrada" if maquina.tipo in ['Veiculo', 'Caminhao'] else ("embarcado na sua Prancha" if usa_prancha else "embarcado no guincho terceirizado")
+    return jsonify({'sucesso': True, 'msg': f'{maquina.modelo} {msg_extra}! Chega em {tempo_viagem} horas.'})
 
 
 ============================================================
@@ -6924,537 +7070,6 @@ def limpar_lavouras():
 
 
 ============================================================
-ARQUIVO: ./logica/pecuaria.py
-============================================================
-
-from flask import Blueprint, jsonify, request, session
-from database import db, Jogador, Propriedade, Animal, Lote, Transacao
-from logica.economia import registrar_transacao
-
-pecuaria_bp = Blueprint('pecuaria', __name__)
-
-@pecuaria_bp.route('/api/animal/manejo_curral', methods=['POST'])
-def manejar_curral():
-    dados = request.get_json()
-    animal_id = dados.get('animal_id')
-    destino = dados.get('destino') 
-    
-    animal = Animal.query.get(animal_id)
-    if not animal:
-        return jsonify({'sucesso': False, 'erro': 'Animal não encontrado.'})
-    
-    if destino.startswith('pasto_'):
-        try:
-            id_do_lote = int(destino.split('_')[1])
-            lote = Lote.query.get(id_do_lote)
-            
-            if not lote or lote.status != 'pasto':
-                return jsonify({'sucesso': False, 'erro': f'O Lote {id_do_lote} não existe ou não está formado como pasto!'})
-            
-            animais_no_pasto = Animal.query.filter_by(lote_id=id_do_lote).count()
-            if animais_no_pasto >= 10:
-                return jsonify({'sucesso': False, 'erro': 'Pasto lotado!'})
-            
-            animal.lote_id = id_do_lote
-            animal.onde_esta = destino
-            
-        except ValueError:
-            return jsonify({'sucesso': False, 'erro': 'Número de pasto inválido.'})
-            
-    elif destino == 'curral':
-        animal.lote_id = None
-        animal.onde_esta = 'curral'
-    else:
-        return jsonify({'sucesso': False, 'erro': 'Destino desconhecido.'})
-    
-    if 'usuario' in session:
-        jogador = Jogador.query.filter_by(username=session.get('usuario')).first()
-        if jogador:
-            if getattr(jogador, 'xp', None) is None:
-                jogador.xp = 0
-            jogador.xp += 5
-            
-    db.session.commit()
-    return jsonify({'sucesso': True, 'msg': 'Movimentação concluída com sucesso!'})
-
-@pecuaria_bp.route('/api/animal/manejo_lote', methods=['POST'])
-def manejar_lote():
-    dados = request.get_json()
-    animal_ids = dados.get('animal_ids', [])
-    destino = dados.get('destino')
-
-    if not animal_ids:
-        return jsonify({'sucesso': False, 'erro': 'Nenhum animal selecionado.'})
-
-    animais = Animal.query.filter(Animal.id.in_(animal_ids)).all()
-    movidos = 0
-    novo_lote_id = None
-
-    if destino.startswith('pasto_'):
-        try:
-            id_do_lote = int(destino.split('_')[1])
-            lote = Lote.query.get(id_do_lote)
-            if not lote or lote.status != 'pasto':
-                return jsonify({'sucesso': False, 'erro': 'Pasto não formado!'})
-            
-            animais_no_pasto = Animal.query.filter_by(lote_id=id_do_lote).count()
-            vagas_livres = 10 - animais_no_pasto
-            
-            animais_para_mover = animais[:vagas_livres]
-            novo_lote_id = id_do_lote
-            
-            for animal in animais_para_mover:
-                animal.onde_esta = destino
-                animal.lote_id = novo_lote_id
-                movidos += 1
-        except ValueError:
-            return jsonify({'sucesso': False, 'erro': 'Erro no ID do pasto.'})
-    else:
-        for animal in animais:
-            animal.onde_esta = 'curral'
-            animal.lote_id = None
-            movidos += 1
-
-    if 'usuario' in session:
-        jogador = Jogador.query.filter_by(username=session.get('usuario')).first()
-        if jogador and movidos > 0:
-            if getattr(jogador, 'xp', None) is None:
-                jogador.xp = 0
-            jogador.xp += (5 * movidos)
-
-    db.session.commit()
-    return jsonify({'sucesso': True, 'msg': f'{movidos} animais movidos.'})
-
-@pecuaria_bp.route('/api/pecuaria/listar_curral', methods=['GET'])
-def listar_curral():
-    if 'usuario' not in session: 
-        return jsonify({'animais': []})
-    
-    jogador = Jogador.query.filter_by(username=session.get('usuario')).first()
-    if not jogador: 
-        return jsonify({'animais': []})
-        
-    fazenda = Propriedade.query.filter_by(dono_id=jogador.id).first()
-    if not fazenda: 
-        return jsonify({'animais': []})
-    
-    animais = Animal.query.filter_by(propriedade_id=fazenda.id, onde_esta='curral').all()
-    
-    return jsonify({'animais': [{
-        'id': a.id, 
-        'raca': a.raca, 
-        'fase': getattr(a, 'fase', 'Adulto'), 
-        'sexo': getattr(a, 'sexo', 'M'), 
-        'peso': getattr(a, 'peso', 0.0),
-        'vacinado_aftosa': getattr(a, 'vacinado_aftosa', False),
-        'vacinado_brucelose': getattr(a, 'vacinado_brucelose', False),
-        'medicado': getattr(a, 'medicado', False),
-        'suplementado': getattr(a, 'suplementado', False)
-    } for a in animais]})
-
-@pecuaria_bp.route('/api/pecuaria/listar_pasto', methods=['GET'])
-def listar_pasto():
-    pasto_id = request.args.get('pasto_id')
-    animais = Animal.query.filter_by(lote_id=pasto_id).all() 
-    return jsonify({'animais': [{
-        'id': a.id, 
-        'raca': a.raca, 
-        'fase': getattr(a, 'fase', 'Adulto'), 
-        'sexo': getattr(a, 'sexo', 'M'), 
-        'peso': getattr(a, 'peso', 0.0),
-        'vacinado_aftosa': getattr(a, 'vacinado_aftosa', False),
-        'vacinado_brucelose': getattr(a, 'vacinado_brucelose', False),
-        'medicado': getattr(a, 'medicado', False),
-        'suplementado': getattr(a, 'suplementado', False)
-    } for a in animais]})
-
-@pecuaria_bp.route('/api/animal/aplicar_insumo', methods=['POST'])
-def aplicar_insumo():
-    dados = request.get_json()
-    animal = Animal.query.get(dados.get('animal_id'))
-    if not animal: return jsonify({'sucesso': False, 'erro': 'Animal não encontrado.'})
-    
-    jogador = Jogador.query.filter_by(username=session.get('usuario')).first()
-    fazenda = Propriedade.query.filter_by(dono_id=jogador.id).first()
-    acao = dados.get('acao')
-
-    insumos = {
-        'aftosa': ('est_vacina_aftosa', 'Vacina Aftosa'),
-        'brucelose': ('est_vacina_brucelose', 'Vacina Brucelose'),
-        'suplemento': ('est_suplemento_engorda', 'Suplemento Engorda'),
-        'medicamento': ('est_medicamento_geral', 'Medicamento Geral')
-    }
-
-    if acao not in insumos: return jsonify({'sucesso': False, 'erro': 'Ação inválida.'})
-    
-    if acao == 'aftosa' and animal.vacinado_aftosa:
-        return jsonify({'sucesso': False, 'erro': 'Animal já vacinado contra Aftosa!'})
-    if acao == 'brucelose' and animal.vacinado_brucelose:
-        return jsonify({'sucesso': False, 'erro': 'Animal já vacinado contra Brucelose!'})
-    if acao == 'medicamento' and animal.medicado:
-        return jsonify({'sucesso': False, 'erro': 'Animal já medicado!'})
-    if acao == 'suplemento' and getattr(animal, 'suplementado', False):
-        return jsonify({'sucesso': False, 'erro': 'Animal já suplementado!'})
-    
-    coluna, nome = insumos[acao]
-    if getattr(fazenda, coluna) <= 0:
-        return jsonify({'sucesso': False, 'erro': f'Sem {nome} no armazém!'})
-    
-    setattr(fazenda, coluna, getattr(fazenda, coluna) - 1)
-    
-    if acao == 'aftosa':
-        animal.vacinado_aftosa = True
-    elif acao == 'brucelose':
-        animal.vacinado_brucelose = True
-    elif acao == 'medicamento':
-        animal.medicado = True
-    elif acao == 'suplemento':
-        animal.suplementado = True 
-        animal.peso += 15.0
-    
-    if getattr(jogador, 'xp', None) is None:
-        jogador.xp = 0
-    jogador.xp += 15
-    
-    db.session.commit()
-    return jsonify({'sucesso': True, 'msg': f'{animal.raca} recebeu {nome}!'})
-
-@pecuaria_bp.route('/api/animal/tratamento_lote', methods=['POST'])
-def tratamento_lote():
-    if 'usuario' not in session:
-        return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
-        
-    dados = request.get_json()
-    animal_ids = dados.get('animal_ids', [])
-    tipo = dados.get('tipo')
-    
-    if not animal_ids:
-        return jsonify({'sucesso': False, 'erro': 'Nenhum animal selecionado.'})
-        
-    jogador = Jogador.query.filter_by(username=session.get('usuario')).first()
-    fazenda = Propriedade.query.filter_by(dono_id=jogador.id).first()
-    
-    animais = Animal.query.filter(Animal.id.in_(animal_ids), Animal.propriedade_id == fazenda.id).all()
-    animais_para_tratar = []
-    
-    for animal in animais:
-        if tipo == 'aftosa' and not animal.vacinado_aftosa:
-            animais_para_tratar.append(animal)
-        elif tipo == 'brucelose' and not animal.vacinado_brucelose:
-            animais_para_tratar.append(animal)
-        elif tipo == 'medicamento' and not animal.medicado:
-            animais_para_tratar.append(animal)
-            
-    qtd_necessaria = len(animais_para_tratar)
-    if qtd_necessaria == 0:
-        return jsonify({'sucesso': False, 'erro': 'Todos os animais selecionados já receberam este tratamento!'})
-        
-    if tipo == 'aftosa':
-        if getattr(fazenda, 'est_vacina_aftosa', 0) < qtd_necessaria:
-            return jsonify({'sucesso': False, 'erro': 'Sem Vacina Aftosa no armazém!'})
-        fazenda.est_vacina_aftosa -= qtd_necessaria
-    elif tipo == 'brucelose':
-        if getattr(fazenda, 'est_vacina_brucelose', 0) < qtd_necessaria:
-            return jsonify({'sucesso': False, 'erro': 'Sem Vacina Brucelose no armazém!'})
-        fazenda.est_vacina_brucelose -= qtd_necessaria
-    elif tipo == 'medicamento':
-        if getattr(fazenda, 'est_medicamento_geral', 0) < qtd_necessaria:
-            return jsonify({'sucesso': False, 'erro': 'Sem Medicamento Geral no armazém!'})
-        fazenda.est_medicamento_geral -= qtd_necessaria
-    else:
-        return jsonify({'sucesso': False, 'erro': 'Tipo de tratamento inválido.'})
-        
-    for animal in animais_para_tratar:
-        if tipo == 'aftosa':
-            animal.vacinado_aftosa = True
-        elif tipo == 'brucelose':
-            animal.vacinado_brucelose = True
-        elif tipo == 'medicamento':
-            animal.medicado = True
-            animal.saude = min(100, animal.saude + 30) 
-            
-    if getattr(jogador, 'xp', None) is None:
-        jogador.xp = 0
-    jogador.xp += (15 * qtd_necessaria)
-            
-    db.session.commit()
-    return jsonify({'sucesso': True, 'msg': f'Tratamento aplicado com sucesso em {qtd_necessaria} animais!'})
-
-@pecuaria_bp.route('/api/pasto/reabastecer', methods=['POST'])
-def reabastecer_pasto():
-    if 'usuario' not in session: 
-        return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
-        
-    dados = request.get_json()
-    lote_id = dados.get('lote_id')
-    tipo = dados.get('tipo')
-    quantidade = int(dados.get('quantidade', 1))
-    
-    jogador = Jogador.query.filter_by(username=session.get('usuario')).first()
-    fazenda = Propriedade.query.filter_by(dono_id=jogador.id).first()
-    lote = Lote.query.get(lote_id)
-    
-    if not lote: 
-        return jsonify({'sucesso': False, 'erro': 'Pasto não encontrado.'})
-        
-    if tipo == 'sal':
-        qtd_atual = getattr(lote, 'qtd_sal_cocho', 0.0) or 0.0
-        espaco_livre = 10.0 - qtd_atual 
-        if espaco_livre <= 0: return jsonify({'sucesso': False, 'erro': 'O cocho mineral já está cheio!'})
-        if quantidade > espaco_livre: quantidade = int(espaco_livre)
-        if getattr(fazenda, 'est_sal', 0) < quantidade:
-            return jsonify({'sucesso': False, 'erro': f'Sem Sal suficiente no armazém!'})
-        fazenda.est_sal -= quantidade
-        lote.qtd_sal_cocho = qtd_atual + float(quantidade)
-        msg = f'{quantidade} sacos de Sal despejados no cocho!'
-        
-    elif tipo == 'racao':
-        if not getattr(lote, 'tem_cocho_racao', False): 
-            return jsonify({'sucesso': False, 'erro': 'Este pasto não possui Linha de Ração construída!'})
-        qtd_atual = getattr(lote, 'qtd_racao_cocho', 0.0) or 0.0
-        espaco_livre = 20.0 - qtd_atual 
-        if espaco_livre <= 0: return jsonify({'sucesso': False, 'erro': 'A linha de ração já está cheia!'})
-        if quantidade > espaco_livre: quantidade = int(espaco_livre)
-        if getattr(fazenda, 'est_racao', 0) < quantidade:
-            return jsonify({'sucesso': False, 'erro': f'Sem Ração suficiente no armazém!'})
-        fazenda.est_racao -= quantidade
-        lote.qtd_racao_cocho = qtd_atual + float(quantidade)
-        msg = f'{quantidade} sacos de Ração despejados na linha!'
-    else:
-        return jsonify({'sucesso': False, 'erro': 'Insumo inválido.'})
-        
-    if getattr(jogador, 'xp', None) is None:
-        jogador.xp = 0
-    jogador.xp += 10
-        
-    db.session.commit()
-    return jsonify({'sucesso': True, 'msg': msg})
-
-@pecuaria_bp.route('/api/fazenda/expandir_curral', methods=['POST'])
-def expandir_curral():
-    jogador = Jogador.query.filter_by(username=session.get('usuario')).first()
-    fazenda = Propriedade.query.filter_by(dono_id=jogador.id).first()
-    if jogador.saldo < 6000: return jsonify({'sucesso': False, 'erro': 'Saldo insuficiente.'})
-    
-    jogador.saldo -= 6000
-    fazenda.cap_curral = getattr(fazenda, 'cap_curral', 10) + 5
-    
-    if getattr(jogador, 'xp', None) is None:
-        jogador.xp = 0
-    jogador.xp += 10
-    
-    db.session.commit()
-    return jsonify({'sucesso': True, 'msg': 'Curral expandido!'})
-
-@pecuaria_bp.route('/api/pecuaria/listar_pastos_disponiveis', methods=['GET'])
-def listar_pastos_disponiveis():
-    if 'usuario' not in session: return jsonify({'pastos': []})
-    jogador = Jogador.query.filter_by(username=session.get('usuario')).first()
-    fazenda = Propriedade.query.filter_by(dono_id=jogador.id).first()
-    if not fazenda: return jsonify({'pastos': []})
-    
-    pastos = Lote.query.filter_by(fazenda_id=fazenda.id, status='pasto').all()
-    lista_pastos = []
-    for p in pastos:
-        destino_pasto = f'pasto_{p.id}'
-        if Animal.query.filter_by(onde_esta=destino_pasto).count() < 10:
-            lista_pastos.append({'id': p.id, 'nome': p.nome})
-    return jsonify({'pastos': lista_pastos})
-
-@pecuaria_bp.route('/api/pecuaria/verificar_saude', methods=['POST'])
-def verificar_saude_pastos():
-    lotes = Lote.query.filter_by(status='pasto').all()
-    for lote in lotes:
-        if not lote.tem_cocho or not lote.tem_bebedouro:
-            for animal in Animal.query.filter_by(lote_id=lote.id).all():
-                if animal.peso > 10: animal.peso -= 2.0
-    db.session.commit()
-    return jsonify({'sucesso': True, 'msg': 'Saúde do gado atualizada.'})
-
-# ==========================================
-# MÓDULO DE HABITATS (Represa, Chiqueiro, Galinheiro)
-# ==========================================
-
-@pecuaria_bp.route('/api/fazenda/construir', methods=['POST'])
-def construir_estrutura():
-    if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
-    usuario = Jogador.query.filter_by(username=session['usuario']).first()
-    dados = request.get_json()
-    
-    tipo = dados.get('tipo') # 'represa', 'chiqueiro', 'galinheiro'
-    custo = float(dados.get('custo', 0))
-    fazenda = Propriedade.query.filter_by(dono_id=usuario.id).first()
-    
-    if usuario.saldo < custo:
-        return jsonify({'sucesso': False, 'erro': 'Saldo insuficiente para a obra.'})
-        
-    coluna_bd = 'tem_represa_geral' if tipo == 'represa' else f'tem_{tipo}'
-    
-    if getattr(fazenda, coluna_bd, False):
-        return jsonify({'sucesso': False, 'erro': f'Você já construiu este {tipo.capitalize()}!'})
-        
-    setattr(fazenda, coluna_bd, True)
-    usuario.saldo -= custo
-    
-    registrar_transacao(usuario.id, 'saida', custo, f'Engenharia: Construção de {tipo.capitalize()}')
-    
-    if getattr(usuario, 'xp', None) is None:
-        jogador.xp = 0
-    usuario.xp += 20
-    
-    db.session.commit()
-    return jsonify({'sucesso': True, 'msg': f'Construção do {tipo.capitalize()} concluída!'})
-
-@pecuaria_bp.route('/api/pecuaria/habitat/<habitat>', methods=['GET'])
-def ver_habitat(habitat):
-    if 'usuario' not in session: 
-        return jsonify({'animais': [], 'sucesso': False, 'erro': 'Sessão expirada.'})
-        
-    usuario = Jogador.query.filter_by(username=session['usuario']).first()
-    fazenda = Propriedade.query.filter_by(dono_id=usuario.id).first()
-    if not fazenda:
-        return jsonify({'animais': [], 'sucesso': False, 'erro': 'Fazenda não encontrada.'})
-    
-    # 🔥 Corrigido para usar 'onde_esta' que é o padrão do seu sistema
-    animais = Animal.query.filter_by(propriedade_id=fazenda.id, onde_esta=habitat).all()
-    
-    # Mapeia os dados do comedouro específico do habitat
-    tem_comedouro = False
-    qtd_racao = 0.0
-    if habitat == 'represa':
-        tem_comedouro = getattr(fazenda, 'represa_tem_comedouro', False)
-        qtd_racao = float(getattr(fazenda, 'represa_qtd_racao', 0.0) or 0.0)
-    elif habitat == 'chiqueiro':
-        tem_comedouro = getattr(fazenda, 'chiqueiro_tem_comedouro', False)
-        qtd_racao = float(getattr(fazenda, 'chiqueiro_qtd_racao', 0.0) or 0.0)
-    elif habitat == 'galinheiro':
-        tem_comedouro = getattr(fazenda, 'galinheiro_tem_comedouro', False)
-        qtd_racao = float(getattr(fazenda, 'galinheiro_qtd_racao', 0.0) or 0.0)
-
-    # 🔥 A AUTOMAÇÃO DA FOME: Se tem comedouro, ração > 0 e animais, zera a fome automaticamente!
-    if tem_comedouro and qtd_racao > 0 and animais:
-        for a in animais:
-            a.fome = 0.0
-            a.saude = 100.0
-        db.session.commit()
-
-    lista = [{
-        'id': a.id, 
-        'raca': a.raca.capitalize(), 
-        'fase': getattr(a, 'fase', 'Adulto'), 
-        'peso': float(getattr(a, 'peso', 0.0)),
-        'saude': float(getattr(a, 'saude', 100.0)),
-        'fome': float(getattr(a, 'fome', 0.0))
-    } for a in animais]
-    
-    return jsonify({
-        'sucesso': True,
-        'animais': lista,
-        'tem_comedouro': tem_comedouro,
-        'qtd_racao': qtd_racao
-    })
-
-# ---------------------------------------------------------
-# NOVAS ROTAS DE COMEDOURO DOS HABITATS (Com Rações Específicas)
-# ---------------------------------------------------------
-
-@pecuaria_bp.route('/api/habitat/construir_comedouro', methods=['POST'])
-def construir_comedouro_habitat():
-    if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
-    usuario = Jogador.query.filter_by(username=session['usuario']).first()
-    fazenda = Propriedade.query.filter_by(dono_id=usuario.id).first()
-    
-    dados = request.get_json()
-    habitat = dados.get('habitat') # 'represa', 'chiqueiro', 'galinheiro'
-    
-    custos = {'represa': 800.0, 'chiqueiro': 1000.0, 'galinheiro': 600.0}
-    if habitat not in custos:
-        return jsonify({'sucesso': False, 'erro': 'Habitat inválido.'})
-        
-    custo = custos[habitat]
-    if usuario.saldo < custo:
-        return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente (Custo: R$ {custo:,.2f})'})
-        
-    coluna_tem = f'{habitat}_tem_comedouro'
-    if getattr(fazenda, coluna_tem, False):
-        return jsonify({'sucesso': False, 'erro': 'Este habitat já possui um comedouro!'})
-        
-    setattr(fazenda, coluna_tem, True)
-    setattr(fazenda, f'{habitat}_qtd_racao', 0.0)
-    usuario.saldo -= custo
-    
-    registrar_transacao(usuario.id, 'saida', custo, f'Construção de Comedouro no(a) {habitat.capitalize()}')
-    db.session.commit()
-    
-    return jsonify({'sucesso': True, 'msg': f'Comedouro do(a) {habitat.capitalize()} construído com sucesso!'})
-
-@pecuaria_bp.route('/api/habitat/reabastecer', methods=['POST'])
-def reabastecer_comedouro_habitat():
-    if 'usuario' not in session: 
-        return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
-        
-    usuario = Jogador.query.filter_by(username=session['usuario']).first()
-    fazenda = Propriedade.query.filter_by(dono_id=usuario.id).first()
-    
-    dados = request.get_json() or {}
-    habitat = dados.get('habitat') # 'represa', 'chiqueiro', 'galinheiro'
-    tipo_grao = dados.get('tipo_grao', 'soja') # Recebe 'soja' ou 'milho' escolhido no front
-    
-    try:
-        quantidade = int(dados.get('quantidade', 0))
-    except ValueError:
-        return jsonify({'sucesso': False, 'erro': 'Quantidade inválida.'})
-    
-    if quantidade <= 0:
-        return jsonify({'sucesso': False, 'erro': 'Quantidade inválida.'})
-        
-    if not getattr(fazenda, f'{habitat}_tem_comedouro', False):
-        return jsonify({'sucesso': False, 'erro': 'Construa um comedouro neste habitat primeiro!'})
-        
-    # Mapeamento inteligente de insumos
-    if habitat == 'chiqueiro':
-        if tipo_grao == 'milho':
-            coluna_estoque, nome_insumo, tipo_local = ('est_milho', 'Milho (Silo)', 'silo')
-        else:
-            coluna_estoque, nome_insumo, tipo_local = ('est_soja', 'Soja (Silo)', 'silo')
-    else:
-        mapa_insumo = {
-            'represa': ('est_racao_peixe', 'Ração de Peixe', 'armazem'),
-            'galinheiro': ('est_milho', 'Milho (Silo)', 'silo')
-        }
-        if habitat not in mapa_insumo:
-            return jsonify({'sucesso': False, 'erro': 'Habitat desconhecido.'})
-        coluna_estoque, nome_insumo, tipo_local = mapa_insumo[habitat]
-    
-    estoque_atual = int(getattr(fazenda, coluna_estoque, 0) or 0)
-    
-    qtd_atual_comedouro = float(getattr(fazenda, f'{habitat}_qtd_racao', 0.0) or 0.0)
-    capacidade_maxima = 50.0
-    espaco_livre = capacidade_maxima - qtd_atual_comedouro
-    
-    if espaco_livre <= 0:
-        return jsonify({'sucesso': False, 'erro': 'O comedouro está cheio!'})
-        
-    if quantidade > espaco_livre:
-        quantidade = int(espaco_livre)
-        
-    if estoque_atual < quantidade:
-        local_nome = "Armazém" if tipo_local == 'armazem' else "Silo"
-        return jsonify({'sucesso': False, 'erro': f'Você não tem {nome_insumo} suficiente no {local_nome}! (Tem: {estoque_atual} un)'})
-        
-    # Subtrai do estoque correto e atualiza o comedouro
-    setattr(fazenda, coluna_estoque, estoque_atual - quantidade)
-    setattr(fazenda, f'{habitat}_qtd_racao', qtd_atual_comedouro + float(quantidade))
-    
-    if getattr(usuario, 'xp', None) is None:
-        usuario.xp = 0
-    usuario.xp += 10
-    
-    db.session.commit()
-    return jsonify({'sucesso': True, 'msg': f'{quantidade} unidades de {nome_insumo} despejadas no comedouro!'})
-
-
-============================================================
 ARQUIVO: ./static/js/login.js
 ============================================================
 
@@ -7638,11 +7253,11 @@ document.addEventListener('DOMContentLoaded', function() {
             } else renderizarAncoras();
         } else renderizarAncoras();
 
-        // Carrega a Frota em Trânsito
+        // Carrega a Frota em Trânsito (Blindado contra erros)
         fetch('/api/mapa_frota')
         .then(r => r.json())
         .then(frota => {
-            if (frota.length > 0) {
+            if (Array.isArray(frota) && frota.length > 0) {
                 let btnFrota = document.getElementById('btn-frota-ativa');
                 if (!btnFrota) {
                     btnFrota = document.createElement('div');
@@ -7670,15 +7285,22 @@ document.addEventListener('DOMContentLoaded', function() {
                         let nomeO = orig ? orig.nome : "Origem Desconhecida";
                         let nomeD = dest ? dest.nome : "Destino Desconhecido";
                         
+                        let cargaText = "";
+                        if (viagem.qtd_animais && viagem.qtd_animais > 0) cargaText += `${viagem.qtd_animais} cabeça(s)<br>`;
+                        if (viagem.maquinas && Array.isArray(viagem.maquinas) && viagem.maquinas.length > 0) {
+                            cargaText += `Máquina: ${viagem.maquinas.join(', ')}`;
+                        }
+                        if (cargaText === "") cargaText = "Carga Indefinida";
+
                         htmlList += `
                         <div style="background: #222; border-left: 4px solid #ff9800; padding: 10px; border-radius: 6px; margin-bottom: 8px; border: 1px solid #333;">
                             <div style="color: #fff; font-weight: bold; margin-bottom: 8px; font-size: 14px;">
-                                <i class="fas fa-truck"></i> Carga: ${viagem.qtd} cabeças
+                                <i class="fas fa-truck"></i> Carga: <span style="color:#ffb300;">${cargaText}</span>
                             </div>
                             <div style="font-size: 12px; color: #aaa; margin-bottom: 2px;"><b>De:</b> ${nomeO}</div>
                             <div style="font-size: 12px; color: #aaa;"><b>Para:</b> ${nomeD}</div>
                             <div style="margin-top: 8px; font-size: 12px; color: #4caf50; background: #111; padding: 5px; border-radius: 4px; text-align: center; font-weight: bold;">
-                                <i class="fas fa-clock"></i> Chega em ${viagem.horas_restantes} horas do jogo
+                                <i class="fas fa-clock"></i> Chega em ${viagem.horas_restantes || 0} horas do jogo
                             </div>
                         </div>
                         `;
@@ -7696,9 +7318,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 let btnFrota = document.getElementById('btn-frota-ativa');
                 if (btnFrota) btnFrota.remove();
             }
-        });
-    }).catch(erro => console.error(erro));
-    
+        }).catch(err => console.error("Erro ao carregar a frota do mapa:", err));
+
     // Renderização de Âncoras do Mapa
     function renderizarAncoras() {
         layerPropriedades.clearLayers(); 
@@ -7787,7 +7408,8 @@ document.addEventListener('DOMContentLoaded', function() {
             { chave: 'caminhonete_usada', nome: 'Caminhonete Usada', preco: 45000, desc: 'Frete grátis básico para lotes pequenos.', imagem: 'caminhonete_usada.png', icon: 'fa-truck-pickup', cor: '#9e9e9e' },
             { chave: 'caminhonete_nova', nome: 'Caminhonete Nova', preco: 180000, desc: 'Maior capacidade e menos gastos na oficina.', imagem: 'caminhonete_nova.png', icon: 'fa-truck-pickup', cor: '#e0e0e0' },
             { chave: 'caminhao_boiadeiro', nome: 'Caminhão Boiadeiro', preco: 250000, desc: 'Frete grátis para Gado, Porcos e Cavalos.', imagem: 'caminhao_boiadeiro.png', icon: 'fa-truck', cor: '#8d6e63' },
-            { chave: 'caminhao_bau', nome: 'Caminhão Baú (Frios)', preco: 200000, desc: 'Frete grátis para logística de Peixes.', imagem: 'caminhao_bau.png', icon: 'fa-snowflake', cor: '#81d4fa' }
+            { chave: 'caminhao_bau', nome: 'Caminhão Baú (Frios)', preco: 200000, desc: 'Frete grátis para logística de Peixes.', imagem: 'caminhao_bau.png', icon: 'fa-snowflake', cor: '#81d4fa' },
+            { chave: 'caminhao_prancha', nome: 'Caminhão Prancha', preco: 380000, desc: 'Transporta maquinário pesado entre fazendas de graça.', imagem: 'caminhao_prancha.png', icon: 'fa-truck-loading', cor: '#d84315' }
         ];
 
         let htmlList = `<div style="text-align:left; color:#fff; font-family: 'Poppins', sans-serif;">`;
@@ -7983,6 +7605,8 @@ document.addEventListener('DOMContentLoaded', function() {
         renderizarAncoras();             
         map.flyToBounds(mapBounds, { duration: 1.5 });
     }
+        
+    });
 
 });
 
@@ -8290,8 +7914,6 @@ window.construirInstalacao = function(tipo, nomeExibicao, custo) {
     });
 };
 
-
-
 ============================================================
 ARQUIVO: ./static/js/mercado.js
 ============================================================
@@ -8452,6 +8074,11 @@ window.verificarCaminhaoDestino = async function() {
     const peixes = ['tambaqui', 'pirarucu', 'pacu', 'matrinxa', 'jaraqui', 'curimata', 'surubim', 'pintado', 'cachara', 'tucunare', 'piau'];
     const aves_e_medios = ['galinha', 'pato', 'peru', 'porco', 'ovelha', 'cabra'];
 
+    // 🔥 PREÇO DO FRETE PARA CALCULAR A DIFERENÇA
+    let fretePorCabeca = 50.0;
+    if (peixes.includes(primeiraRaca) || ['galinha', 'pato', 'peru'].includes(primeiraRaca)) fretePorCabeca = 5.0;
+    else if (['porco', 'leitao', 'javali', 'ovelha', 'cabra'].includes(primeiraRaca)) fretePorCabeca = 15.0;
+
     let modelosAceitos = [];
     let nomeVeiculoMsg = '';
 
@@ -8467,7 +8094,24 @@ window.verificarCaminhaoDestino = async function() {
     }
 
     const checkbox = document.getElementById('check-caminhao-proprio');
-    const aviso = checkbox.parentElement.nextElementSibling;
+    let aviso = document.getElementById('aviso-frete-dinamico');
+    
+    // Cria a caixa de texto caso não exista
+    if (!aviso && checkbox) {
+        aviso = document.createElement('div');
+        aviso.id = 'aviso-frete-dinamico';
+        aviso.style.fontSize = '12px';
+        aviso.style.marginTop = '8px';
+        aviso.style.textAlign = 'center';
+        aviso.style.padding = '8px';
+        aviso.style.borderRadius = '6px';
+        checkbox.parentElement.insertAdjacentElement('afterend', aviso);
+        // Oculta a mensagem estática antiga se existir
+        if(checkbox.parentElement.nextElementSibling !== aviso) {
+            checkbox.parentElement.nextElementSibling.style.display = 'none';
+        }
+    }
+
     const imgCaminhao = document.getElementById('img-veiculo');
 
     try {
@@ -8478,42 +8122,126 @@ window.verificarCaminhaoDestino = async function() {
             const veiculosPossuidos = data.maquinas.filter(m => modelosAceitos.includes(m.modelo));
             const veiculosProntos = veiculosPossuidos.filter(m => m.combustivel >= 15 && m.saude >= 5);
 
-            if (veiculosProntos.length > 0) {
-                let capTotal = 0;
-                veiculosProntos.forEach(v => {
-                    if (v.modelo === 'Caminhão Baú (Frios)') capTotal += 200;
-                    else if (v.modelo === 'Caminhão Boiadeiro') {
-                        if(peixes.includes(primeiraRaca)) capTotal += 200;
-                        else if(['porco', 'ovelha', 'cabra'].includes(primeiraRaca)) capTotal += 60;
-                        else if(['galinha', 'pato', 'peru'].includes(primeiraRaca)) capTotal += 200;
-                        else capTotal += 20;
-                    } else if (v.modelo.includes('Caminhonete')) {
-                        if(['porco', 'ovelha', 'cabra'].includes(primeiraRaca)) capTotal += 10;
-                        else if(['galinha', 'pato', 'peru'].includes(primeiraRaca)) capTotal += 50;
-                        else capTotal += 2;
-                    }
-                });
+            let capTotal = 0;
+            veiculosProntos.forEach(v => {
+                if (v.modelo === 'Caminhão Baú (Frios)') capTotal += 200;
+                else if (v.modelo === 'Caminhão Boiadeiro') {
+                    if(peixes.includes(primeiraRaca)) capTotal += 200;
+                    else if(['porco', 'ovelha', 'cabra'].includes(primeiraRaca)) capTotal += 60;
+                    else if(['galinha', 'pato', 'peru'].includes(primeiraRaca)) capTotal += 200;
+                    else capTotal += 20;
+                } else if (v.modelo.includes('Caminhonete')) {
+                    if(['porco', 'ovelha', 'cabra'].includes(primeiraRaca)) capTotal += 10;
+                    else if(['galinha', 'pato', 'peru'].includes(primeiraRaca)) capTotal += 50;
+                    else capTotal += 2;
+                }
+            });
 
-                checkbox.disabled = false;
-                checkbox.checked = true;
-                aviso.innerText = `✅ Frota Pronta: ${veiculosProntos.length} veículos (Capacidade: ${capTotal} cab.). Frete Grátis.`;
-                aviso.style.color = '#4caf50';
+            let espacoNecessario = 0;
+            let cabecasTotais = 0;
+            carrinhoLoteIA.forEach(item => {
+                cabecasTotais += item.quantidade;
+                if (item.fase === 'filhote' || item.fase === 'jovem') {
+                    espacoNecessario += (0.5 * item.quantidade);
+                } else {
+                    espacoNecessario += (1.0 * item.quantidade);
+                }
+            });
+
+            let espacoFormatado = Math.ceil(espacoNecessario);
+            let faltaEspaco = espacoFormatado - capTotal;
+            
+            // 🔥 SALVA OS CUSTOS GLOBAIS PARA O HTML CALCULAR O VALOR VERDE
+            window.custoFreteTotal = cabecasTotais * fretePorCabeca;
+            window.custoFreteResidual = faltaEspaco > 0 ? (faltaEspaco * fretePorCabeca) : 0;
+
+            if (veiculosProntos.length > 0) {
+                if (faltaEspaco <= 0) {
+                    checkbox.disabled = false;
+                    checkbox.checked = true;
+                    aviso.innerHTML = `✅ <b>Frota Completa!</b> Suporta <b>${capTotal}</b> cab. Frete 100% Grátis.`;
+                    aviso.style.color = '#4caf50';
+                    aviso.style.backgroundColor = 'rgba(76, 175, 80, 0.1)';
+                    aviso.style.border = '1px solid #4caf50';
+                } else {
+                    // 🔥 AQUI ESTÁ O SEGREDO: Habilita o checkbox mesmo sendo parcial
+                    checkbox.disabled = false;
+                    checkbox.checked = true;
+                    aviso.innerHTML = `⚠️ <b>Frota Parcial!</b> Seus caminhões levam <b>${capTotal}</b> cab.<br><span style="color:#aaa;">O frete das ${faltaEspaco} restantes custará <b>R$ ${window.custoFreteResidual.toLocaleString('pt-BR')}</b>.</span>`;
+                    aviso.style.color = '#ff9800';
+                    aviso.style.backgroundColor = 'rgba(255, 152, 0, 0.1)';
+                    aviso.style.border = '1px solid #ff9800';
+                }
 
                 let veiculoIlustracao = veiculosProntos.find(v => v.modelo.includes('Caminhão')) || veiculosProntos[0];
-                if(veiculoIlustracao.imagem) imgCaminhao.src = '/static/img/' + veiculoIlustracao.imagem;
+                if(veiculoIlustracao.imagem && imgCaminhao) imgCaminhao.src = '/static/img/' + veiculoIlustracao.imagem;
             } else {
                 checkbox.disabled = true;
                 checkbox.checked = false;
-                aviso.innerText = `❌ Sem ${nomeVeiculoMsg} disponível ou sem combustível. Frete será cobrado.`;
+                window.custoFreteResidual = window.custoFreteTotal;
+                aviso.innerHTML = `❌ Sem frota livre. Frete integral de <b>R$ ${window.custoFreteTotal.toLocaleString('pt-BR')}</b>.`;
                 aviso.style.color = '#f44336';
-                definirCaminhaoPadrao(primeiraRaca); 
+                aviso.style.backgroundColor = 'rgba(244, 67, 54, 0.1)';
+                aviso.style.border = '1px solid #f44336';
+                if(typeof definirCaminhaoPadrao === 'function') definirCaminhaoPadrao(primeiraRaca); 
             }
         }
-    } catch (e) {
-        console.error(e);
-    }
+    } catch (e) { console.error(e); }
+    
     window.atualizarTotalModal();
 }
+
+// 🔥 REESCREVENDO A FUNÇÃO DE TOTAL PARA ELA OBEDECER AO FRETE PARCIAL
+window.atualizarTotalModal = function() {
+    let spanAnimais = document.getElementById('txt-modal-animais');
+    let spanFrete = document.getElementById('txt-modal-frete');
+    let spanTotal = document.getElementById('txt-modal-total');
+    
+    let valorAnimais = 0;
+    if (compraAtual.tipo === 'ia_lote' && typeof carrinhoLoteIA !== 'undefined') {
+        valorAnimais = carrinhoLoteIA.reduce((acc, item) => acc + (item.quantidade * item.precoUnitario), 0);
+    } else if (compraAtual.tipo === 'comunidade') {
+        valorAnimais = compraAtual.precoUnitario;
+    }
+
+    const checkbox = document.getElementById('check-caminhao-proprio');
+    let valorFrete = 0;
+
+    // USA AS VARIÁVEIS GLOBAIS DE FRETE QUE CALCULAMOS ACIMA
+    if (checkbox && checkbox.checked) {
+        valorFrete = window.custoFreteResidual || 0;
+    } else {
+        valorFrete = window.custoFreteTotal || 0;
+    }
+
+    // Fallback de emergência caso o servidor demore a responder
+    if (valorFrete === 0 && (!checkbox || !checkbox.checked)) valorFrete = 50.0;
+
+    if(spanAnimais) spanAnimais.innerText = 'R$ ' + valorAnimais.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+    if(spanFrete) spanFrete.innerText = 'R$ ' + valorFrete.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+    if(spanTotal) spanTotal.innerText = 'R$ ' + (valorAnimais + valorFrete).toLocaleString('pt-BR', {minimumFractionDigits: 2});
+    
+    // Atualiza o bloco verdão do seu print dinamicamente!
+    let infoBlocoHtml = document.querySelector('div[style*="Total Geral:"]');
+    if(!infoBlocoHtml) infoBlocoHtml = document.querySelector('div[style*="font-size: 16px; color: #4caf50;"]');
+    
+    if(infoBlocoHtml && checkbox) {
+         let parentBlock = infoBlocoHtml.closest('div[style*="background: #111"]');
+         if(parentBlock) {
+             parentBlock.innerHTML = `Animais: R$ ${valorAnimais.toLocaleString('pt-BR', {minimumFractionDigits: 2})} + Frete: R$ ${valorFrete.toLocaleString('pt-BR', {minimumFractionDigits: 2})}<br>
+                                  <b style="font-size: 16px; color: #4caf50;">Total Geral: R$ ${(valorAnimais + valorFrete).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</b>`;
+         }
+    }
+}
+
+// Escuta os cliques na caixinha para atualizar o valor na hora
+document.addEventListener('DOMContentLoaded', () => {
+    document.body.addEventListener('change', function(e) {
+        if(e.target && e.target.id === 'check-caminhao-proprio') {
+            window.atualizarTotalModal();
+        }
+    });
+});
 
 window.abrirModalLogisticaIA = function() {
     if (carrinhoLoteIA.length === 0) {
@@ -10497,23 +10225,76 @@ function formatarPeso(peso) {
 // ==========================================
 // MANEJO E EXPANSÃO DO CURRAL
 // ==========================================
-window.confirmarExpansaoCurral = function() {
-    const fazendaId = window.location.pathname.split('/').pop(); 
-    fetch('/api/fazenda/expandir_curral', { 
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ fazenda_id: fazendaId }) 
-    })
-    .then(r => r.json()).then(d => {
-        if(d.sucesso) { 
-            Swal.fire('Sucesso!', d.msg, 'success').then(()=> {
-                localStorage.setItem('modal_aberto_fazenda', 'modal-curral');
-                location.reload();
-            }); 
-        }
-        else { Swal.fire('Erro', d.erro, 'error'); }
+// Função auxiliar para alternar entre Kg e Arrobas (@)
+function formatarPeso(peso) {
+    let p = parseFloat(peso) || 0;
+    if (p >= 30.0) {
+        // Agora reflete o rendimento comercial correto (30 kg vivos = 1 @)
+        return (p / 30.0).toFixed(1) + ' @';
+    } else {
+        return p.toFixed(1) + ' kg';
+    }
+}
+
+// ==========================================
+// PROJETOS DE EXPANSÃO DO CURRAL
+// ==========================================
+window.abrirModalExpansaoCurral = function(fazendaId) {
+    let htmlList = `
+        <div style="text-align: center; margin-bottom: 15px;">
+            <h3 style="color: #fff; margin: 0;">Construtora de Currais</h3>
+            <p style="color: #aaa; font-size: 13px;">Aumente a capacidade do seu tronco de manejo.</p>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+            <button onclick="confirmarExpansaoCurral(${fazendaId}, 'pequeno', 5, 6000)" style="background: #fbc02d; color: #111; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                Curral Básico (+5 vagas) - R$ 6.000
+            </button>
+            <button onclick="confirmarExpansaoCurral(${fazendaId}, 'medio', 50, 55000)" style="background: #f57c00; color: #fff; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                Curral Médio (+50 vagas) - R$ 55.000
+            </button>
+            <button onclick="confirmarExpansaoCurral(${fazendaId}, 'grande', 250, 250000)" style="background: #e65100; color: #fff; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                Curral Grande (+250 vagas) - R$ 250.000
+            </button>
+            <button onclick="confirmarExpansaoCurral(${fazendaId}, 'gigante', 1000, 900000)" style="background: #bf360c; color: #fff; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                Complexo de Manejo (+1.000 vagas) - R$ 900.000
+            </button>
+            <button onclick="Swal.close()" style="background: #555; color: white; padding: 10px; border: none; border-radius: 6px; margin-top: 10px; cursor: pointer;">Cancelar Obra</button>
+        </div>
+    `;
+
+    Swal.fire({
+        html: htmlList,
+        background: '#1a1a1a', color: '#fff',
+        showConfirmButton: false, showCloseButton: true
     });
-};
+}
+
+window.confirmarExpansaoCurral = function(fazendaId, pacote, vagas, custo) {
+    Swal.fire({
+        title: 'Confirmar Obra?',
+        text: `Expandir o curral em +${vagas} vagas por R$ ${custo.toLocaleString('pt-BR')}?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Construir',
+        cancelButtonText: 'Cancelar',
+        background: '#1a1a1a', color: '#fff',
+        confirmButtonColor: '#2e7d32'
+    }).then((res) => {
+        if (res.isConfirmed) {
+            Swal.fire({ title: 'Construindo...', didOpen: () => Swal.showLoading() });
+            fetch('/api/fazenda/expandir_curral', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ fazenda_id: fazendaId, pacote: pacote })
+            })
+            .then(r => r.json())
+            .then(d => {
+                if (d.sucesso) Swal.fire('Concluído!', d.msg, 'success').then(() => { localStorage.setItem('modal_aberto_fazenda', 'modal-curral'); location.reload(); });
+                else Swal.fire('Atenção', d.erro, 'warning');
+            }).catch(() => Swal.fire('Erro', 'Falha na comunicação.', 'error'));
+        }
+    });
+}
 
 window.aplicarManejo = function(animal_id, acao) {
     const fazendaId = window.location.pathname.split('/').pop(); 
@@ -10961,7 +10742,7 @@ window.prepararTransferenciaLoteCurral = async function(habitatAtual = 'curral')
             htmlCheckboxes += `
                 <label style="display: flex; align-items: center; justify-content: space-between; background: #222; padding: 10px; margin-bottom: 6px; border-radius: 6px; cursor: pointer; border: 1px solid #444;">
                     <div style="display: flex; align-items: center; gap: 10px;">
-                        <input type="checkbox" class="chk-animal-transfer" value="${a.id}" data-raca="${a.raca}" onchange="window.atualizarTotalTransferencia()" style="width: 18px; height: 18px; cursor: pointer; flex-shrink: 0; margin-right: 5px;">
+                        <input type="checkbox" class="chk-animal-transfer" value="${a.id}" data-raca="${a.raca}" data-fase="${a.fase}" onchange="window.verificarCaminhaoTransfer()" style="width: 18px; height: 18px; cursor: pointer; flex-shrink: 0; margin-right: 5px;">
                         <div>
                             <div style="font-weight: bold; font-size: 14px; color: #fff; text-transform: capitalize;">${a.raca} (${a.fase})</div>
                             <span style="font-size: 11px; color: #888;">ID: #${a.id} | Sexo: ${a.sexo} | Peso: ${formatarPeso(a.peso)}</span>
@@ -10975,15 +10756,15 @@ window.prepararTransferenciaLoteCurral = async function(habitatAtual = 'curral')
         htmlCheckboxes += `
             <div style="text-align: left; background:#1a1a1a; padding: 10px; border-radius: 8px; border: 1px dashed #555;">
                 <label style="color: #aaa; font-size: 12px;"><i class="fas fa-map-marker-alt"></i> Destino da Carga:</label>
-                <select id="modal-destino-transfer" class="swal2-select" style="width: 100%; display: block; margin: 5px 0 15px 0; font-size: 14px; padding: 8px; background: #111; color: #fff; border: 1px solid #444;">
+                <select id="modal-destino-transfer" onchange="window.verificarCaminhaoTransfer()" class="swal2-select" style="width: 100%; display: block; margin: 5px 0 10px 0; font-size: 14px; padding: 8px; background: #111; color: #fff; border: 1px solid #444;">
                     ${options}
                 </select>
                 
                 <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; background: #222; padding: 10px; border-radius: 6px; border: 1px solid #444;">
-                    <input type="checkbox" id="check-caminhao-transfer" onchange="window.atualizarTotalTransferencia()" style="width: 18px; height: 18px;">
+                    <input type="checkbox" id="check-caminhao-transfer" onchange="window.verificarCaminhaoTransfer()" style="width: 18px; height: 18px;">
                     <span style="font-size: 13px; font-weight: bold; color: #ff9800;">Usar Veículo Próprio (Frete Grátis)</span>
                 </label>
-                <div style="font-size: 11px; color: #888; margin-top: 5px; margin-left: 28px;">(O veículo será retirado da garagem <b>DESTA</b> fazenda atual)</div>
+                <div id="aviso-frete-transfer" style="font-size: 12px; margin-top: 8px; text-align: center; padding: 8px; border-radius: 6px; display: none;"></div>
                 
                 <div style="margin-top: 15px; font-size: 16px; font-weight: bold; text-align: center; border-top: 1px solid #333; padding-top: 10px;">
                     Custo do Frete: <span id="txt-total-transfer" style="color: #f44336;">R$ 0,00</span>
@@ -10996,6 +10777,9 @@ window.prepararTransferenciaLoteCurral = async function(habitatAtual = 'curral')
             html: htmlCheckboxes,
             background: '#2a2a2a', color: '#fff',
             showCancelButton: true, confirmButtonText: 'Despachar Carga', cancelButtonText: 'Cancelar', confirmButtonColor: '#0288d1',
+            didOpen: () => {
+                window.verificarCaminhaoTransfer();
+            },
             preConfirm: () => {
                 const checkboxes = document.querySelectorAll('.chk-animal-transfer:checked');
                 const ids = Array.from(checkboxes).map(chk => parseInt(chk.value));
@@ -11006,7 +10790,6 @@ window.prepararTransferenciaLoteCurral = async function(habitatAtual = 'curral')
                     usa_caminhao: document.getElementById('check-caminhao-transfer').checked
                 };
             }
-            
         }).then((result) => {
             if (result.isConfirmed) {
                 Swal.fire({ title: 'Viajando pelas rodovias...', didOpen: () => Swal.showLoading() });
@@ -11022,7 +10805,7 @@ window.prepararTransferenciaLoteCurral = async function(habitatAtual = 'curral')
                 .then(r => r.json()).then(d => {
                     if(d.sucesso) {
                         Swal.fire('Despachado! 🚚', d.msg, 'success').then(()=> { 
-                            window.location.href = '/mapa'; // Manda pro Mapa!
+                            window.location.href = '/mapa';
                         });
                     } else Swal.fire('Atenção', d.erro, 'warning');
                 });
@@ -11032,40 +10815,110 @@ window.prepararTransferenciaLoteCurral = async function(habitatAtual = 'curral')
         Swal.fire('Erro', 'Falha de comunicação', 'error');
     }
 }
-
 window.toggleSelecionarTodosTransfer = function(masterCheckbox) {
     document.querySelectorAll('.chk-animal-transfer').forEach(chk => chk.checked = masterCheckbox.checked);
-    window.atualizarTotalTransferencia();
+    window.verificarCaminhaoTransfer();
 };
 
-window.atualizarTotalTransferencia = function() {
+window.verificarCaminhaoTransfer = async function() {
     const checkboxes = document.querySelectorAll('.chk-animal-transfer:checked');
     const qtd = checkboxes.length;
-    const usaCaminhao = document.getElementById('check-caminhao-transfer').checked;
+    const checkboxCaminhao = document.getElementById('check-caminhao-transfer');
     const txtTotal = document.getElementById('txt-total-transfer');
+    const aviso = document.getElementById('aviso-frete-transfer');
+    const origemId = window.location.pathname.split('/').pop();
     
     if (qtd === 0) {
         txtTotal.innerText = "R$ 0,00";
         txtTotal.style.color = "#888";
+        if(aviso) aviso.style.display = 'none';
         return;
     }
 
-    if (usaCaminhao) {
-        txtTotal.innerText = "Grátis (Frota Própria)";
-        txtTotal.style.color = "#4caf50";
-    } else {
-        let freteCabeca = 50.0;
-        const raca = checkboxes[0].getAttribute('data-raca').toLowerCase();
-        const aves_peixes = ['galinha', 'pato', 'peru', 'tambaqui', 'pirarucu', 'pacu', 'matrinxa'];
-        const suinos_ovinos = ['porco', 'leitao', 'javali', 'ovelha', 'cabra'];
+    if(aviso) aviso.style.display = 'block';
 
-        if (aves_peixes.some(v => raca.includes(v))) freteCabeca = 5.0;
-        else if (suinos_ovinos.some(v => raca.includes(v))) freteCabeca = 15.0;
+    const primeiraRaca = checkboxes[0].getAttribute('data-raca').toLowerCase();
+    const peixes = ['tambaqui', 'pirarucu', 'pacu', 'matrinxa', 'jaraqui', 'curimata', 'surubim', 'pintado', 'cachara', 'tucunare', 'piau'];
+    const aves_e_medios = ['galinha', 'pato', 'peru', 'porco', 'leitao', 'javali', 'ovelha', 'cabra'];
 
-        const custo = qtd * freteCabeca; 
-        txtTotal.innerText = custo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        txtTotal.style.color = "#f44336";
-    }
+    let fretePorCabeca = 50.0;
+    if (peixes.includes(primeiraRaca) || ['galinha', 'pato', 'peru'].includes(primeiraRaca)) fretePorCabeca = 5.0;
+    else if (['porco', 'leitao', 'javali', 'ovelha', 'cabra'].includes(primeiraRaca)) fretePorCabeca = 15.0;
+
+    let modelosAceitos = [];
+    if (peixes.includes(primeiraRaca)) modelosAceitos = ['Caminhão Baú (Frios)'];
+    else if (aves_e_medios.includes(primeiraRaca)) modelosAceitos = ['Caminhonete Nova', 'Caminhonete Usada', 'Caminhão Boiadeiro'];
+    else modelosAceitos = ['Caminhão Boiadeiro'];
+
+    let espacoNecessario = 0;
+    checkboxes.forEach(chk => {
+        const fase = chk.getAttribute('data-fase').toLowerCase();
+        if (fase === 'filhote' || fase === 'jovem') espacoNecessario += 0.5;
+        else espacoNecessario += 1.0;
+    });
+
+    try {
+        const res = await fetch(`/api/barracao/listar?fazenda_id=${origemId}&t=${new Date().getTime()}`);
+        const data = await res.json();
+
+        if (data.sucesso) {
+            const veiculosProntos = data.maquinas.filter(m => modelosAceitos.includes(m.modelo) && m.combustivel >= 15 && m.saude >= 5);
+
+            let capTotal = 0;
+            veiculosProntos.forEach(v => {
+                if (v.modelo === 'Caminhão Baú (Frios)') capTotal += 200;
+                else if (v.modelo === 'Caminhão Boiadeiro') {
+                    if(peixes.includes(primeiraRaca)) capTotal += 200;
+                    else if(aves_e_medios.includes(primeiraRaca)) capTotal += 60;
+                    else capTotal += 20;
+                } else if (v.modelo.includes('Caminhonete')) {
+                    if(aves_e_medios.includes(primeiraRaca)) capTotal += 10;
+                    else capTotal += 2;
+                }
+            });
+
+            let espacoFormatado = Math.ceil(espacoNecessario);
+            let faltaEspaco = espacoFormatado - capTotal;
+            let custoFreteTotal = qtd * fretePorCabeca;
+            
+            let custoFreteResidual = 0;
+            if(faltaEspaco > 0) {
+                custoFreteResidual = faltaEspaco * (fretePorCabeca / (espacoNecessario/qtd));
+            }
+
+            if (veiculosProntos.length > 0) {
+                if (faltaEspaco <= 0) {
+                    checkboxCaminhao.disabled = false;
+                    aviso.innerHTML = `✅ <b>Frota Pronta!</b> Suporta <b>${capTotal}</b> cab. Frete 100% Grátis.`;
+                    aviso.style.color = '#4caf50';
+                    aviso.style.backgroundColor = 'rgba(76, 175, 80, 0.1)';
+                    aviso.style.border = '1px solid #4caf50';
+                } else {
+                    checkboxCaminhao.disabled = false;
+                    aviso.innerHTML = `⚠️ <b>Frota Parcial!</b> Seus caminhões levam <b>${capTotal}</b> espaços.<br><span style="color:#aaa;">O frete dos que não couberam custará <b>R$ ${custoFreteResidual.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</b>.</span>`;
+                    aviso.style.color = '#ff9800';
+                    aviso.style.backgroundColor = 'rgba(255, 152, 0, 0.1)';
+                    aviso.style.border = '1px solid #ff9800';
+                }
+            } else {
+                checkboxCaminhao.disabled = true;
+                checkboxCaminhao.checked = false;
+                custoFreteResidual = custoFreteTotal;
+                aviso.innerHTML = `❌ Sem frota livre <b>nesta fazenda</b>. Frete integral será cobrado.`;
+                aviso.style.color = '#f44336';
+                aviso.style.backgroundColor = 'rgba(244, 67, 54, 0.1)';
+                aviso.style.border = '1px solid #f44336';
+            }
+
+            if (checkboxCaminhao.checked) {
+                txtTotal.innerText = custoFreteResidual > 0 ? "R$ " + custoFreteResidual.toLocaleString('pt-BR', {minimumFractionDigits: 2}) : "Grátis (Frota Própria)";
+                txtTotal.style.color = custoFreteResidual > 0 ? "#ff9800" : "#4caf50";
+            } else {
+                txtTotal.innerText = "R$ " + custoFreteTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+                txtTotal.style.color = "#f44336";
+            }
+        }
+    } catch (e) { console.error("Erro na frota", e); }
 }
 
 
@@ -11808,6 +11661,34 @@ window.abrirPainelBarracao = async function() {
                 const corSaude = m.saude > 50 ? '#4caf50' : '#f44336';
                 const imgSrc = `/static/img/${m.imagem}`;
                 
+                // 🔥 NOVA LÓGICA: Se a máquina está na prancha, bloqueia tudo. Se não, exibe os 4 botões!
+                let botoesAcaoHtml = '';
+                if (m.em_viagem) {
+                    botoesAcaoHtml = `
+                        <div style="background: rgba(255, 152, 0, 0.2); border: 1px solid #ff9800; color: #ff9800; padding: 8px; text-align: center; border-radius: 6px; font-weight: bold; width: 100%; margin-top: 10px;">
+                            <i class="fas fa-truck-loading"></i> EM TRÂNSITO (${m.horas_restantes}h)
+                        </div>
+                    `;
+                } else {
+                    botoesAcaoHtml = `
+                        <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px;">
+                            <button onclick="abastecerMaquina(${m.id})" style="flex: 1; min-width: 45%; background: #ff9800; color: #000; border: none; padding: 6px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer;">
+                                <i class="fas fa-gas-pump"></i> Abastecer
+                            </button>
+                            <button onclick="repararMaquina(${m.id})" style="flex: 1; min-width: 45%; background: #0288d1; color: #fff; border: none; padding: 6px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer;">
+                                <i class="fas fa-tools"></i> Oficina
+                            </button>
+                            <button onclick="venderMaquina(${m.id}, '${m.modelo}')" style="flex: 1; min-width: 45%; background: #d32f2f; color: #fff; border: none; padding: 6px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer;">
+                                <i class="fas fa-dollar-sign"></i> Vender
+                            </button>
+                            
+                    <button onclick="prepararTransferenciaMaquina(${m.id}, '${m.modelo}', '${m.tipo}')" style="flex: 1; min-width: 45%; background: #9c27b0; color: #fff; border: none; padding: 6px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer;">
+                    <i class="fas fa-truck"></i> Transferir
+                    </button>
+                    </div>
+                    `;
+                }
+                
                 maquinasHtml += `
                 <div style="background: #222; border: 1px solid #444; border-radius: 8px; padding: 12px; margin-bottom: 12px; text-align: left;">
                     
@@ -11839,18 +11720,7 @@ window.abrirPainelBarracao = async function() {
                         </div>
                     </div>
 
-                    <!-- Botões de Ação com a Opção de Vender -->
-                    <div style="display: flex; gap: 6px;">
-                        <button onclick="abastecerMaquina(${m.id})" style="flex: 1; background: #ff9800; color: #000; border: none; padding: 6px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer;">
-                            <i class="fas fa-gas-pump"></i> Abastecer
-                        </button>
-                        <button onclick="repararMaquina(${m.id})" style="flex: 1; background: #0288d1; color: #fff; border: none; padding: 6px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer;">
-                            <i class="fas fa-tools"></i> Oficina
-                        </button>
-                        <button onclick="venderMaquina(${m.id}, '${m.modelo}')" style="flex: 1; background: #d32f2f; color: #fff; border: none; padding: 6px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer;">
-                            <i class="fas fa-dollar-sign"></i> Vender
-                        </button>
-                    </div>
+                    ${botoesAcaoHtml}
                 </div>`;
             });
         }
@@ -11949,6 +11819,95 @@ window.repararMaquina = function(maquinaId) {
         else Swal.fire('Atenção', d.erro, 'warning');
     });
 };
+
+// 🔥 FUNÇÃO NOVA: Abre o painel para embarcar a máquina no guincho
+window.prepararTransferenciaMaquina = async function(maquinaId, modeloNome, tipoMaquina) {
+    const fazendaId = window.location.pathname.split('/').pop();
+    
+    Swal.fire({ title: 'Procurando rotas...', didOpen: () => Swal.showLoading() });
+    
+    try {
+        const resFazendas = await fetch('/api/mapa_global');
+        const todasTerras = await resFazendas.json();
+        const minhasOutrasTerras = todasTerras.filter(t => t.e_minha && t.id != fazendaId);
+
+        if (minhasOutrasTerras.length === 0) {
+            Swal.fire('Aviso', 'Você precisa de pelo menos uma outra fazenda para transferir máquinas!', 'info');
+            return;
+        }
+
+        let options = minhasOutrasTerras.map(t => `<option value="${t.id}">${t.nome}</option>`).join('');
+
+        let html = `
+            <div style="text-align: center; margin-bottom: 15px;">
+                <i class="fas fa-truck-loading" style="font-size: 30px; color: #ff9800; margin-bottom: 10px;"></i>
+                <h4 style="color: #fff; margin: 0;">Transportar ${modeloNome}</h4>
+        `;
+
+        let isVeiculo = (tipoMaquina === 'Veiculo' || tipoMaquina === 'Caminhao');
+
+        if (isVeiculo) {
+            html += `<p style="color: #4caf50; font-size: 13px; font-weight:bold;">Este veículo vai rodando! (Gasta apenas o próprio diesel)</p></div>`;
+        } else {
+            html += `
+                <p style="color: #aaa; font-size: 13px;">Máquinas pesadas exigem guincho prancha.</p>
+            </div>
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; background: #222; padding: 10px; border-radius: 6px; border: 1px solid #444; margin-bottom: 10px;">
+                <input type="checkbox" id="check-prancha-propria" style="width: 18px; height: 18px;">
+                <span style="font-size: 13px; font-weight: bold; color: #ff9800;">Usar meu Caminhão Prancha (Frete Grátis)</span>
+            </label>
+            `;
+        }
+
+        html += `
+            <div style="text-align: left; background:#1a1a1a; padding: 15px; border-radius: 8px; border: 1px dashed #555;">
+                <label style="color: #aaa; font-size: 12px;"><i class="fas fa-map-marker-alt"></i> Fazenda de Destino:</label>
+                <select id="modal-destino-maq" class="swal2-select" style="width: 100%; display: block; margin: 5px 0 10px 0; font-size: 14px; padding: 10px; background: #111; color: #fff; border: 1px solid #444;">
+                    ${options}
+                </select>
+        `;
+        if (!isVeiculo) {
+            html += `
+                <div style="margin-top: 15px; font-size: 13px; color: #ccc;">
+                    <b>Atenção:</b> O frete terceirizado custa R$ 500 na mesma cidade e R$ 1.500 para fora.
+                </div>
+            `;
+        }
+        html += `</div>`;
+
+        Swal.fire({
+            title: 'Logística de Máquinas',
+            html: html,
+            background: '#2a2a2a', color: '#fff',
+            showCancelButton: true, confirmButtonText: isVeiculo ? 'Ir Dirigindo' : 'Embarcar', cancelButtonText: 'Cancelar', confirmButtonColor: '#ff9800',
+            preConfirm: () => {
+                let usaPrancha = false;
+                let checkEl = document.getElementById('check-prancha-propria');
+                if (checkEl) usaPrancha = checkEl.checked;
+
+                return {
+                    maquina_id: maquinaId,
+                    destino_id: document.getElementById('modal-destino-maq').value,
+                    usa_prancha: usaPrancha
+                };
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({ title: 'Preparando a viagem...', didOpen: () => Swal.showLoading() });
+                fetch('/api/barracao/transferir', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(result.value)
+                })
+                .then(r => r.json()).then(d => {
+                    if(d.sucesso) Swal.fire('Na Estrada! 🚜', d.msg, 'success').then(()=> { location.reload(); });
+                    else Swal.fire('Atenção', d.erro, 'warning');
+                });
+            }
+        });
+    } catch (e) {
+        Swal.fire('Erro', 'Falha de comunicação.', 'error');
+    }
+}
 
 
 ============================================================
@@ -14384,9 +14343,9 @@ ARQUIVO: ./templates/partes/curral.html
                     {{ gado_curral|length }} / {{ fazenda.cap_curral|default(10) }} <small style="font-size: 11px; color: #aaa;">animais</small>
                 </div>
             </div>
-            <button onclick="confirmarExpansaoCurral()" style="background: #5d4037; color: white; border: none; padding: 8px 12px; border-radius: 8px; font-size: 11px; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #3e2723;">
-                🔼 EXPANDIR (+5)
-            </button>
+            <button style="background: #ff9800; color: #fff; padding: 8px 12px; border: none; border-radius: 6px; font-weight: bold; font-size: 11px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" onclick="abrirModalExpansaoCurral({{ fazenda.id }})">
+    Ver Projetos de Obra
+</button>
         </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px;">

@@ -43,7 +43,6 @@ def manejar_curral():
             return jsonify({'sucesso': False, 'erro': 'Número de pasto inválido.'})
             
     elif destino == 'curral':
-        # 🔥 CORREÇÃO: Verificando o limite do curral!
         limite_curral = getattr(fazenda_alvo, 'cap_curral', 10)
         animais_no_curral = Animal.query.filter_by(propriedade_id=fazenda_alvo.id, onde_esta='curral').count()
         
@@ -110,7 +109,6 @@ def manejar_lote():
         except ValueError:
             return jsonify({'sucesso': False, 'erro': 'Erro no ID do pasto.'})
     else:
-        # 🔥 CORREÇÃO: Verificando as vagas do curral no retorno em lote!
         limite_curral = getattr(fazenda_alvo, 'cap_curral', 10)
         animais_no_curral = Animal.query.filter_by(propriedade_id=fazenda_alvo.id, onde_esta='curral').count()
         vagas_livres = limite_curral - animais_no_curral
@@ -128,7 +126,6 @@ def manejar_lote():
     if movidos > 0:
         if getattr(usuario, 'xp', None) is None:
             usuario.xp = 0
-        # 🔥 FIM DA FESTA: Apenas 15 XP fixos por operação de manejo do peão!
         usuario.xp += 15
 
     db.session.commit()
@@ -256,6 +253,7 @@ def aplicar_insumo():
         animal.medicado = True
     elif acao == 'suplemento':
         animal.suplementado = True 
+        animal.peso = float(animal.peso or 0.0) + 15.0 
     
     if getattr(jogador, 'xp', None) is None:
         jogador.xp = 0
@@ -329,9 +327,10 @@ def tratamento_lote():
             animal.vacinado_brucelose = True
         elif tipo == 'medicamento':
             animal.medicado = True
-            animal.saude = min(100, float(animal.saude or 100) + 30) 
+            animal.saude = min(100.0, float(animal.saude or 100.0) + 30.0) 
         elif tipo == 'suplemento':
             animal.suplementado = True
+            animal.peso = float(animal.peso or 0.0) + 15.0
             
     if getattr(jogador, 'xp', None) is None:
         jogador.xp = 0
@@ -434,8 +433,8 @@ def transferir_lote():
     dados = request.get_json()
     
     animal_ids = dados.get('animal_ids', [])
-    fazenda_origem_id = int(dados.get('fazenda_origem_id'))
-    fazenda_destino_id = int(dados.get('fazenda_destino_id'))
+    fazenda_origem_id = int(dados.get('fazenda_origem_id', 0))
+    fazenda_destino_id = int(dados.get('fazenda_destino_id', 0))
     usa_caminhao = dados.get('usa_caminhao', False)
     
     if not animal_ids: return jsonify({'sucesso': False, 'erro': 'Nenhum animal selecionado.'})
@@ -463,7 +462,6 @@ def transferir_lote():
             familia_animal = f
             break
             
-    # 🎯 Descobre o habitat de destino e as regras de frete
     if familia_animal == 'ave' or any(t in raca_lower for t in ['galinha', 'pato', 'peru', 'ave']):
         habitat = 'galinheiro'
         if not getattr(prop_destino, 'tem_galinheiro', False): return jsonify({'sucesso': False, 'erro': f'O destino não possui Galinheiro!'})
@@ -504,7 +502,6 @@ def transferir_lote():
     if animais_no_destino + quantidade > limite:
         return jsonify({'sucesso': False, 'erro': f'Lotação excedida! O {habitat.capitalize()} de destino só tem {limite - animais_no_destino} vagas.'})
         
-    # 🚚 Lógica de Frete vs Caminhão Próprio E FROTA MULTIPLA
     custo_frete = 0.0
     
     if usa_caminhao:
@@ -515,9 +512,6 @@ def transferir_lote():
             Maquinario.estado_conservacao >= 5
         ).all()
         
-        if not frota_disponivel:
-            return jsonify({'sucesso': False, 'erro': 'A fazenda de ORIGEM não tem frota livre e compatível para a viagem!'})
-            
         def get_cap(modelo):
             if modelo == 'Caminhão Baú (Frios)': return 200
             if modelo == 'Caminhão Boiadeiro':
@@ -541,22 +535,25 @@ def transferir_lote():
                 
         restante = espaco_necessario
         caminhoes_usados = []
-        cap_total = 0
         
         for v in frota_disponivel:
             if restante <= 0: break
             cap_v = get_cap(v.modelo)
             if cap_v > 0:
-                cap_total += cap_v
                 restante -= cap_v
                 caminhoes_usados.append(v)
                 
-        if restante > 0:
-            return jsonify({'sucesso': False, 'erro': f'Sua frota suporta apenas {int(cap_total)} animais deste tamanho! Compre mais caminhões na Origem ou pague o Frete.'})
-            
         for v in caminhoes_usados:
             v.nivel_combustivel -= 15
             v.estado_conservacao -= 5
+            v.propriedade_id = prop_destino.id
+            
+        if restante > 0:
+            espaco_medio = espaco_necessario / quantidade if quantidade > 0 else 1.0
+            animais_fora = restante / espaco_medio
+            custo_frete = animais_fora * frete_cabeca
+        else:
+            custo_frete = 0.0
     else:
         custo_frete = quantidade * frete_cabeca
         
@@ -568,7 +565,6 @@ def transferir_lote():
         from logica.economia import registrar_transacao
         registrar_transacao(usuario.id, 'saida', custo_frete, f'Logística: Frete de Transferência ({quantidade} cabeças)')
         
-    # 🔥 MÁGICA DO TEMPO BASEADO NA DISTÂNCIA
     tempo_viagem = 24 if usa_caminhao else 48
     cidade_origem = prop_origem.nome.split(" de ")[-1]
     cidade_destino = prop_destino.nome.split(" de ")[-1]
@@ -584,10 +580,10 @@ def transferir_lote():
         a.onde_esta = 'caminhao' 
         
     if getattr(usuario, 'xp', None) is None: usuario.xp = 0
-    # 🔥 FIM DA FESTA: Apenas 20 XP por viagem de caminhão!
     usuario.xp += 20
         
     db.session.commit()
     
-    meio_transporte = "com a sua frota própria" if usa_caminhao else "por transportadora terceirizada"
-    return jsonify({'sucesso': True, 'msg': f'Carga despachada {meio_transporte}! Os animais chegarão na fazenda "{prop_destino.nome}" em {tempo_viagem} horas.'})
+    meio_transporte = "com a sua frota própria" if usa_caminhao and custo_frete == 0 else "com frota parcial e transportadora" if usa_caminhao else "por transportadora terceirizada"
+    return jsonify({'sucesso': True, 'msg': f'Carga despachada {meio_transporte}! Os caminhões e os animais vão desembarcar na fazenda "{prop_destino.nome}".'})
+        

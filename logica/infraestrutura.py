@@ -59,28 +59,39 @@ def expandir_curral():
     if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
     
     jogador = Jogador.query.filter_by(username=session.get('usuario')).first()
-    dados = request.get_json()
+    dados = request.get_json() or {}
     fazenda_id = dados.get('fazenda_id')
+    pacote = dados.get('pacote', 'pequeno') # Descobre qual o pacote escolhido
     
-    # 🔥 CORREÇÃO 1: Pega a fazenda exata onde o jogador está
+    # 🔥 TABELA DE PACOTES DE OBRAS DO CURRAL
+    PACOTES_OBRA_CURRAL = {
+        'pequeno': {'custo': 6000.0, 'capacidade': 5},
+        'medio': {'custo': 55000.0, 'capacidade': 50},
+        'grande': {'custo': 250000.0, 'capacidade': 250},
+        'gigante': {'custo': 900000.0, 'capacidade': 1000}
+    }
+
+    if pacote not in PACOTES_OBRA_CURRAL:
+        return jsonify({'sucesso': False, 'erro': 'Pacote de obra inválido.'})
+
+    custo_expansao = PACOTES_OBRA_CURRAL[pacote]['custo']
+    aumento_capacidade = PACOTES_OBRA_CURRAL[pacote]['capacidade']
+
     fazenda = Propriedade.query.filter_by(id=fazenda_id, dono_id=jogador.id).first()
     if not fazenda:
         return jsonify({'sucesso': False, 'erro': 'Fazenda não encontrada.'})
     
-    custo_expansao = 6000.0
-    
     if jogador.saldo < custo_expansao: 
-        return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente. Custa R$ {custo_expansao:,.2f}.'})
+        return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente. O projeto custa R$ {custo_expansao:,.2f}.'})
     
     jogador.saldo -= custo_expansao
-    fazenda.cap_curral = getattr(fazenda, 'cap_curral', 10) + 5
+    fazenda.cap_curral = getattr(fazenda, 'cap_curral', 10) + aumento_capacidade
     
-    # 🔥 CORREÇÃO 2: Registra a saída no extrato para não parecer "de graça"
-    registrar_transacao(jogador.id, 'saida', custo_expansao, 'Engenharia: Expansão do Tronco/Curral (+5 vagas)')
+    registrar_transacao(jogador.id, 'saida', custo_expansao, f'Engenharia: Expansão do Tronco/Curral (+{aumento_capacidade} vagas)')
     
     if getattr(jogador, 'xp', None) is None:
         jogador.xp = 0
-    jogador.xp += 10
+    jogador.xp += 15
     
     db.session.commit()
-    return jsonify({'sucesso': True, 'msg': 'Obras concluídas! Curral expandido em +5 vagas.'})
+    return jsonify({'sucesso': True, 'msg': f'Obras concluídas! Curral expandido em +{aumento_capacidade} vagas.'})

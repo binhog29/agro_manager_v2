@@ -12,23 +12,76 @@ function formatarPeso(peso) {
 // ==========================================
 // MANEJO E EXPANSÃO DO CURRAL
 // ==========================================
-window.confirmarExpansaoCurral = function() {
-    const fazendaId = window.location.pathname.split('/').pop(); 
-    fetch('/api/fazenda/expandir_curral', { 
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ fazenda_id: fazendaId }) 
-    })
-    .then(r => r.json()).then(d => {
-        if(d.sucesso) { 
-            Swal.fire('Sucesso!', d.msg, 'success').then(()=> {
-                localStorage.setItem('modal_aberto_fazenda', 'modal-curral');
-                location.reload();
-            }); 
-        }
-        else { Swal.fire('Erro', d.erro, 'error'); }
+// Função auxiliar para alternar entre Kg e Arrobas (@)
+function formatarPeso(peso) {
+    let p = parseFloat(peso) || 0;
+    if (p >= 30.0) {
+        // Agora reflete o rendimento comercial correto (30 kg vivos = 1 @)
+        return (p / 30.0).toFixed(1) + ' @';
+    } else {
+        return p.toFixed(1) + ' kg';
+    }
+}
+
+// ==========================================
+// PROJETOS DE EXPANSÃO DO CURRAL
+// ==========================================
+window.abrirModalExpansaoCurral = function(fazendaId) {
+    let htmlList = `
+        <div style="text-align: center; margin-bottom: 15px;">
+            <h3 style="color: #fff; margin: 0;">Construtora de Currais</h3>
+            <p style="color: #aaa; font-size: 13px;">Aumente a capacidade do seu tronco de manejo.</p>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+            <button onclick="confirmarExpansaoCurral(${fazendaId}, 'pequeno', 5, 6000)" style="background: #fbc02d; color: #111; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                Curral Básico (+5 vagas) - R$ 6.000
+            </button>
+            <button onclick="confirmarExpansaoCurral(${fazendaId}, 'medio', 50, 55000)" style="background: #f57c00; color: #fff; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                Curral Médio (+50 vagas) - R$ 55.000
+            </button>
+            <button onclick="confirmarExpansaoCurral(${fazendaId}, 'grande', 250, 250000)" style="background: #e65100; color: #fff; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                Curral Grande (+250 vagas) - R$ 250.000
+            </button>
+            <button onclick="confirmarExpansaoCurral(${fazendaId}, 'gigante', 1000, 900000)" style="background: #bf360c; color: #fff; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                Complexo de Manejo (+1.000 vagas) - R$ 900.000
+            </button>
+            <button onclick="Swal.close()" style="background: #555; color: white; padding: 10px; border: none; border-radius: 6px; margin-top: 10px; cursor: pointer;">Cancelar Obra</button>
+        </div>
+    `;
+
+    Swal.fire({
+        html: htmlList,
+        background: '#1a1a1a', color: '#fff',
+        showConfirmButton: false, showCloseButton: true
     });
-};
+}
+
+window.confirmarExpansaoCurral = function(fazendaId, pacote, vagas, custo) {
+    Swal.fire({
+        title: 'Confirmar Obra?',
+        text: `Expandir o curral em +${vagas} vagas por R$ ${custo.toLocaleString('pt-BR')}?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Construir',
+        cancelButtonText: 'Cancelar',
+        background: '#1a1a1a', color: '#fff',
+        confirmButtonColor: '#2e7d32'
+    }).then((res) => {
+        if (res.isConfirmed) {
+            Swal.fire({ title: 'Construindo...', didOpen: () => Swal.showLoading() });
+            fetch('/api/fazenda/expandir_curral', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ fazenda_id: fazendaId, pacote: pacote })
+            })
+            .then(r => r.json())
+            .then(d => {
+                if (d.sucesso) Swal.fire('Concluído!', d.msg, 'success').then(() => { localStorage.setItem('modal_aberto_fazenda', 'modal-curral'); location.reload(); });
+                else Swal.fire('Atenção', d.erro, 'warning');
+            }).catch(() => Swal.fire('Erro', 'Falha na comunicação.', 'error'));
+        }
+    });
+}
 
 window.aplicarManejo = function(animal_id, acao) {
     const fazendaId = window.location.pathname.split('/').pop(); 
@@ -476,7 +529,7 @@ window.prepararTransferenciaLoteCurral = async function(habitatAtual = 'curral')
             htmlCheckboxes += `
                 <label style="display: flex; align-items: center; justify-content: space-between; background: #222; padding: 10px; margin-bottom: 6px; border-radius: 6px; cursor: pointer; border: 1px solid #444;">
                     <div style="display: flex; align-items: center; gap: 10px;">
-                        <input type="checkbox" class="chk-animal-transfer" value="${a.id}" data-raca="${a.raca}" onchange="window.atualizarTotalTransferencia()" style="width: 18px; height: 18px; cursor: pointer; flex-shrink: 0; margin-right: 5px;">
+                        <input type="checkbox" class="chk-animal-transfer" value="${a.id}" data-raca="${a.raca}" data-fase="${a.fase}" onchange="window.verificarCaminhaoTransfer()" style="width: 18px; height: 18px; cursor: pointer; flex-shrink: 0; margin-right: 5px;">
                         <div>
                             <div style="font-weight: bold; font-size: 14px; color: #fff; text-transform: capitalize;">${a.raca} (${a.fase})</div>
                             <span style="font-size: 11px; color: #888;">ID: #${a.id} | Sexo: ${a.sexo} | Peso: ${formatarPeso(a.peso)}</span>
@@ -490,15 +543,15 @@ window.prepararTransferenciaLoteCurral = async function(habitatAtual = 'curral')
         htmlCheckboxes += `
             <div style="text-align: left; background:#1a1a1a; padding: 10px; border-radius: 8px; border: 1px dashed #555;">
                 <label style="color: #aaa; font-size: 12px;"><i class="fas fa-map-marker-alt"></i> Destino da Carga:</label>
-                <select id="modal-destino-transfer" class="swal2-select" style="width: 100%; display: block; margin: 5px 0 15px 0; font-size: 14px; padding: 8px; background: #111; color: #fff; border: 1px solid #444;">
+                <select id="modal-destino-transfer" onchange="window.verificarCaminhaoTransfer()" class="swal2-select" style="width: 100%; display: block; margin: 5px 0 10px 0; font-size: 14px; padding: 8px; background: #111; color: #fff; border: 1px solid #444;">
                     ${options}
                 </select>
                 
                 <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; background: #222; padding: 10px; border-radius: 6px; border: 1px solid #444;">
-                    <input type="checkbox" id="check-caminhao-transfer" onchange="window.atualizarTotalTransferencia()" style="width: 18px; height: 18px;">
+                    <input type="checkbox" id="check-caminhao-transfer" onchange="window.verificarCaminhaoTransfer()" style="width: 18px; height: 18px;">
                     <span style="font-size: 13px; font-weight: bold; color: #ff9800;">Usar Veículo Próprio (Frete Grátis)</span>
                 </label>
-                <div style="font-size: 11px; color: #888; margin-top: 5px; margin-left: 28px;">(O veículo será retirado da garagem <b>DESTA</b> fazenda atual)</div>
+                <div id="aviso-frete-transfer" style="font-size: 12px; margin-top: 8px; text-align: center; padding: 8px; border-radius: 6px; display: none;"></div>
                 
                 <div style="margin-top: 15px; font-size: 16px; font-weight: bold; text-align: center; border-top: 1px solid #333; padding-top: 10px;">
                     Custo do Frete: <span id="txt-total-transfer" style="color: #f44336;">R$ 0,00</span>
@@ -511,6 +564,9 @@ window.prepararTransferenciaLoteCurral = async function(habitatAtual = 'curral')
             html: htmlCheckboxes,
             background: '#2a2a2a', color: '#fff',
             showCancelButton: true, confirmButtonText: 'Despachar Carga', cancelButtonText: 'Cancelar', confirmButtonColor: '#0288d1',
+            didOpen: () => {
+                window.verificarCaminhaoTransfer();
+            },
             preConfirm: () => {
                 const checkboxes = document.querySelectorAll('.chk-animal-transfer:checked');
                 const ids = Array.from(checkboxes).map(chk => parseInt(chk.value));
@@ -521,7 +577,6 @@ window.prepararTransferenciaLoteCurral = async function(habitatAtual = 'curral')
                     usa_caminhao: document.getElementById('check-caminhao-transfer').checked
                 };
             }
-            
         }).then((result) => {
             if (result.isConfirmed) {
                 Swal.fire({ title: 'Viajando pelas rodovias...', didOpen: () => Swal.showLoading() });
@@ -537,7 +592,7 @@ window.prepararTransferenciaLoteCurral = async function(habitatAtual = 'curral')
                 .then(r => r.json()).then(d => {
                     if(d.sucesso) {
                         Swal.fire('Despachado! 🚚', d.msg, 'success').then(()=> { 
-                            window.location.href = '/mapa'; // Manda pro Mapa!
+                            window.location.href = '/mapa';
                         });
                     } else Swal.fire('Atenção', d.erro, 'warning');
                 });
@@ -547,38 +602,108 @@ window.prepararTransferenciaLoteCurral = async function(habitatAtual = 'curral')
         Swal.fire('Erro', 'Falha de comunicação', 'error');
     }
 }
-
 window.toggleSelecionarTodosTransfer = function(masterCheckbox) {
     document.querySelectorAll('.chk-animal-transfer').forEach(chk => chk.checked = masterCheckbox.checked);
-    window.atualizarTotalTransferencia();
+    window.verificarCaminhaoTransfer();
 };
 
-window.atualizarTotalTransferencia = function() {
+window.verificarCaminhaoTransfer = async function() {
     const checkboxes = document.querySelectorAll('.chk-animal-transfer:checked');
     const qtd = checkboxes.length;
-    const usaCaminhao = document.getElementById('check-caminhao-transfer').checked;
+    const checkboxCaminhao = document.getElementById('check-caminhao-transfer');
     const txtTotal = document.getElementById('txt-total-transfer');
+    const aviso = document.getElementById('aviso-frete-transfer');
+    const origemId = window.location.pathname.split('/').pop();
     
     if (qtd === 0) {
         txtTotal.innerText = "R$ 0,00";
         txtTotal.style.color = "#888";
+        if(aviso) aviso.style.display = 'none';
         return;
     }
 
-    if (usaCaminhao) {
-        txtTotal.innerText = "Grátis (Frota Própria)";
-        txtTotal.style.color = "#4caf50";
-    } else {
-        let freteCabeca = 50.0;
-        const raca = checkboxes[0].getAttribute('data-raca').toLowerCase();
-        const aves_peixes = ['galinha', 'pato', 'peru', 'tambaqui', 'pirarucu', 'pacu', 'matrinxa'];
-        const suinos_ovinos = ['porco', 'leitao', 'javali', 'ovelha', 'cabra'];
+    if(aviso) aviso.style.display = 'block';
 
-        if (aves_peixes.some(v => raca.includes(v))) freteCabeca = 5.0;
-        else if (suinos_ovinos.some(v => raca.includes(v))) freteCabeca = 15.0;
+    const primeiraRaca = checkboxes[0].getAttribute('data-raca').toLowerCase();
+    const peixes = ['tambaqui', 'pirarucu', 'pacu', 'matrinxa', 'jaraqui', 'curimata', 'surubim', 'pintado', 'cachara', 'tucunare', 'piau'];
+    const aves_e_medios = ['galinha', 'pato', 'peru', 'porco', 'leitao', 'javali', 'ovelha', 'cabra'];
 
-        const custo = qtd * freteCabeca; 
-        txtTotal.innerText = custo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        txtTotal.style.color = "#f44336";
-    }
+    let fretePorCabeca = 50.0;
+    if (peixes.includes(primeiraRaca) || ['galinha', 'pato', 'peru'].includes(primeiraRaca)) fretePorCabeca = 5.0;
+    else if (['porco', 'leitao', 'javali', 'ovelha', 'cabra'].includes(primeiraRaca)) fretePorCabeca = 15.0;
+
+    let modelosAceitos = [];
+    if (peixes.includes(primeiraRaca)) modelosAceitos = ['Caminhão Baú (Frios)'];
+    else if (aves_e_medios.includes(primeiraRaca)) modelosAceitos = ['Caminhonete Nova', 'Caminhonete Usada', 'Caminhão Boiadeiro'];
+    else modelosAceitos = ['Caminhão Boiadeiro'];
+
+    let espacoNecessario = 0;
+    checkboxes.forEach(chk => {
+        const fase = chk.getAttribute('data-fase').toLowerCase();
+        if (fase === 'filhote' || fase === 'jovem') espacoNecessario += 0.5;
+        else espacoNecessario += 1.0;
+    });
+
+    try {
+        const res = await fetch(`/api/barracao/listar?fazenda_id=${origemId}&t=${new Date().getTime()}`);
+        const data = await res.json();
+
+        if (data.sucesso) {
+            const veiculosProntos = data.maquinas.filter(m => modelosAceitos.includes(m.modelo) && m.combustivel >= 15 && m.saude >= 5);
+
+            let capTotal = 0;
+            veiculosProntos.forEach(v => {
+                if (v.modelo === 'Caminhão Baú (Frios)') capTotal += 200;
+                else if (v.modelo === 'Caminhão Boiadeiro') {
+                    if(peixes.includes(primeiraRaca)) capTotal += 200;
+                    else if(aves_e_medios.includes(primeiraRaca)) capTotal += 60;
+                    else capTotal += 20;
+                } else if (v.modelo.includes('Caminhonete')) {
+                    if(aves_e_medios.includes(primeiraRaca)) capTotal += 10;
+                    else capTotal += 2;
+                }
+            });
+
+            let espacoFormatado = Math.ceil(espacoNecessario);
+            let faltaEspaco = espacoFormatado - capTotal;
+            let custoFreteTotal = qtd * fretePorCabeca;
+            
+            let custoFreteResidual = 0;
+            if(faltaEspaco > 0) {
+                custoFreteResidual = faltaEspaco * (fretePorCabeca / (espacoNecessario/qtd));
+            }
+
+            if (veiculosProntos.length > 0) {
+                if (faltaEspaco <= 0) {
+                    checkboxCaminhao.disabled = false;
+                    aviso.innerHTML = `✅ <b>Frota Pronta!</b> Suporta <b>${capTotal}</b> cab. Frete 100% Grátis.`;
+                    aviso.style.color = '#4caf50';
+                    aviso.style.backgroundColor = 'rgba(76, 175, 80, 0.1)';
+                    aviso.style.border = '1px solid #4caf50';
+                } else {
+                    checkboxCaminhao.disabled = false;
+                    aviso.innerHTML = `⚠️ <b>Frota Parcial!</b> Seus caminhões levam <b>${capTotal}</b> espaços.<br><span style="color:#aaa;">O frete dos que não couberam custará <b>R$ ${custoFreteResidual.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</b>.</span>`;
+                    aviso.style.color = '#ff9800';
+                    aviso.style.backgroundColor = 'rgba(255, 152, 0, 0.1)';
+                    aviso.style.border = '1px solid #ff9800';
+                }
+            } else {
+                checkboxCaminhao.disabled = true;
+                checkboxCaminhao.checked = false;
+                custoFreteResidual = custoFreteTotal;
+                aviso.innerHTML = `❌ Sem frota livre <b>nesta fazenda</b>. Frete integral será cobrado.`;
+                aviso.style.color = '#f44336';
+                aviso.style.backgroundColor = 'rgba(244, 67, 54, 0.1)';
+                aviso.style.border = '1px solid #f44336';
+            }
+
+            if (checkboxCaminhao.checked) {
+                txtTotal.innerText = custoFreteResidual > 0 ? "R$ " + custoFreteResidual.toLocaleString('pt-BR', {minimumFractionDigits: 2}) : "Grátis (Frota Própria)";
+                txtTotal.style.color = custoFreteResidual > 0 ? "#ff9800" : "#4caf50";
+            } else {
+                txtTotal.innerText = "R$ " + custoFreteTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+                txtTotal.style.color = "#f44336";
+            }
+        }
+    } catch (e) { console.error("Erro na frota", e); }
 }

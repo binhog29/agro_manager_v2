@@ -26,9 +26,9 @@
                     {{ gado_curral|length }} / {{ fazenda.cap_curral|default(10) }} <small style="font-size: 11px; color: #aaa;">animais</small>
                 </div>
             </div>
-            <button onclick="confirmarExpansaoCurral()" style="background: #5d4037; color: white; border: none; padding: 8px 12px; border-radius: 8px; font-size: 11px; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #3e2723;">
-                🔼 EXPANDIR (+5)
-            </button>
+            <button style="background: #ff9800; color: #fff; padding: 8px 12px; border: none; border-radius: 6px; font-weight: bold; font-size: 11px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" onclick="abrirModalExpansaoCurral({{ fazenda.id }})">
+    Ver Projetos de Obra
+</button>
         </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px;">

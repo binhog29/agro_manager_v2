@@ -24,6 +24,34 @@ window.abrirPainelBarracao = async function() {
                 const corSaude = m.saude > 50 ? '#4caf50' : '#f44336';
                 const imgSrc = `/static/img/${m.imagem}`;
                 
+                // 🔥 NOVA LÓGICA: Se a máquina está na prancha, bloqueia tudo. Se não, exibe os 4 botões!
+                let botoesAcaoHtml = '';
+                if (m.em_viagem) {
+                    botoesAcaoHtml = `
+                        <div style="background: rgba(255, 152, 0, 0.2); border: 1px solid #ff9800; color: #ff9800; padding: 8px; text-align: center; border-radius: 6px; font-weight: bold; width: 100%; margin-top: 10px;">
+                            <i class="fas fa-truck-loading"></i> EM TRÂNSITO (${m.horas_restantes}h)
+                        </div>
+                    `;
+                } else {
+                    botoesAcaoHtml = `
+                        <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px;">
+                            <button onclick="abastecerMaquina(${m.id})" style="flex: 1; min-width: 45%; background: #ff9800; color: #000; border: none; padding: 6px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer;">
+                                <i class="fas fa-gas-pump"></i> Abastecer
+                            </button>
+                            <button onclick="repararMaquina(${m.id})" style="flex: 1; min-width: 45%; background: #0288d1; color: #fff; border: none; padding: 6px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer;">
+                                <i class="fas fa-tools"></i> Oficina
+                            </button>
+                            <button onclick="venderMaquina(${m.id}, '${m.modelo}')" style="flex: 1; min-width: 45%; background: #d32f2f; color: #fff; border: none; padding: 6px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer;">
+                                <i class="fas fa-dollar-sign"></i> Vender
+                            </button>
+                            
+                    <button onclick="prepararTransferenciaMaquina(${m.id}, '${m.modelo}', '${m.tipo}')" style="flex: 1; min-width: 45%; background: #9c27b0; color: #fff; border: none; padding: 6px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer;">
+                    <i class="fas fa-truck"></i> Transferir
+                    </button>
+                    </div>
+                    `;
+                }
+                
                 maquinasHtml += `
                 <div style="background: #222; border: 1px solid #444; border-radius: 8px; padding: 12px; margin-bottom: 12px; text-align: left;">
                     
@@ -55,18 +83,7 @@ window.abrirPainelBarracao = async function() {
                         </div>
                     </div>
 
-                    <!-- Botões de Ação com a Opção de Vender -->
-                    <div style="display: flex; gap: 6px;">
-                        <button onclick="abastecerMaquina(${m.id})" style="flex: 1; background: #ff9800; color: #000; border: none; padding: 6px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer;">
-                            <i class="fas fa-gas-pump"></i> Abastecer
-                        </button>
-                        <button onclick="repararMaquina(${m.id})" style="flex: 1; background: #0288d1; color: #fff; border: none; padding: 6px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer;">
-                            <i class="fas fa-tools"></i> Oficina
-                        </button>
-                        <button onclick="venderMaquina(${m.id}, '${m.modelo}')" style="flex: 1; background: #d32f2f; color: #fff; border: none; padding: 6px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer;">
-                            <i class="fas fa-dollar-sign"></i> Vender
-                        </button>
-                    </div>
+                    ${botoesAcaoHtml}
                 </div>`;
             });
         }
@@ -165,3 +182,92 @@ window.repararMaquina = function(maquinaId) {
         else Swal.fire('Atenção', d.erro, 'warning');
     });
 };
+
+// 🔥 FUNÇÃO NOVA: Abre o painel para embarcar a máquina no guincho
+window.prepararTransferenciaMaquina = async function(maquinaId, modeloNome, tipoMaquina) {
+    const fazendaId = window.location.pathname.split('/').pop();
+    
+    Swal.fire({ title: 'Procurando rotas...', didOpen: () => Swal.showLoading() });
+    
+    try {
+        const resFazendas = await fetch('/api/mapa_global');
+        const todasTerras = await resFazendas.json();
+        const minhasOutrasTerras = todasTerras.filter(t => t.e_minha && t.id != fazendaId);
+
+        if (minhasOutrasTerras.length === 0) {
+            Swal.fire('Aviso', 'Você precisa de pelo menos uma outra fazenda para transferir máquinas!', 'info');
+            return;
+        }
+
+        let options = minhasOutrasTerras.map(t => `<option value="${t.id}">${t.nome}</option>`).join('');
+
+        let html = `
+            <div style="text-align: center; margin-bottom: 15px;">
+                <i class="fas fa-truck-loading" style="font-size: 30px; color: #ff9800; margin-bottom: 10px;"></i>
+                <h4 style="color: #fff; margin: 0;">Transportar ${modeloNome}</h4>
+        `;
+
+        let isVeiculo = (tipoMaquina === 'Veiculo' || tipoMaquina === 'Caminhao');
+
+        if (isVeiculo) {
+            html += `<p style="color: #4caf50; font-size: 13px; font-weight:bold;">Este veículo vai rodando! (Gasta apenas o próprio diesel)</p></div>`;
+        } else {
+            html += `
+                <p style="color: #aaa; font-size: 13px;">Máquinas pesadas exigem guincho prancha.</p>
+            </div>
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; background: #222; padding: 10px; border-radius: 6px; border: 1px solid #444; margin-bottom: 10px;">
+                <input type="checkbox" id="check-prancha-propria" style="width: 18px; height: 18px;">
+                <span style="font-size: 13px; font-weight: bold; color: #ff9800;">Usar meu Caminhão Prancha (Frete Grátis)</span>
+            </label>
+            `;
+        }
+
+        html += `
+            <div style="text-align: left; background:#1a1a1a; padding: 15px; border-radius: 8px; border: 1px dashed #555;">
+                <label style="color: #aaa; font-size: 12px;"><i class="fas fa-map-marker-alt"></i> Fazenda de Destino:</label>
+                <select id="modal-destino-maq" class="swal2-select" style="width: 100%; display: block; margin: 5px 0 10px 0; font-size: 14px; padding: 10px; background: #111; color: #fff; border: 1px solid #444;">
+                    ${options}
+                </select>
+        `;
+        if (!isVeiculo) {
+            html += `
+                <div style="margin-top: 15px; font-size: 13px; color: #ccc;">
+                    <b>Atenção:</b> O frete terceirizado custa R$ 500 na mesma cidade e R$ 1.500 para fora.
+                </div>
+            `;
+        }
+        html += `</div>`;
+
+        Swal.fire({
+            title: 'Logística de Máquinas',
+            html: html,
+            background: '#2a2a2a', color: '#fff',
+            showCancelButton: true, confirmButtonText: isVeiculo ? 'Ir Dirigindo' : 'Embarcar', cancelButtonText: 'Cancelar', confirmButtonColor: '#ff9800',
+            preConfirm: () => {
+                let usaPrancha = false;
+                let checkEl = document.getElementById('check-prancha-propria');
+                if (checkEl) usaPrancha = checkEl.checked;
+
+                return {
+                    maquina_id: maquinaId,
+                    destino_id: document.getElementById('modal-destino-maq').value,
+                    usa_prancha: usaPrancha
+                };
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({ title: 'Preparando a viagem...', didOpen: () => Swal.showLoading() });
+                fetch('/api/barracao/transferir', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(result.value)
+                })
+                .then(r => r.json()).then(d => {
+                    if(d.sucesso) Swal.fire('Na Estrada! 🚜', d.msg, 'success').then(()=> { location.reload(); });
+                    else Swal.fire('Atenção', d.erro, 'warning');
+                });
+            }
+        });
+    } catch (e) {
+        Swal.fire('Erro', 'Falha de comunicação.', 'error');
+    }
+}

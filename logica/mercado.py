@@ -137,7 +137,7 @@ def ver_mercado():
                            TABELA_PRECOS=TABELA_PRECOS,
                            minhas_terras=minhas_terras,
                            user=usuario)
-                           
+
 @mercado_bp.route('/api/mercado/comprar_lote_ia', methods=['POST'])
 def comprar_lote_ia():
     if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
@@ -158,15 +158,20 @@ def comprar_lote_ia():
     
     # 1. Validações prévias de saldo e espaço
     custo_total_geral = 0.0
-    total_animais = sum(item['quantidade'] for item in carrinho)
+    total_animais = sum(int(item.get('quantidade', 0)) for item in carrinho)
     
     animais_para_adicionar = []
     
+    habitat = 'curral'
+    frete_cabeca = 50.0
+    modelos_aceitos = ['Caminhão Boiadeiro']
+    familia_animal = 'bovino_corte'
+    
     for item in carrinho:
-        raca = item['raca']
-        fase = item['fase'].lower()
-        sexo = item['sexo'].upper()
-        qtd = int(item['quantidade'])
+        raca = item.get('raca', '')
+        fase = item.get('fase', '').lower()
+        sexo = item.get('sexo', 'M').upper()
+        qtd = int(item.get('quantidade', 1))
         raca_lower = raca.lower()
         
         if raca not in TABELA_PRECOS: return jsonify({'sucesso': False, 'erro': f'Raça inválida: {raca}'})
@@ -244,7 +249,7 @@ def comprar_lote_ia():
             novo = Animal(propriedade_id=propriedade.id, raca=raca, fase=fase.capitalize(), sexo=sexo, peso=peso_animal, onde_esta=habitat, origem='Mercado Oficial')
             animais_para_adicionar.append(novo)
 
-    # Cálculo do frete
+    # Cálculo do frete cravado em pedra
     if usa_caminhao:
         frota_disponivel = Maquinario.query.filter(
             Maquinario.propriedade_id == propriedade.id, 
@@ -255,21 +260,69 @@ def comprar_lote_ia():
         
         if not frota_disponivel:
             return jsonify({'sucesso': False, 'erro': 'Sem frota disponível no barracão desta fazenda!'})
+
+        def get_cap(modelo, familia):
+            if modelo == 'Caminhão Baú (Frios)': return 200
+            if modelo == 'Caminhão Boiadeiro':
+                if familia in ['suino', 'ovino']: return 60
+                if familia in ['ave']: return 200
+                if familia == 'equino': return 10
+                return 20
+            if 'Caminhonete' in modelo:
+                if familia in ['suino', 'ovino']: return 10
+                if familia in ['ave']: return 50
+                if familia == 'equino': return 1
+                return 2
+            return 0
             
-        for v in frota_disponivel[:1]: # Consome um veículo da frota
+        frota_disponivel.sort(key=lambda v: get_cap(v.modelo, familia_animal), reverse=True)
+        
+        espaco_necessario = 0.0
+        for item in carrinho:
+            fase_item = item.get('fase', '').lower()
+            qtd_item = int(item.get('quantidade', 0))
+            if fase_item in ['filhote', 'jovem']: 
+                espaco_necessario += (0.5 * qtd_item)
+            else: 
+                espaco_necessario += (1.0 * qtd_item)
+                
+        restante = espaco_necessario
+        caminhoes_usados = []
+        
+        for v in frota_disponivel:
+            if restante <= 0: break
+            cap_v = get_cap(v.modelo, familia_animal)
+            if cap_v > 0:
+                restante -= cap_v
+                caminhoes_usados.append(v)
+                
+        for v in caminhoes_usados:
             v.nivel_combustivel -= 15
             v.estado_conservacao -= 5
-        custo_frete = 0.0
+            
+        # 🔥 MATEMÁTICA CORRIGIDA DO FRETE PARCIAL NO MERCADO
+        if restante > 0:
+            espaco_medio = espaco_necessario / total_animais if total_animais > 0 else 1.0
+            animais_fora = restante / espaco_medio
+            custo_frete = animais_fora * frete_cabeca
+        else:
+            custo_frete = 0.0
     else:
         custo_frete = total_animais * frete_cabeca
-
     custo_final_com_frete = custo_total_geral + custo_frete
 
     if usuario.saldo < custo_final_com_frete:
         return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente! Custa R$ {custo_final_com_frete:,.2f}'})
 
     usuario.saldo -= custo_final_com_frete
-    texto_frete = " (Frete Grátis Frota)" if usa_caminhao else " + Frete"
+    
+    if usa_caminhao and custo_frete == 0:
+        texto_frete = " (Frete Grátis)"
+    elif usa_caminhao:
+        texto_frete = f" (Frota Parcial + Frete R$ {custo_frete:,.2f})"
+    else:
+        texto_frete = " + Frete Terceirizado"
+        
     registrar_transacao(usuario.id, 'saida', custo_final_com_frete, f'Compra de Lote Completo ({total_animais} animais){texto_frete}')
 
     if getattr(usuario, 'xp', None) is None: usuario.xp = 0
@@ -279,4 +332,3 @@ def comprar_lote_ia():
     db.session.commit()
     
     return jsonify({'sucesso': True, 'msg': f'Lote de {total_animais} animais entregue com sucesso!'})
-                           

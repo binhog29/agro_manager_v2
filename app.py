@@ -249,21 +249,54 @@ def api_mapa_frota():
     props = Propriedade.query.filter_by(dono_id=usuario.id).all()
     prop_ids = [p.id for p in props]
     
-    # Procura animais trancados no caminhão
-    em_viagem = Animal.query.filter(Animal.propriedade_id.in_(prop_ids), Animal.onde_esta == 'caminhao').all()
+    if not prop_ids:
+        return jsonify([])
+    
+    em_viagem_animais = Animal.query.filter(
+        Animal.onde_esta == 'caminhao',
+        db.or_(Animal.propriedade_id.in_(prop_ids), Animal.destino_id.in_(prop_ids))
+    ).all()
+    
+    em_viagem_maq = Maquinario.query.filter(
+        Maquinario.horas_viagem > 0,
+        db.or_(Maquinario.propriedade_id.in_(prop_ids), Maquinario.destino_id.in_(prop_ids))
+    ).all()
     
     viagens = {}
-    for a in em_viagem:
-        # Agrupa pelo mesmo destino e mesma duração restante
-        chave = f"{a.propriedade_id}_{a.destino_id}_{a.horas_viagem}"
+    
+    # Processa animais
+    for a in em_viagem_animais:
+        orig_id = a.propriedade_id
+        dest_id = a.destino_id or a.propriedade_id
+        horas = a.horas_viagem
+        chave = f"animal_{orig_id}_{dest_id}_{horas}" # Chave única para animais
+        
         if chave not in viagens:
             viagens[chave] = {
-                'origem_id': a.propriedade_id,
-                'destino_id': a.destino_id,
-                'horas_restantes': a.horas_viagem,
-                'qtd': 0
+                'origem_id': orig_id, 
+                'destino_id': dest_id, 
+                'horas_restantes': horas, 
+                'qtd_animais': 0, 
+                'maquinas': []
             }
-        viagens[chave]['qtd'] += 1
+        viagens[chave]['qtd_animais'] += 1
+        
+    # Processa máquinas separadamente para nunca sumirem se não houver gado
+    for m in em_viagem_maq:
+        orig_id = m.propriedade_id
+        dest_id = m.destino_id or m.propriedade_id
+        horas = m.horas_viagem
+        chave = f"maq_{orig_id}_{dest_id}_{horas}" # Chave única para máquinas
+        
+        if chave not in viagens:
+            viagens[chave] = {
+                'origem_id': orig_id, 
+                'destino_id': dest_id, 
+                'horas_restantes': horas, 
+                'qtd_animais': 0, 
+                'maquinas': []
+            }
+        viagens[chave]['maquinas'].append(m.modelo)
         
     return jsonify(list(viagens.values()))
 

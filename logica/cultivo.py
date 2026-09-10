@@ -100,7 +100,7 @@ CATALOGO_CULTIVOS = {
     
     # PERENES (Investimento longo agora compensa muito mais)
     'cana': CulturaPerene('Cana-de-Açúcar', 1200, 110000, 360, 'arado', 2000, 4000, tempo_descanso=30, max_ciclos=5), 
-    'banana': CulturaPerene('Banana', 800, 30000, 300, 'coveado', 1000, 1500, tempo_descanso=15, max_ciclos=8),
+    'banana': CulturaPerene('Banana', 800, 29000, 300, 'coveado', 1000, 1500, tempo_descanso=15, max_ciclos=8),
     'cacau': CulturaPerene('Cacau', 1500, 4500, 500, 'coveado', 1500, 2000, tempo_descanso=45, max_ciclos=15),
     'acai': CulturaPerene('Açaí', 1000, 15000, 730, 'coveado', 1200, 1800, tempo_descanso=30, max_ciclos=12),
     'cupuacu': CulturaPerene('Cupuaçu', 900, 6000, 730, 'coveado', 1200, 1800, tempo_descanso=30, max_ciclos=10),
@@ -320,13 +320,16 @@ def colher():
     
     kg_totais_disponiveis = int(dna_planta.producao_kg * area * (produtividade / 100.0) * multiplicador_trator)
 
+    # 🔥 BALANCEAMENTO PERENE: Reduz para 30% nas colheitas rápidas subsequentes (após a 1ª colheita)
+    if getattr(dna_planta, 'tipo_biologia', 'anual') in ['perene', 'sazonal'] and getattr(lote, 'ciclos_colhidos', 0) > 0:
+        kg_totais_disponiveis = int(kg_totais_disponiveis * 0.3)
+
     itens_silo_graos = ['soja', 'milho', 'arroz', 'feijao']
     kg_a_colher = kg_totais_disponiveis
     espaco_livre = 9999999 
 
     local_armazenamento = "Silo de Grãos" if tipo in itens_silo_graos else "Galpão Agrícola"
 
-    # 🔥 BLINDAGEM DE ESCOPO: Garante que as variáveis sempre existam para qualquer cultura
     colheita_parcial = False
     proporcao_colhida = 1.0
 
@@ -342,15 +345,13 @@ def colher():
     colheita_parcial = kg_a_colher < kg_totais_disponiveis
     proporcao_colhida = kg_a_colher / kg_totais_disponiveis if kg_totais_disponiveis > 0 else 1
     
-    # 🔥 CORREÇÃO DA COLHEITA: Verifica se o jogador possui a Colheitadeira no Barracão desta fazenda
     maquinas_dono = Maquinario.query.filter_by(propriedade_id=fazenda_alvo.id).all()
     modelos_maquinas = [m.modelo for m in maquinas_dono]
     tem_colheitadeira_propria = 'Colheitadeira Grãos' in modelos_maquinas
 
     if tem_colheitadeira_propria:
-        custo_real = 0  # 🚜 Tem a máquina própria? Aluguel/serviço zerado!
+        custo_real = 0  
     else:
-        # 🔥 BALANCEAMENTO: A colheita sofre inflação se for terceirizada e o jogador for rico/latifundiário
         qtd_prop = Propriedade.query.filter_by(dono_id=usuario.id).count()
         fator_inflacao = 1.0 + (getattr(usuario, 'nivel', 1) * 0.02) + (qtd_prop * 0.05)
 
@@ -381,7 +382,6 @@ def colher():
         lote.fertilidade_solo = max(0, getattr(lote, 'fertilidade_solo', 100) - 30)
         dna_planta.processar_pos_colheita(lote)
         
-        # 🔥 ADICIONADO: Informa explicitamente se usou a colheitadeira própria ou se pagou aluguel
         if tem_colheitadeira_propria:
             msg_final = f'Colheita finalizada! {kg_a_colher} kg armazenados no {local_armazenamento}. 🚜 (Colheitadeira Própria: Taxa de Aluguel Zerada!)'
         else:

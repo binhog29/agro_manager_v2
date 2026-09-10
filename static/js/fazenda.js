@@ -268,4 +268,3 @@ window.construirInstalacao = function(tipo, nomeExibicao, custo) {
         }
     });
 };
-

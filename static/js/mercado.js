@@ -154,6 +154,11 @@ window.verificarCaminhaoDestino = async function() {
     const peixes = ['tambaqui', 'pirarucu', 'pacu', 'matrinxa', 'jaraqui', 'curimata', 'surubim', 'pintado', 'cachara', 'tucunare', 'piau'];
     const aves_e_medios = ['galinha', 'pato', 'peru', 'porco', 'ovelha', 'cabra'];
 
+    // 🔥 PREÇO DO FRETE PARA CALCULAR A DIFERENÇA
+    let fretePorCabeca = 50.0;
+    if (peixes.includes(primeiraRaca) || ['galinha', 'pato', 'peru'].includes(primeiraRaca)) fretePorCabeca = 5.0;
+    else if (['porco', 'leitao', 'javali', 'ovelha', 'cabra'].includes(primeiraRaca)) fretePorCabeca = 15.0;
+
     let modelosAceitos = [];
     let nomeVeiculoMsg = '';
 
@@ -169,7 +174,24 @@ window.verificarCaminhaoDestino = async function() {
     }
 
     const checkbox = document.getElementById('check-caminhao-proprio');
-    const aviso = checkbox.parentElement.nextElementSibling;
+    let aviso = document.getElementById('aviso-frete-dinamico');
+    
+    // Cria a caixa de texto caso não exista
+    if (!aviso && checkbox) {
+        aviso = document.createElement('div');
+        aviso.id = 'aviso-frete-dinamico';
+        aviso.style.fontSize = '12px';
+        aviso.style.marginTop = '8px';
+        aviso.style.textAlign = 'center';
+        aviso.style.padding = '8px';
+        aviso.style.borderRadius = '6px';
+        checkbox.parentElement.insertAdjacentElement('afterend', aviso);
+        // Oculta a mensagem estática antiga se existir
+        if(checkbox.parentElement.nextElementSibling !== aviso) {
+            checkbox.parentElement.nextElementSibling.style.display = 'none';
+        }
+    }
+
     const imgCaminhao = document.getElementById('img-veiculo');
 
     try {
@@ -180,42 +202,126 @@ window.verificarCaminhaoDestino = async function() {
             const veiculosPossuidos = data.maquinas.filter(m => modelosAceitos.includes(m.modelo));
             const veiculosProntos = veiculosPossuidos.filter(m => m.combustivel >= 15 && m.saude >= 5);
 
-            if (veiculosProntos.length > 0) {
-                let capTotal = 0;
-                veiculosProntos.forEach(v => {
-                    if (v.modelo === 'Caminhão Baú (Frios)') capTotal += 200;
-                    else if (v.modelo === 'Caminhão Boiadeiro') {
-                        if(peixes.includes(primeiraRaca)) capTotal += 200;
-                        else if(['porco', 'ovelha', 'cabra'].includes(primeiraRaca)) capTotal += 60;
-                        else if(['galinha', 'pato', 'peru'].includes(primeiraRaca)) capTotal += 200;
-                        else capTotal += 20;
-                    } else if (v.modelo.includes('Caminhonete')) {
-                        if(['porco', 'ovelha', 'cabra'].includes(primeiraRaca)) capTotal += 10;
-                        else if(['galinha', 'pato', 'peru'].includes(primeiraRaca)) capTotal += 50;
-                        else capTotal += 2;
-                    }
-                });
+            let capTotal = 0;
+            veiculosProntos.forEach(v => {
+                if (v.modelo === 'Caminhão Baú (Frios)') capTotal += 200;
+                else if (v.modelo === 'Caminhão Boiadeiro') {
+                    if(peixes.includes(primeiraRaca)) capTotal += 200;
+                    else if(['porco', 'ovelha', 'cabra'].includes(primeiraRaca)) capTotal += 60;
+                    else if(['galinha', 'pato', 'peru'].includes(primeiraRaca)) capTotal += 200;
+                    else capTotal += 20;
+                } else if (v.modelo.includes('Caminhonete')) {
+                    if(['porco', 'ovelha', 'cabra'].includes(primeiraRaca)) capTotal += 10;
+                    else if(['galinha', 'pato', 'peru'].includes(primeiraRaca)) capTotal += 50;
+                    else capTotal += 2;
+                }
+            });
 
-                checkbox.disabled = false;
-                checkbox.checked = true;
-                aviso.innerText = `✅ Frota Pronta: ${veiculosProntos.length} veículos (Capacidade: ${capTotal} cab.). Frete Grátis.`;
-                aviso.style.color = '#4caf50';
+            let espacoNecessario = 0;
+            let cabecasTotais = 0;
+            carrinhoLoteIA.forEach(item => {
+                cabecasTotais += item.quantidade;
+                if (item.fase === 'filhote' || item.fase === 'jovem') {
+                    espacoNecessario += (0.5 * item.quantidade);
+                } else {
+                    espacoNecessario += (1.0 * item.quantidade);
+                }
+            });
+
+            let espacoFormatado = Math.ceil(espacoNecessario);
+            let faltaEspaco = espacoFormatado - capTotal;
+            
+            // 🔥 SALVA OS CUSTOS GLOBAIS PARA O HTML CALCULAR O VALOR VERDE
+            window.custoFreteTotal = cabecasTotais * fretePorCabeca;
+            window.custoFreteResidual = faltaEspaco > 0 ? (faltaEspaco * fretePorCabeca) : 0;
+
+            if (veiculosProntos.length > 0) {
+                if (faltaEspaco <= 0) {
+                    checkbox.disabled = false;
+                    checkbox.checked = true;
+                    aviso.innerHTML = `✅ <b>Frota Completa!</b> Suporta <b>${capTotal}</b> cab. Frete 100% Grátis.`;
+                    aviso.style.color = '#4caf50';
+                    aviso.style.backgroundColor = 'rgba(76, 175, 80, 0.1)';
+                    aviso.style.border = '1px solid #4caf50';
+                } else {
+                    // 🔥 AQUI ESTÁ O SEGREDO: Habilita o checkbox mesmo sendo parcial
+                    checkbox.disabled = false;
+                    checkbox.checked = true;
+                    aviso.innerHTML = `⚠️ <b>Frota Parcial!</b> Seus caminhões levam <b>${capTotal}</b> cab.<br><span style="color:#aaa;">O frete das ${faltaEspaco} restantes custará <b>R$ ${window.custoFreteResidual.toLocaleString('pt-BR')}</b>.</span>`;
+                    aviso.style.color = '#ff9800';
+                    aviso.style.backgroundColor = 'rgba(255, 152, 0, 0.1)';
+                    aviso.style.border = '1px solid #ff9800';
+                }
 
                 let veiculoIlustracao = veiculosProntos.find(v => v.modelo.includes('Caminhão')) || veiculosProntos[0];
-                if(veiculoIlustracao.imagem) imgCaminhao.src = '/static/img/' + veiculoIlustracao.imagem;
+                if(veiculoIlustracao.imagem && imgCaminhao) imgCaminhao.src = '/static/img/' + veiculoIlustracao.imagem;
             } else {
                 checkbox.disabled = true;
                 checkbox.checked = false;
-                aviso.innerText = `❌ Sem ${nomeVeiculoMsg} disponível ou sem combustível. Frete será cobrado.`;
+                window.custoFreteResidual = window.custoFreteTotal;
+                aviso.innerHTML = `❌ Sem frota livre. Frete integral de <b>R$ ${window.custoFreteTotal.toLocaleString('pt-BR')}</b>.`;
                 aviso.style.color = '#f44336';
-                definirCaminhaoPadrao(primeiraRaca); 
+                aviso.style.backgroundColor = 'rgba(244, 67, 54, 0.1)';
+                aviso.style.border = '1px solid #f44336';
+                if(typeof definirCaminhaoPadrao === 'function') definirCaminhaoPadrao(primeiraRaca); 
             }
         }
-    } catch (e) {
-        console.error(e);
-    }
+    } catch (e) { console.error(e); }
+    
     window.atualizarTotalModal();
 }
+
+// 🔥 REESCREVENDO A FUNÇÃO DE TOTAL PARA ELA OBEDECER AO FRETE PARCIAL
+window.atualizarTotalModal = function() {
+    let spanAnimais = document.getElementById('txt-modal-animais');
+    let spanFrete = document.getElementById('txt-modal-frete');
+    let spanTotal = document.getElementById('txt-modal-total');
+    
+    let valorAnimais = 0;
+    if (compraAtual.tipo === 'ia_lote' && typeof carrinhoLoteIA !== 'undefined') {
+        valorAnimais = carrinhoLoteIA.reduce((acc, item) => acc + (item.quantidade * item.precoUnitario), 0);
+    } else if (compraAtual.tipo === 'comunidade') {
+        valorAnimais = compraAtual.precoUnitario;
+    }
+
+    const checkbox = document.getElementById('check-caminhao-proprio');
+    let valorFrete = 0;
+
+    // USA AS VARIÁVEIS GLOBAIS DE FRETE QUE CALCULAMOS ACIMA
+    if (checkbox && checkbox.checked) {
+        valorFrete = window.custoFreteResidual || 0;
+    } else {
+        valorFrete = window.custoFreteTotal || 0;
+    }
+
+    // Fallback de emergência caso o servidor demore a responder
+    if (valorFrete === 0 && (!checkbox || !checkbox.checked)) valorFrete = 50.0;
+
+    if(spanAnimais) spanAnimais.innerText = 'R$ ' + valorAnimais.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+    if(spanFrete) spanFrete.innerText = 'R$ ' + valorFrete.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+    if(spanTotal) spanTotal.innerText = 'R$ ' + (valorAnimais + valorFrete).toLocaleString('pt-BR', {minimumFractionDigits: 2});
+    
+    // Atualiza o bloco verdão do seu print dinamicamente!
+    let infoBlocoHtml = document.querySelector('div[style*="Total Geral:"]');
+    if(!infoBlocoHtml) infoBlocoHtml = document.querySelector('div[style*="font-size: 16px; color: #4caf50;"]');
+    
+    if(infoBlocoHtml && checkbox) {
+         let parentBlock = infoBlocoHtml.closest('div[style*="background: #111"]');
+         if(parentBlock) {
+             parentBlock.innerHTML = `Animais: R$ ${valorAnimais.toLocaleString('pt-BR', {minimumFractionDigits: 2})} + Frete: R$ ${valorFrete.toLocaleString('pt-BR', {minimumFractionDigits: 2})}<br>
+                                  <b style="font-size: 16px; color: #4caf50;">Total Geral: R$ ${(valorAnimais + valorFrete).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</b>`;
+         }
+    }
+}
+
+// Escuta os cliques na caixinha para atualizar o valor na hora
+document.addEventListener('DOMContentLoaded', () => {
+    document.body.addEventListener('change', function(e) {
+        if(e.target && e.target.id === 'check-caminhao-proprio') {
+            window.atualizarTotalModal();
+        }
+    });
+});
 
 window.abrirModalLogisticaIA = function() {
     if (carrinhoLoteIA.length === 0) {
