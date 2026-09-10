@@ -72,7 +72,26 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    window.comprar = function(id) { fetch(`/api/comprar_fazenda/${id}`, {method:'POST'}).then(r => r.json()).then(d => { if(d.sucesso) location.reload(); else alert(d.erro); }); }
+    window.comprar = function(id) { 
+    fetch(`/api/comprar_fazenda/${id}`, {method:'POST'})
+    .then(r => r.json())
+    .then(d => { 
+        if(d.sucesso) {
+            location.reload(); 
+        } else {
+            closeModal(); // 🔥 Fecha a janela antiga de compra para o aviso aparecer na frente
+            Swal.fire({
+                title: 'Atenção',
+                text: d.erro,
+                icon: 'warning',
+                background: '#1a1a24',
+                color: '#fff',
+                confirmButtonColor: '#e65100',
+                zIndex: 99999 // 🔥 Garante prioridade máxima na tela
+            });
+        }
+    }); 
+}
     window.renomear = function(id) {
         showSweet("Renomear Fazenda", 
             `<p style="margin-bottom: 10px; font-size: 13px; color: #666;">Digite o novo nome da propriedade:</p><input type="text" id="input-novo-nome" placeholder="Novo nome..." style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; outline: none;">`, 
