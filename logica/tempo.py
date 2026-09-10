@@ -111,7 +111,7 @@ class GerenciadorTempo:
         motor = MotorBiologico(clima_atual=getattr(jogador, 'clima_atual', 'sol'), jogador=jogador)
         avisos = avisos_automacao + motor.processar_turno(horas)
         
-        # 🔥 BALANCEAMENTO: NOVA FOLHA DE PAGAMENTO E IMPOSTOS (ITR)
+        # 🔥 BALANCEAMENTO MESTRE: FOLHA DE PAGAMENTO E ITR PROGRESSIVO (COM ESCUDO INICIANTE)
         if meses_passados > 0:
             from logica.funcionarios import cobrar_folha_pagamento
             from database import Lote
@@ -119,25 +119,43 @@ class GerenciadorTempo:
             horas_cobradas = meses_passados * 240
             custo_rh = cobrar_folha_pagamento(jogador, horas_cobradas)
             
-            # 🔥 ITR: O Jogador paga R$ 150 mensais por CADA hectare real que ele domina (Proporcional!)
+            # 1. Calcula o tamanho do império do jogador em hectares reais
             lotes_jogador = Lote.query.join(Propriedade).filter(Propriedade.dono_id == jogador.id).all()
-            imposto_itr = 0
+            total_hectares_reais = 0
+            
             for lote in lotes_jogador:
                 prop_itr = Propriedade.query.get(lote.fazenda_id)
                 area_lote = {'Chácara': 1, 'Sítio': 5, 'Fazenda': 15, 'Latifúndio': 30}.get(getattr(prop_itr, 'tipo', 'Chácara'), 1)
-                imposto_itr += (area_lote * 150.0) * meses_passados
+                total_hectares_reais += area_lote
                 
-            # 🔥 TAXA DE FORTUNA: Se passar de 10 Milhões, perde 1.5% ao mês para a Receita.
-            taxa_fortuna = (jogador.saldo * 0.015) * meses_passados if jogador.saldo > 10000000 else 0
+            # ==============================================================
+            # 🔥 ESCUDO PARA INICIANTES: Até 10 hectares, paga fixo e barato!
+            # ==============================================================
+            if total_hectares_reais <= 10:
+                imposto_itr = (total_hectares_reais * 150.0) * meses_passados 
+            else:
+                # O Terror dos Latifundiários: Passou de 10ha, a taxa multiplica!
+                hectares_extras = total_hectares_reais - 10
+                multiplicador_imposto = 1.0 + (hectares_extras * 0.02) # Sobe 2% por cada hectare extra
+                valor_por_hectare = 200.0 * multiplicador_imposto
+                imposto_itr = (total_hectares_reais * valor_por_hectare) * meses_passados
+            
+            # 🔥 TAXA DE FORTUNA (Apenas para Milionários)
+            taxa_fortuna = 0
+            if jogador.saldo > 10000000:
+                taxa_fortuna = (jogador.saldo * 0.05) * meses_passados # 5% ao mês se passar de 10 milhões
+            elif jogador.saldo > 3000000:
+                taxa_fortuna = (jogador.saldo * 0.02) * meses_passados # 2% ao mês se passar de 3 milhões
+                
             imposto_total = imposto_itr + taxa_fortuna
             
             if imposto_total > 0:
                 valor_cobrado = imposto_total if jogador.saldo >= imposto_total else jogador.saldo
                 jogador.saldo -= valor_cobrado
-                registrar_transacao(jogador.id, 'saida', valor_cobrado, f'Impostos (ITR + Tributos) ref. a {meses_passados} mês(es)')
+                registrar_transacao(jogador.id, 'saida', valor_cobrado, f'Impostos (ITR Progressivo + Tributos) ref. a {meses_passados} mês(es)')
                 
                 texto_fortuna = " e Tributo de Fortuna" if taxa_fortuna > 0 else ""
-                avisos.append(f"🏛️ Receita Federal: R$ {valor_cobrado:,.2f} retidos em ITR patrimonial{texto_fortuna}.")
+                avisos.append(f"🏛️ Receita Federal: R$ {valor_cobrado:,.2f} retidos em impostos patrimoniais{texto_fortuna}.")
 
             if custo_rh > 0:
                 texto_mes = "mês" if meses_passados == 1 else "meses"
