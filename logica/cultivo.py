@@ -442,3 +442,101 @@ def comprar_irrigacao():
         
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': 'Pivô de Irrigação instalado!'})
+
+@cultivo_bp.route('/api/cultivo/colher_tudo/<int:fazenda_id>', methods=['POST'])
+def colher_tudo(fazenda_id):
+    if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
+    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    
+    fazenda_alvo = Propriedade.query.filter_by(id=fazenda_id, dono_id=usuario.id).first()
+    if not fazenda_alvo:
+        return jsonify({'sucesso': False, 'erro': 'Fazenda não encontrada ou acesso negado.'})
+        
+    lotes = Lote.query.filter_by(fazenda_id=fazenda_id).all()
+    itens_silo_graos = ['soja', 'milho', 'arroz', 'feijao']
+    
+    maquinas_dono = Maquinario.query.filter_by(propriedade_id=fazenda_alvo.id).all()
+    modelos_maquinas = [m.modelo for m in maquinas_dono]
+    tem_colheitadeira_propria = 'Colheitadeira Grãos' in modelos_maquinas
+    
+    area = MULTIPLICADOR_AREA.get(fazenda_alvo.tipo, 1)
+    from logica.funcionarios import obter_bonus_equipe
+    bonus_rh = obter_bonus_equipe(fazenda_alvo.id)
+    multiplicador_trator = bonus_rh.get('bonus_colheita', 1.0)
+    
+    colhidos_count = 0
+    total_kg_colhidos = 0
+    custo_total_aluguel = 0
+    
+    for lote in lotes:
+        if lote.status not in ['plantado', 'colhendo', 'colheita_incompleta'] or not lote.tipo_cultivo:
+            continue
+            
+        tipo = lote.tipo_cultivo.lower()
+        dna_planta = CATALOGO_CULTIVOS.get(tipo)
+        if not dna_planta: continue
+        
+        estagio, _, _ = dna_planta.obter_estagio_e_progresso(
+            getattr(lote, 'dias_plantado', 0), getattr(lote, 'dias_descanso', 0), getattr(usuario, 'estacao_atual', 'primavera')
+        )
+        
+        if estagio != "Ponto de Colheita" and lote.status not in ['colhendo', 'colheita_incompleta']:
+            continue
+            
+        produtividade = getattr(lote, 'produtividade_atual', 100)
+        kg_totais = int(dna_planta.producao_kg * area * (produtividade / 100.0) * multiplicador_trator)
+        
+        if getattr(dna_planta, 'tipo_biologia', 'anual') in ['perene', 'sazonal'] and getattr(lote, 'ciclos_colhidos', 0) > 0:
+            kg_totais = int(kg_totais * 0.3)
+            
+        kg_a_colher = kg_totais
+        
+        if tipo in itens_silo_graos:
+            total_silo = sum(getattr(fazenda_alvo, f'est_{i}', 0) for i in itens_silo_graos if hasattr(fazenda_alvo, f'est_{i}'))
+            espaco_livre = fazenda_alvo.cap_silo - total_silo
+            if espaco_livre <= 0:
+                continue 
+            kg_a_colher = min(kg_totais, espaco_livre)
+            
+        proporcao_colhida = kg_a_colher / kg_totais if kg_totais > 0 else 1
+        
+        custo_real = 0
+        if not tem_colheitadeira_propria:
+            qtd_prop = Propriedade.query.filter_by(dono_id=usuario.id).count()
+            fator_inflacao = 1.0 + (getattr(usuario, 'nivel', 1) * 0.02) + (qtd_prop * 0.05)
+            custo_base = dna_planta.custo_maquina_colheita * area * proporcao_colhida
+            custo_real = int(custo_base * fator_inflacao)
+            
+        if usuario.saldo < custo_real:
+            continue 
+            
+        coluna_estoque = f'est_{tipo}'
+        if hasattr(fazenda_alvo, coluna_estoque):
+            estoque_atual = getattr(fazenda_alvo, coluna_estoque, 0)
+            setattr(fazenda_alvo, coluna_estoque, estoque_atual + kg_a_colher)
+            
+        usuario.saldo -= custo_real
+        custo_total_aluguel += custo_real
+        
+        if kg_a_colher < kg_totais:
+            lote.produtividade_atual = produtividade - (produtividade * proporcao_colhida)
+            lote.status = 'colheita_incompleta'
+        else:
+            lote.fertilidade_solo = max(0, getattr(lote, 'fertilidade_solo', 100) - 30)
+            dna_planta.processar_pos_colheita(lote)
+            
+        colhidos_count += 1
+        total_kg_colhidos += kg_a_colher
+        
+    if custo_total_aluguel > 0:
+        registrar_transacao(usuario.id, 'saida', custo_total_aluguel, f'Aluguel de Colheitadeiras (Colheita em Massa)')
+        
+    db.session.commit()
+    
+    if colhidos_count == 0:
+        return jsonify({'sucesso': False, 'erro': 'Nenhum lote pronto para colheita ou silo cheio!'})
+        
+    return jsonify({
+        'sucesso': True, 
+        'msg': f'Colheita em massa concluída! {colhidos_count} lote(s) colhidos, totalizando {total_kg_colhidos:,.0f} kg recolhidos.'
+    })

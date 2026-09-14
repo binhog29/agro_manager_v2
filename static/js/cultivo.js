@@ -454,3 +454,57 @@ window.destruirLavoura = function(loteId) {
         }
     });
 };
+
+// ==========================================
+// 🌾 FUNÇÃO GLOBAL DE COLHEITA EM MASSA
+// ==========================================
+window.colherTudo = function() {
+    const fazendaId = window.location.pathname.split('/').pop();
+    
+    Swal.fire({
+        title: 'Colher Todos os Lotes?',
+        text: "Isso vai recolher todas as lavouras prontas da fazenda de uma só vez.",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#2e7d32',
+        cancelButtonColor: '#555',
+        confirmButtonText: 'Colher Tudo',
+        cancelButtonText: 'Cancelar',
+        background: '#1a1a24', color: '#fff'
+    }).then((res) => {
+        if (res.isConfirmed) {
+            Swal.fire({ title: 'Colhendo lavouras...', background: '#1a1a24', color: '#fff', didOpen: () => Swal.showLoading() });
+            
+            fetch(`/api/cultivo/colher_tudo/${fazendaId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(r => r.json())
+            .then(d => {
+                if (d.sucesso) {
+                    Swal.fire('Sucesso! 🚜', d.msg, 'success').then(() => location.reload());
+                } else {
+                    Swal.fire('Atenção', d.erro, 'warning');
+                }
+            }).catch(() => Swal.fire('Erro', 'Falha de comunicação.', 'error'));
+        }
+    });
+};
+
+// Injeta automaticamente o botão "Colher Tudo" na aba de cultivo do jogo
+document.addEventListener('DOMContentLoaded', () => {
+    const observarAbaCultivo = setInterval(() => {
+        const viewCultivo = document.getElementById('view-cultivo');
+        if (viewCultivo && !document.getElementById('btn-colher-tudo-global')) {
+            const containerBtn = document.createElement('div');
+            containerBtn.style.cssText = 'margin-bottom: 15px; text-align: right;';
+            containerBtn.innerHTML = `
+                <button id="btn-colher-tudo-global" onclick="colherTudo()" style="background: linear-gradient(135deg, #2e7d32, #1b5e20); color: white; border: none; padding: 10px 18px; border-radius: 8px; font-weight: bold; font-size: 13px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.4); display: inline-flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-tractor"></i> Colher Tudo Pronto
+                </button>
+            `;
+            viewCultivo.prepend(containerBtn);
+        }
+    }, 500);
+});
+
