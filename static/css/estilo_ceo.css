@@ -1,0 +1,22 @@
+/* Container do painel no rodapé */
+.painel-controle-clima {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    align-items: center;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.85);
+    border-radius: 12px;
+}
+
+/* Estilo do novo botão de Noite */
+.btn-clima.btn-noite {
+    background-color: #3d5af1; /* Azul escuro/noturno */
+    color: #ffffff;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 13px;
+    cursor: pointer;
+}

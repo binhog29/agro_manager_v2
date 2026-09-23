@@ -1,4 +1,4 @@
-<link rel="stylesheet" href="{{ url_for('static', filename='css/loja.css') }}?v=1">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/loja.css') }}?v=2">
 
 <style>
     .loja-grid-pequeno {
@@ -8,63 +8,75 @@
         padding: 10px;
     }
     .loja-card-pequeno {
-        background: #fff;
-        border-radius: 12px;
+        background: linear-gradient(135deg, #ffffff, #f4f6f3);
+        border: 2px solid #c8e6c9;
+        border-radius: 14px;
         padding: 12px 10px;
         text-align: center;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        box-shadow: 0 6px 12px rgba(0,0,0,0.15);
         color: #333;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
     }
     .loja-card-pequeno img {
-        width: 50px;
-        height: 50px;
+        width: 55px;
+        height: 55px;
         object-fit: contain;
         margin: 0 auto 8px;
+        filter: drop-shadow(0 3px 5px rgba(0,0,0,0.2));
     }
     .loja-card-pequeno h5 {
         margin: 0;
         font-size: 13px;
         font-weight: 800;
-        color: #2e7d32;
+        color: #1b5e20;
     }
     .loja-card-pequeno .preco {
         font-size: 11px;
-        color: #666;
-        margin-bottom: 12px;
+        color: #555;
+        margin-bottom: 10px;
         font-weight: bold;
     }
     .loja-controles {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        background: #f1f1f1;
+        background: #e8f5e9;
+        border: 1px solid #c8e6c9;
         border-radius: 20px;
         overflow: hidden;
         margin-top: auto;
     }
     .loja-btn-qtd {
-        background: #e0e0e0;
+        background: #dcedc8;
         border: none;
-        width: 34px;
-        height: 34px;
-        font-size: 16px;
+        width: 32px;
+        height: 32px;
+        font-size: 15px;
         font-weight: bold;
-        color: #333;
+        color: #2e7d32;
         cursor: pointer;
     }
     .loja-btn-qtd.add { background: #4caf50; color: white; }
     .loja-qtd-display {
-        font-size: 14px;
+        font-size: 13px;
         font-weight: bold;
-        width: 35px;
+        width: 32px;
         text-align: center;
         background: transparent;
         border: none;
         outline: none;
-        color: #333;
+        color: #2e7d32;
+    }
+    .loja-cat-title {
+        font-size: 15px;
+        font-weight: 800;
+        color: #8bc34a;
+        margin: 16px 10px 8px 10px;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+        border-bottom: 2px dashed rgba(139, 195, 74, 0.3);
+        padding-bottom: 4px;
     }
 </style>
 
@@ -139,7 +151,7 @@
             </div>
         </div>
     </div>
-
+    
     <!-- GRÃOS E CEREAIS -->
     <div class="loja-cat-title">🌽 Grãos & Cereais</div>
     <div class="loja-grid-pequeno">
@@ -361,7 +373,7 @@
             </div>
         </div>
     </div>
-
+    
 </div>
 
-<script src="{{ url_for('static', filename='js/loja.js') }}?v=2"></script>
+<script src="{{ url_for('static', filename='js/loja.js') }}?v=3"></script>

@@ -116,7 +116,7 @@ window.auditarFazendas = function(id, nome) {
 };
 
 // ==========================================
-// 🌾 CONFISCO CIRÚRGICO DE HECTARES EXTRAS
+// 🌾 CONFISCO CIRÚRGICO DE HECTARES EXTRAS (MULTIPLO)
 // ==========================================
 window.confiscarHectaresExtras = function(id, nome) {
     Swal.fire({ title: 'Buscando propriedades...', didOpen: () => Swal.showLoading() });
@@ -170,26 +170,49 @@ function carregarLotesParaConfisco(propId) {
                 return;
             }
             
-            let lotesHtml = '';
+            let checkboxesHtml = `
+                <div style="text-align: left; margin-bottom: 10px;">
+                    <label style="cursor: pointer; font-size: 13px; color: #4caf50; font-weight: bold;">
+                        <input type="checkbox" id="check-todos-lotes" onchange="toggleTodosLotes(this)" style="margin-right: 6px; transform: scale(1.2);">
+                        Selecionar / Desmarcar Todos
+                    </label>
+                </div>
+                <div id="container-lotes-list" style="max-height: 220px; overflow-y: auto; text-align: left; background: #111; padding: 10px; border-radius: 6px; border: 1px solid #444;">
+            `;
+            
             d.lotes.forEach((l) => {
-                lotesHtml += `<option value="${l.id}">Hectare #${l.id} (Cultivo: ${l.cultivo} | Status: ${l.status})</option>`;
+                checkboxesHtml += `
+                    <label style="display: flex; align-items: center; font-size: 13px; color: #fff; margin-bottom: 8px; cursor: pointer;">
+                        <input type="checkbox" class="chk-lote-item" value="${l.id}" style="margin-right: 10px; transform: scale(1.2);">
+                        <span>Hectare #${l.id} <small style="color:#aaa;">(Cultivo: ${l.cultivo} | Status: ${l.status})</small></span>
+                    </label>
+                `;
             });
             
+            checkboxesHtml += `</div>`;
+            
             Swal.fire({
-                title: `Selecionar Hectare Específico`,
+                title: `Selecionar Hectares`,
                 html: `
-                    <p style="font-size: 13px; color: #aaa; text-align: left; margin-bottom: 10px;">Escolha o hectare exato para confiscar e limpar:</p>
-                    <select id="swal-lote-id" style="width: 100%; padding: 12px; background: #111; color: #fff; border: 1px solid #444; border-radius: 6px; font-family: 'Poppins', sans-serif;">
-                        ${lotesHtml}
-                    </select>
+                    <p style="font-size: 13px; color: #aaa; text-align: left; margin-bottom: 10px;">Marque os hectares que deseja confiscar e remover:</p>
+                    ${checkboxesHtml}
                 `,
                 background: '#1a1a24', color: '#fff',
-                showCancelButton: true, confirmButtonText: 'Confiscar Este Hectare', confirmButtonColor: '#d32f2f',
-                cancelButtonText: 'Voltar'
+                showCancelButton: true, 
+                confirmButtonText: 'Confiscar Selecionados', 
+                confirmButtonColor: '#d32f2f',
+                cancelButtonText: 'Voltar',
+                preConfirm: () => {
+                    const selecionados = Array.from(document.querySelectorAll('.chk-lote-item:checked')).map(cb => cb.value);
+                    if (selecionados.length === 0) {
+                        Swal.showValidationMessage('Selecione pelo menos 1 hectare!');
+                        return false;
+                    }
+                    return selecionados;
+                }
             }).then((res) => {
-                if (res.isConfirmed) {
-                    const loteId = document.getElementById('swal-lote-id').value;
-                    executarConfiscoLote(loteId);
+                if (res.isConfirmed && res.value) {
+                    executarConfiscoLotes(res.value);
                 }
             });
         } else {
@@ -198,12 +221,18 @@ function carregarLotesParaConfisco(propId) {
     });
 }
 
-function executarConfiscoLote(loteId) {
-    Swal.fire({ title: 'Confiscando hectare...', didOpen: () => Swal.showLoading() });
+// Função auxiliar para Marcar/Desmarcar Todos
+window.toggleTodosLotes = function(masterCb) {
+    const checkboxes = document.querySelectorAll('.chk-lote-item');
+    checkboxes.forEach(cb => cb.checked = masterCb.checked);
+};
+
+function executarConfiscoLotes(loteIds) {
+    Swal.fire({ title: 'Confiscando hectares...', didOpen: () => Swal.showLoading() });
     
-    fetch('/api/admin/confiscar_lote_especifico', {
+    fetch('/api/admin/confiscar_lotes_multiplos', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ lote_id: loteId })
+        body: JSON.stringify({ lote_ids: loteIds })
     })
     .then(r => r.json())
     .then(res => {
@@ -288,4 +317,163 @@ window.executarConfiscoEspecifico = function(propId) {
             Swal.fire('Atenção', res.erro, 'warning');
         }
     });
+};
+
+// ==========================================
+// 🧹 RESETAR PROPRIEDADES SEM DONO (DO ESTADO)
+// ==========================================
+window.resetarPropriedadesOrfas = function() {
+    Swal.fire({
+        title: 'Resetar Terras do Estado?',
+        text: 'Todas as propriedades que estão sem dono serão restauradas ao padrão inicial de fábrica (removendo melhorias, construções, hectares extras e estoques).',
+        icon: 'warning',
+        background: '#2a2a2a', color: '#fff',
+        showCancelButton: true,
+        confirmButtonColor: '#e65100',
+        confirmButtonText: '<i class="fas fa-broom"></i> Sim, Resetar Terras',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            godAction('/api/admin/resetar_propriedades_orfas', {});
+        }
+    });
+};
+
+// ==========================================
+// 🐄 GESTÃO DINÂMICA DE ANIMAIS (RECONHECE REBANHO ATUAL)
+// ==========================================
+window.gerenciarAnimais = function(id, nome) {
+    Swal.fire({ title: 'Buscando rebanho do jogador...', didOpen: () => Swal.showLoading() });
+
+    fetch('/api/admin/animais_jogador/' + id)
+    .then(r => r.json())
+    .then(data => {
+        if (!data.sucesso) {
+            Swal.fire('Aviso', data.erro, 'info');
+            return;
+        }
+
+        const propriedades = data.propriedades;
+        if (propriedades.length === 0) {
+            Swal.fire('Aviso', `${nome} não possui propriedades.`, 'info');
+            return;
+        }
+
+        // Guarda temporariamente para troca rápida ao selecionar outra propriedade no modal
+        window._propriedadesAnimaisTemp = propriedades;
+
+        let propOptions = '';
+        propriedades.forEach(p => {
+            propOptions += `<option value="${p.id}">${p.nome} (${p.tipo}) — Total: ${p.total_animais} cabeças</option>`;
+        });
+
+        function gerarHtmlResumo(propId) {
+            const prop = window._propriedadesAnimaisTemp.find(p => p.id == propId);
+            if (!prop || prop.resumo.length === 0) {
+                return `<span style="color:#aaa; font-style:italic; font-size:12px;">Nenhum animal nesta propriedade.</span>`;
+            }
+            return prop.resumo.map(item => 
+                `<div style="display:inline-block; background:#111; border:1px solid #444; border-radius:4px; padding:4px 8px; margin:2px; font-size:12px;">
+                    <strong>${item.raca}</strong> (${item.sexo}): <span style="color:#4caf50; font-weight:bold;">${item.qtd}</span>
+                 </div>`
+            ).join('');
+        }
+
+        Swal.fire({
+            title: `Rebanho de ${nome}`,
+            html: `
+                <div style="text-align: left; font-size: 13px; color: #ccc;">
+                    <label style="display:block; margin-bottom:4px; font-weight:bold;">Selecione a Propriedade:</label>
+                    <select id="swal-prop-animal" onchange="atualizarResumoRebanho(this.value)" class="swal2-input" style="background:#111; color:#fff; border:1px solid #444; width:100%; margin:0 0 10px 0; padding:8px;">
+                        ${propOptions}
+                    </select>
+
+                    <div style="background:#181824; border:1px solid #333; padding:10px; border-radius:6px; margin-bottom:12px;">
+                        <label style="display:block; font-size:11px; color:#aaa; margin-bottom:6px; text-transform:uppercase; font-weight:bold;">📋 Rebanho Atual na Propriedade:</label>
+                        <div id="container-resumo-rebanho">
+                            ${gerarHtmlResumo(propriedades[0].id)}
+                        </div>
+                    </div>
+
+                    <hr style="border:0; border-top:1px solid #444; margin:12px 0;">
+
+                    <label style="display:block; margin-bottom:4px; font-weight:bold;">Ação Desejada:</label>
+                    <select id="swal-acao" class="swal2-input" style="background:#111; color:#fff; border:1px solid #444; width:100%; margin:0 0 10px 0; padding:8px;">
+                        <option value="adicionar">➕ Adicionar Animais</option>
+                        <option value="remover">➖ Remover Animais</option>
+                    </select>
+
+                    <div style="display:flex; gap:8px;">
+                        <div style="flex:1;">
+                            <label style="display:block; margin-bottom:4px; font-weight:bold;">Raça:</label>
+                            <select id="swal-raca" class="swal2-input" style="background:#111; color:#fff; border:1px solid #444; width:100%; margin:0 0 10px 0; padding:8px;">
+                                <option value="Nelore">Nelore</option>
+                                <option value="Angus">Angus</option>
+                                <option value="Brahman">Brahman</option>
+                                <option value="Girolando">Girolando</option>
+                                <option value="Holandês">Holandês</option>
+                                <option value="Senepol">Senepol</option>
+                            </select>
+                        </div>
+                        <div style="flex:1;">
+                            <label style="display:block; margin-bottom:4px; font-weight:bold;">Sexo:</label>
+                            <select id="swal-sexo" class="swal2-input" style="background:#111; color:#fff; border:1px solid #444; width:100%; margin:0 0 10px 0; padding:8px;">
+                                <option value="Macho">Macho</option>
+                                <option value="Fêmea">Fêmea</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <label style="display:block; margin-bottom:4px; font-weight:bold;">Quantidade:</label>
+                    <input id="swal-qtd" type="number" min="1" class="swal2-input" placeholder="Digite a quantidade" style="background:#111; color:#fff; border:1px solid #444; width:100%; margin:0; padding:8px;">
+                </div>
+            `,
+            background: '#1a1a24', color: '#fff', focusConfirm: false, showCancelButton: true, confirmButtonColor: '#e91e63', confirmButtonText: 'Executar Operação', cancelButtonText: 'Cancelar',
+            preConfirm: () => {
+                const propId = document.getElementById('swal-prop-animal').value;
+                const acao = document.getElementById('swal-acao').value;
+                const raca = document.getElementById('swal-raca').value;
+                const sexo = document.getElementById('swal-sexo').value;
+                const qtd = parseInt(document.getElementById('swal-qtd').value);
+                
+                if (!qtd || qtd <= 0) {
+                    Swal.showValidationMessage('Insira uma quantidade válida!');
+                    return false;
+                }
+                return { propId, acao, raca, sexo, qtd };
+            }
+        }).then((res) => {
+            if (res.isConfirmed && res.value) {
+                godAction('/api/admin/gerenciar_animais', { 
+                    jogador_id: id, 
+                    propriedade_id: res.value.propId,
+                    acao: res.value.acao, 
+                    raca: res.value.raca, 
+                    sexo: res.value.sexo, 
+                    quantidade: res.value.qtd 
+                });
+            }
+        });
+    })
+    .catch(e => {
+        console.error(e);
+        Swal.fire('Erro Fatal', 'Falha ao buscar informações do rebanho.', 'error');
+    });
+};
+
+window.atualizarResumoRebanho = function(propId) {
+    const container = document.getElementById('container-resumo-rebanho');
+    if (!container || !window._propriedadesAnimaisTemp) return;
+
+    const prop = window._propriedadesAnimaisTemp.find(p => p.id == propId);
+    if (!prop || prop.resumo.length === 0) {
+        container.innerHTML = `<span style="color:#aaa; font-style:italic; font-size:12px;">Nenhum animal nesta propriedade.</span>`;
+        return;
+    }
+
+    container.innerHTML = prop.resumo.map(item => 
+        `<div style="display:inline-block; background:#111; border:1px solid #444; border-radius:4px; padding:4px 8px; margin:2px; font-size:12px;">
+            <strong>${item.raca}</strong> (${item.sexo}): <span style="color:#4caf50; font-weight:bold;">${item.qtd}</span>
+         </div>`
+    ).join('');
 };

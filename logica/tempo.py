@@ -12,11 +12,12 @@ class GerenciadorTempo:
     MINUTOS_POR_HORA_OFFLINE = 1.0 
     LIMITE_AFK_MINUTOS = 10.0 
 
+    # Mapeamento correto das estações (Dezembro, Janeiro e Fevereiro = Verão)
     ESTACOES = {
-        1: 'verao', 2: 'verao', 3: 'verao',             
-        4: 'outono', 5: 'outono', 6: 'outono',          
-        7: 'inverno', 8: 'inverno', 9: 'inverno',       
-        10: 'primavera', 11: 'primavera', 12: 'primavera' 
+        12: 'verao', 1: 'verao', 2: 'verao',             
+        3: 'outono', 4: 'outono', 5: 'outono',          
+        6: 'inverno', 7: 'inverno', 8: 'inverno',       
+        9: 'primavera', 10: 'primavera', 11: 'primavera' 
     }
 
     @classmethod
@@ -58,16 +59,16 @@ class GerenciadorTempo:
         meses_passados = 0 
 
         if dias_passados > 0:
-            jogador.dia += dias_passados
-            meses_passados = jogador.dia // 30
-            jogador.dia = (jogador.dia % 30)
-            if jogador.dia == 0: jogador.dia = 1
+            # Cálculo correto de virada de dias (base 1 a 30)
+            total_dias = (jogador.dia - 1) + dias_passados
+            jogador.dia = (total_dias % 30) + 1
+            meses_passados = total_dias // 30
 
             if meses_passados > 0:
-                jogador.mes += meses_passados
-                anos_passados = jogador.mes // 12
-                jogador.mes = (jogador.mes % 12)
-                if jogador.mes == 0: jogador.mes = 1
+                # Cálculo correto de virada de meses (base 1 a 12)
+                total_meses = (jogador.mes - 1) + meses_passados
+                jogador.mes = (total_meses % 12) + 1
+                anos_passados = total_meses // 12
 
                 if anos_passados > 0:
                     jogador.ano += anos_passados
@@ -108,10 +109,10 @@ class GerenciadorTempo:
                             registrar_transacao(jogador.id, 'saida', custo_reparo, f'Oficina Automática: {maq.modelo}')
                             avisos_automacao.append(f"🔧 O Tratorista levou o {maq.modelo} para a revisão. Custo: R$ {custo_reparo:,.2f}.")
 
-        motor = MotorBiologico(clima_atual=getattr(jogador, 'clima_atual', 'sol'), jogador=jogador)
+        motor = MotorBiologico(clima_atual=getattr(jogador, 'clima_atual', 'limpo'), jogador=jogador)
         avisos = avisos_automacao + motor.processar_turno(horas)
         
-        # 🔥 BALANCEAMENTO MESTRE: FOLHA DE PAGAMENTO E ITR PROGRESSIVO (COM ESCUDO INICIANTE)
+        # BALANCEAMENTO MESTRE: FOLHA DE PAGAMENTO E ITR PROGRESSIVO
         if meses_passados > 0:
             from logica.funcionarios import cobrar_folha_pagamento
             from database import Lote
@@ -119,7 +120,6 @@ class GerenciadorTempo:
             horas_cobradas = meses_passados * 240
             custo_rh = cobrar_folha_pagamento(jogador, horas_cobradas)
             
-            # 1. Calcula o tamanho do império do jogador em hectares reais
             lotes_jogador = Lote.query.join(Propriedade).filter(Propriedade.dono_id == jogador.id).all()
             total_hectares_reais = 0
             
@@ -128,24 +128,19 @@ class GerenciadorTempo:
                 area_lote = {'Chácara': 1, 'Sítio': 5, 'Fazenda': 15, 'Latifúndio': 30}.get(getattr(prop_itr, 'tipo', 'Chácara'), 1)
                 total_hectares_reais += area_lote
                 
-            # ==============================================================
-            # 🔥 ESCUDO PARA INICIANTES: Até 10 hectares, paga fixo e barato!
-            # ==============================================================
             if total_hectares_reais <= 10:
                 imposto_itr = (total_hectares_reais * 150.0) * meses_passados 
             else:
-                # O Terror dos Latifundiários: Passou de 10ha, a taxa multiplica!
                 hectares_extras = total_hectares_reais - 10
-                multiplicador_imposto = 1.0 + (hectares_extras * 0.02) # Sobe 2% por cada hectare extra
+                multiplicador_imposto = 1.0 + (hectares_extras * 0.02)
                 valor_por_hectare = 200.0 * multiplicador_imposto
                 imposto_itr = (total_hectares_reais * valor_por_hectare) * meses_passados
             
-            # 🔥 TAXA DE FORTUNA (Apenas para Milionários)
             taxa_fortuna = 0
             if jogador.saldo > 10000000:
-                taxa_fortuna = (jogador.saldo * 0.05) * meses_passados # 5% ao mês se passar de 10 milhões
+                taxa_fortuna = (jogador.saldo * 0.05) * meses_passados
             elif jogador.saldo > 3000000:
-                taxa_fortuna = (jogador.saldo * 0.02) * meses_passados # 2% ao mês se passar de 3 milhões
+                taxa_fortuna = (jogador.saldo * 0.02) * meses_passados
                 
             imposto_total = imposto_itr + taxa_fortuna
             
@@ -177,11 +172,34 @@ class GerenciadorTempo:
     @classmethod
     def _atualizar_clima_e_estacao(cls, jogador):
         jogador.estacao_atual = cls.ESTACOES.get(jogador.mes, 'primavera')
-        chances_chuva = {'verao': 0.70, 'outono': 0.40, 'inverno': 0.05, 'primavera': 0.30}
-        if random.random() < chances_chuva.get(jogador.estacao_atual, 0.30):
-            jogador.clima_atual = 'chuva'
-        else:
-            jogador.clima_atual = 'sol'
+        sorteio = random.random()
+
+        if jogador.estacao_atual == 'verao':
+            if sorteio < 0.15:
+                jogador.clima_atual = 'tempestade'
+            elif sorteio < 0.65:
+                jogador.clima_atual = 'chuvoso'
+            else:
+                jogador.clima_atual = 'limpo'
+        elif jogador.estacao_atual == 'outono':
+            if sorteio < 0.08:
+                jogador.clima_atual = 'tempestade'
+            elif sorteio < 0.40:
+                jogador.clima_atual = 'chuvoso'
+            else:
+                jogador.clima_atual = 'limpo'
+        elif jogador.estacao_atual == 'inverno':
+            if sorteio < 0.10:
+                jogador.clima_atual = 'chuvoso'
+            else:
+                jogador.clima_atual = 'limpo'
+        else:  # primavera
+            if sorteio < 0.05:
+                jogador.clima_atual = 'tempestade'
+            elif sorteio < 0.35:
+                jogador.clima_atual = 'chuvoso'
+            else:
+                jogador.clima_atual = 'limpo'
 
 @tempo_bp.route('/api/avancar_tempo', methods=['POST'])
 def avancar_tempo_manual():
@@ -196,7 +214,6 @@ def avancar_tempo_manual():
     if horas_avancar not in TABELA_CUSTOS_BASE:
         return jsonify({'sucesso': False, 'erro': 'Quantidade de horas inválida.'})
         
-    # 🔥 BALANCEAMENTO: O Custo de Vida / Custos Administrativos escalam com o Nível e Império!
     from database import Propriedade
     qtd_prop = Propriedade.query.filter_by(dono_id=usuario.id).count()
     fator_escala = 1.0 + (getattr(usuario, 'nivel', 1) * 0.02) + (qtd_prop * 0.05)
@@ -217,16 +234,31 @@ def avancar_tempo_manual():
 
     db.session.commit()
     
-    return jsonify({'sucesso': True, 'msg': 'O tempo avançou e a natureza seguiu seu curso!', 'avisos': avisos_motor})
-    
+    return jsonify({
+        'sucesso': True, 
+        'msg': 'O tempo avançou e a natureza seguiu seu curso!', 
+        'avisos': avisos_motor,
+        'clima': getattr(usuario, 'clima_atual', 'limpo'),
+        'estacao': getattr(usuario, 'estacao_atual', 'primavera'),
+        'hora': f"{usuario.hora:02d}:00",
+        'dia': usuario.dia,
+        'mes': usuario.mes,
+        'ano': usuario.ano
+    })
+
 @tempo_bp.route('/api/tempo_atual', methods=['GET'])
 def tempo_atual():
     if 'usuario' not in session: return jsonify({'sucesso': False, 'erro': 'Não logado'})
     usuario = Jogador.query.filter_by(username=session['usuario']).first()
     GerenciadorTempo.calcular_progresso_offline(usuario)
     return jsonify({
-        'sucesso': True, 'hora': usuario.hora, 'dia': usuario.dia, 'mes': usuario.mes, 'ano': usuario.ano,
-        'clima': getattr(usuario, 'clima_atual', 'sol'), 'estacao': getattr(usuario, 'estacao_atual', 'primavera')
+        'sucesso': True, 
+        'hora': usuario.hora, 
+        'dia': usuario.dia, 
+        'mes': usuario.mes, 
+        'ano': usuario.ano,
+        'clima': getattr(usuario, 'clima_atual', 'limpo'), 
+        'estacao': getattr(usuario, 'estacao_atual', 'primavera')
     })
 
 @tempo_bp.route('/api/notificacoes', methods=['GET'])

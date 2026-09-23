@@ -128,7 +128,7 @@ body {
 }
 
 /* ÁREA DE CONTEÚDO */
-.content-area { padding: 10px; }
+.content-area { padding: 0; }
 .view-section { display: none; }
 .view-section.active { display: block; animation: fadeIn 0.3s ease; }
 
@@ -245,4 +245,518 @@ body {
     margin: 0 auto 15px auto; /* Centraliza e dá um espaço embaixo */
     display: block;
     filter: drop-shadow(0 4px 6px rgba(0,0,0,0.6));
+}
+
+/* ================================= */
+/* MAPA INTERATIVO DA SEDE           */
+/* ================================= */
+.mapa-sede-container {
+    position: relative;
+    width: 98%;          /* Quase a largura toda do celular */
+    max-width: 880px;    /* Aumenta o limite para o mapa ficar maior e mais alto */
+    margin: 0 auto;
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    border: 1px solid #444;
+    min-height: 400px;
+    background-color: #2a2a2a;
+    isolation: isolate;
+}
+
+.img-mapa-base {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+/* Estilo das áreas clicáveis */
+.map-area {
+    position: absolute;
+    background-color: transparent; /* Fundo invisível */
+    z-index: 10;
+    border: none; /* Remove os tracejados */
+    cursor: pointer;
+    border-radius: 8px; /* Arredonda os cantos invisíveis para as animações ficarem mais bonitas */
+    transition: background-color 0.2s ease; /* Suaviza o efeito de toque */
+}
+
+/* Efeito de brilho suave ao tocar/clicar na área */
+.map-area:active, .map-area:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* ========================================================================== */
+/* 🌿 INÍCIO DOS EFEITOS VISUAIS E ANIMAÇÕES DE AMBIENTE                    */
+/* ========================================================================== */
+/* 🌙 NOITE REALISTA (Escurece as folhas e o mapa automaticamente por trás) */
+#noite-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(5, 12, 30, 0.75); /* Fundo azul noturno */
+    pointer-events: none;
+    z-index: 8; /* Fica acima do mapa e abaixo dos postes/lâmpadas */
+    opacity: 0;
+    transition: opacity 1.5s ease-in-out;
+
+    /* 🛠️ MAGIA AQUI: Escurece as folhas e o gramado diretamente atrás desta camada */
+    backdrop-filter: brightness(0.35) saturate(0.5) contrast(1.1);
+    -webkit-backdrop-filter: brightness(0.35) saturate(0.5) contrast(1.1);
+}
+
+/* Quando o botão ativas a noite (ajuste a classe conforme o seu JavaScript) */
+#noite-overlay.aceso,
+#noite-overlay.ativo,
+.noite-ativa #noite-overlay {
+    opacity: 1;
+}
+
+
+#noite-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #0b1226;
+    pointer-events: none;
+    z-index: 8; /* Fica abaixo da chuva/raio, mas acima do mapa */
+    transition: opacity 1.5s ease-in-out;
+    opacity: 0;
+    mix-blend-mode: multiply;
+}
+
+/* 🪵 ESTRUTURA DO POSTE (Escuro e discreto para não brilhar à noite) */
+.poste {
+    position: absolute;
+    width: 2px;
+    height: 20px;
+    background: #1e1b18; /* Cor escura de madeira/metal (evita parecer bastão neon) */
+    border-radius: 1px;
+    transform: translate(-50%, -100%);
+    z-index: 9;
+    pointer-events: none;
+    box-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
+}
+
+/* Suporte metálico no topo do poste */
+.poste::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 3px;
+    height: 2px;
+    background: #333333;
+}
+
+/* FIXA A LUZ NO TOPO DO POSTE */
+.poste .lampada {
+    top: 0%;
+    left: 50%;
+}
+
+/* 💡 LÂMPADAS E POSTES - PC E NOTEBOOK */
+.lampada {
+    position: absolute;
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 10;
+    opacity: 0; /* Totalmente invisível de dia */
+    transition: opacity 0.8s ease-in-out;
+    background: radial-gradient(
+        circle at 50% 50%,
+        rgba(255, 235, 160, 0.65) 0%,
+        rgba(255, 180, 70, 0.2) 45%,
+        transparent 70%
+    );
+    mix-blend-mode: screen;
+}
+
+.lampada.acesa {
+    opacity: 0.75;
+}
+
+/* 📱 AJUSTE EXCLUSIVO PARA CELULAR (Telas de até 768px) */
+@media (max-width: 768px) {
+    .lampada {
+        width: 50px;  /* Reduz o tamanho do foco de luz proporcional ao mapa pequeno */
+        height: 50px;
+    }
+
+    .lampada.acesa {
+        opacity: 0.55; /* Luz mais suave para não estourar no display do celular */
+    }
+}
+
+
+/* 🟨 BULBO DA LÂMPADA NO TOPO */
+.lampada::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 5px;
+    height: 5px;
+    background: #ffffff;
+    border-radius: 50%;
+    box-shadow: 0 0 8px #ffffff, 0 0 4px #ffea78;
+}
+
+/* 🦟 VAGALUMES (Ocultos de dia) */
+.vagalume {
+    position: absolute;
+    width: 3px;
+    height: 3px;
+    background-color: #e6ff66;
+    border-radius: 50%;
+    box-shadow: 0 0 4px #ccff00, 0 0 8px rgba(184, 230, 0, 0.5);
+    pointer-events: none;
+    z-index: 12;
+    display: none; /* Oculto por padrão durante o dia */
+}
+
+/* 🌙 ATIVAÇÃO À NOITE (Funciona em qualquer estrutura HTML) */
+.noite-ativa .vagalume,
+.noite .vagalume,
+#mapa-sede-container.noite .vagalume,
+body.noite .vagalume,
+.vagalume.aceso,
+.vagalume.ativo {
+    display: block;
+    animation: vooDistante 6s infinite ease-in-out;
+}
+
+/* Variações de tempo de piscar e voo */
+.vagalume.v2 { animation-delay: 2s; animation-duration: 8s; }
+.vagalume.v3 { animation-delay: 4s; animation-duration: 5s; }
+
+/* 🌟 ANIMAÇÃO DO VOO E PISCAR SUAVE */
+@keyframes vooDistante {
+    0% {
+        transform: translate(0, 0) scale(0.6);
+        opacity: 0;
+    }
+    25% {
+        opacity: 0.85; /* Brilho visível mas suave */
+    }
+    50% {
+        transform: translate(8px, -10px) scale(1);
+        opacity: 0.15; /* Apaga parcialmente ao voar */
+    }
+    75% {
+        transform: translate(-6px, -18px) scale(0.8);
+        opacity: 0.9;
+    }
+    100% {
+        transform: translate(4px, -25px) scale(0.5);
+        opacity: 0;
+    }
+}
+
+/* 💦 CONTAINER DO ASPERSOR (Apenas posição) */
+.aspersor-agua {
+    position: absolute;
+    width: 120px;
+    height: 120px;
+    transform: translate(-50%, -50%); /* Centraliza o ponto de origem do borrifo */
+    pointer-events: none; /* Evita bloquear cliques na quadra */
+}
+
+.aspersor-agua canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+/* 🌙 ESCURECE A VEGETAÇÃO E O MAPA DURANTE A NOITE */
+.mapa-sede-container.noite-ativa .img-mapa-base,
+#noite-overlay.com-noite ~ .img-mapa-base {
+    filter: brightness(0.35) contrast(1.1) saturate(0.7);
+    transition: filter 1.5s ease-in-out;
+}
+
+/* 🌼 PÉTALAS DE IPÊ AMARELO (Sopradas pelo vento) */
+.petala-ipe {
+    position: absolute;
+    width: 6px;
+    height: 8px;
+    background-color: #ffd700;
+    border-radius: 50% 0 50% 50%;
+    opacity: 0.85;
+    pointer-events: none;
+    z-index: 15;
+    animation: cairPetala 7s infinite linear;
+}
+
+.petala-ipe.p2 { animation-delay: 2.5s; animation-duration: 9s; }
+.petala-ipe.p3 { animation-delay: 4.5s; animation-duration: 6s; }
+
+@keyframes cairPetala {
+    0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+    15% { opacity: 0.9; }
+    85% { opacity: 0.7; }
+    100% { transform: translate(70px, 110px) rotate(360deg); opacity: 0; }
+}
+
+/* 🕯️ ILUMINAÇÃO DE VELA (CEMITÉRIO) */
+.vela {
+    position: absolute;
+    width: 40px; /* Área de luz bem menor e focada */
+    height: 40px;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 10;
+    opacity: 0;
+    transition: opacity 1.5s ease-in-out;
+
+    /* Gradiente mais quente (amarelo/alaranjado de fogo) */
+    background: radial-gradient(
+        circle at 50% 50%,
+        rgba(255, 255, 220, 0.95) 0%,   /* Centro muito claro */
+        rgba(255, 140, 20, 0.5) 30%,    /* Chama alaranjada */
+        rgba(255, 90, 0, 0.12) 65%,     /* Difusão vermelha/laranja */
+        rgba(255, 90, 0, 0) 85%         /* Desvanecimento suave */
+    );
+
+    mix-blend-mode: screen;
+    filter: blur(1px);
+}
+
+/* Quando a vela está acesa à noite, liga a animação de cintilação */
+.vela.acesa {
+    opacity: 0.5;
+    animation: cintilarVela 2.5s infinite alternate ease-in-out;
+}
+
+/* Ponto físico do pio/chama da vela */
+.vela::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 3px;
+    height: 3px;
+    background: #ffffff;
+    border-radius: 50%;
+    box-shadow: 0 0 6px #ff8c00, 0 0 2px #ff4500;
+}
+
+/* ⚡ Animação de chama a oscilar (efeito realista de vento) */
+@keyframes cintilarVela {
+    0% {
+        transform: translate(-50%, -50%) scale(0.9);
+        opacity: 0.8;
+    }
+    30% {
+        transform: translate(-50%, -50%) scale(1.05);
+        opacity: 1;
+    }
+    60% {
+        transform: translate(-50%, -50%) scale(0.95);
+        opacity: 0.85;
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(1.1);
+        opacity: 0.95;
+    }
+}
+
+.efeito-fumaca {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background-color: #e0e0e0;
+    border-radius: 50%;
+    filter: blur(4px); /* Deixa as bordas esfumaçadas */
+    opacity: 0.5;
+    pointer-events: none; /* Impede que a fumaça bloqueie cliques no mapa */
+    z-index: 5;
+    /* Duração de 2.5s, repetição infinita */
+    animation: subir-fumaca 3.5s infinite ease-in; 
+}
+
+/* Criando um segundo puff de fumaça atrasado para parecer contínuo */
+.efeito-fumaca.atraso {
+    animation-delay: 1.2s;
+}
+
+@keyframes subir-fumaca {
+    0% { 
+        transform: translate(0, 0) scale(1); 
+        opacity: 0.7; 
+    }
+    100% { 
+        /* Sobe 40 pixels e vai um pouco para a direita (vento) */
+        transform: translate(15px, -40px) scale(3.5); 
+        opacity: 0.5; 
+    }
+}
+
+/* 🌊 MAROLAS DA ÁGUA DO LAGO */
+.agua-movimento {
+    overflow: hidden;
+}
+
+/* Primeira marola de brilho */
+.agua-movimento::before {
+    content: '';
+    position: absolute;
+    top: 20%;
+    left: 15%;
+    width: 60%;
+    height: 40%;
+    background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0) 70%);
+    border-radius: 50%;
+    animation: marolaOnda 4s ease-in-out infinite alternate;
+}
+
+/* Segunda marola de brilho */
+.agua-movimento::after {
+    content: '';
+    position: absolute;
+    top: 40%;
+    left: 30%;
+    width: 50%;
+    height: 35%;
+    background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0) 70%);
+    border-radius: 50%;
+    animation: marolaOnda 5s ease-in-out infinite alternate-reverse;
+    animation-delay: 1.5s;
+}
+
+/* Animação suave de pulso */
+@keyframes marolaOnda {
+    0% {
+        transform: scale(0.7) translate(-3%, 0%);
+        opacity: 0.1;
+    }
+    50% {
+        transform: scale(1.1) translate(2%, -2%);
+        opacity: 0.5;
+    }
+    100% {
+        transform: scale(0.85) translate(4%, 1%);
+        opacity: 0.15;
+    }
+}
+
+/* VAPOR DA CACHOEIRA */
+.vapor-cachoeira {
+    position: absolute;
+    width: 40px;
+    height: 15px;
+    background-color: rgba(255, 255, 255, 0.7); /* Branco semi-transparente */
+    border-radius: 50%;
+    filter: blur(8px); /* Desfoque forte para parecer névoa */
+    pointer-events: none; /* Não atrapalha os cliques na represa */
+    z-index: 5;
+    opacity: 0;
+    animation: nevoa-subindo 5s infinite linear;
+}
+
+/* Variações de tempo para o vapor parecer contínuo e natural */
+.vapor-cachoeira.atraso-1 { animation-delay: 1s; }
+.vapor-cachoeira.atraso-2 { animation-delay: 2s; }
+
+@keyframes nevoa-subindo {
+    0% {
+        transform: translateY(0) scale(1);
+        opacity: 0.6;
+    }
+    100% {
+        /* Sobe 25px, espalha (cresce 2x) e desaparece */
+        transform: translateY(-25px) scale(2);
+        opacity: 0;
+    }
+}
+
+/* PARTÍCULAS DE POEIRA */
+.efeito-poeira {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    /*background-color: rgba(255, 245, 220, 0.9); /* Tom bem mais claro e brilhante */
+    background-color: rgba(238, 173, 14, 0.45); /* Amarelo terra */
+    /*background-color: rgba(255, 215, 0, 0.85); /* Amarelo ouro brilhante */
+    border-radius: 50%;
+    filter: blur(2px); /* Menos desfoque para não sumir */
+    pointer-events: none; /* Não atrapalha os cliques */
+    z-index: 20; /* Garante que fique por cima da imagem */
+    animation: flutuar-poeira 10s infinite ease-out;
+}
+
+.efeito-poeira.p2 {
+    width: 12px;
+    height: 12px;
+    animation-delay: 3s;
+}
+
+.efeito-poeira.p3 {
+    width: 20px;
+    height: 20px;
+    animation-delay: 5s;
+}
+
+@keyframes flutuar-poeira {
+    0% {
+        transform: translate(0, 0) scale(0.5);
+        opacity: 0.8;
+    }
+    100% {
+        /* Sobe e se espalha para a direita */
+        transform: translate(45px, -35px) scale(1.8);
+        opacity: 0;
+    }
+}
+
+.brilho-agua {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background-color: #ffffff;
+    border-radius: 50%;
+    box-shadow: 0 0 5px #fff;
+    pointer-events: none;
+    animation: piscar-agua 3s infinite ease-in-out;
+}
+.brilho-agua.lento { animation-duration: 4s; animation-delay: 1s; }
+.brilho-agua.rapido { animation-duration: 2s; animation-delay: 0.5s; }
+
+@keyframes piscar-agua {
+    0%, 100% { opacity: 0; transform: scale(0.5); }
+    50% { opacity: 0.8; transform: scale(1.5); }
+}
+
+/* ========================================================================== */
+/* 🌿 FIM DOS EFEITOS VISUAIS                                                 */
+/* ========================================================================== */
+
+/* Remove totalmente as cores verde e amarela das áreas */
+.map-area:hover {
+    background-color: transparent;
+    transform: scale(1.05);
+}
+
+.map-area.construir,
+.map-area.construir:hover {
+    background-color: transparent;
+}
+
+.map-area.bloqueado {
+    cursor: not-allowed;
+    background-color: rgba(85, 85, 85, 0.5); /* Cinza para visitas/nível baixo */
+}
+.map-area.bloqueado:hover {
+    transform: none;
 }

@@ -45,6 +45,13 @@
         <a href="/perfil" class="btn-voltar"><i class="fas fa-arrow-left"></i></a>
         <h2 style="margin: 0; color: #ffb300;"><i class="fas fa-crown"></i> Painel do CEO</h2>
         <p style="margin: 5px 0 0 0; font-size: 12px; color: #aaa;">Controle Absoluto do Servidor</p>
+
+        <!-- 🔥 BOTÃO GLOBAL: RESETAR PROPRIEDADES SEM DONO (ESTADO) 🔥 -->
+        <div style="margin-top: 15px;">
+            <button class="btn-god bg-gavel" onclick="resetarPropriedadesOrfas()" style="font-size: 13px; padding: 10px 18px; border-radius: 8px; display: inline-flex; align-items: center; gap: 8px;">
+                <i class="fas fa-broom"></i> Resetar Terras Sem Dono (Estado)
+            </button>
+        </div>
     </div>
 
     <div class="container">
@@ -67,6 +74,7 @@
                 <button class="btn-god bg-heal" onclick="milagreVida({{ j.id }}, '{{ j.username }}')" title="Curar Todo o Rebanho"><i class="fas fa-heart"></i></button>
                 <button class="btn-god bg-harvest" onclick="bencaoColheita({{ j.id }}, '{{ j.username }}')" title="Colheita Instantânea"><i class="fas fa-seedling"></i></button>
                 <button class="btn-god bg-box" onclick="injetarInsumo({{ j.id }}, '{{ j.username }}')" title="Spawnar Insumos"><i class="fas fa-box-open"></i></button>
+                <button class="btn-god bg-heal" onclick="gerenciarAnimais({{ j.id }}, '{{ j.username }}')" title="Gerir Animais (Raça/Sexo)"><i class="fas fa-paw"></i></button>
                 <button class="btn-god bg-gavel" onclick="abrirModalConfiscarTerra({{ j.id }}, '{{ j.username }}')" title="Confiscar Fazendas"><i class="fas fa-gavel"></i></button>
                 <button class="btn-god bg-time" onclick="avancarTempoJogador({{ j.id }}, '{{ j.username }}')" title="Avançar Tempo"><i class="fas fa-clock"></i></button>
                 

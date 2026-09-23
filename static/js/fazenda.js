@@ -5,10 +5,21 @@ if ('scrollRestoration' in history) {
 
 window.PRECOS_BASE = {};
 
+// Força o recarregamento limpo quando o utilizador usa o botão de voltar do telemóvel
+window.addEventListener("pageshow", function (event) {
+    if (event.persisted) {
+        window.location.reload();
+    }
+});
+
+
 document.addEventListener('DOMContentLoaded', () => {
     // 🔥 CORREÇÃO 1: Força a tela a acender imediatamente (Desbuga a tela preta)
     document.body.style.opacity = '1';
     document.body.style.transition = 'opacity 0.3s ease';
+    
+    // Salva e atualiza o destino limpo da sede atual
+    sessionStorage.setItem('url_ultima_fazenda', window.location.href);
 
     // 1. Restaura o scroll instantaneamente (sem pular na frente do jogador)
     const scrollPos = localStorage.getItem('scroll_pos_fazenda');
@@ -235,6 +246,9 @@ window.abrirPainelCotacoes = function() {
     });
 }
 
+// ==========================================
+// MÓDULO DE CONSTRUÇÃO DE INSTALAÇÕES
+// ==========================================
 window.construirInstalacao = function(tipo, nomeExibicao, custo) {
     const fazendaId = window.location.pathname.split('/').pop();
     
@@ -246,7 +260,7 @@ window.construirInstalacao = function(tipo, nomeExibicao, custo) {
         confirmButtonColor: '#2e7d32',
         cancelButtonColor: '#555',
         confirmButtonText: 'Construir',
-        cancelButtonText: 'Cancel',
+        cancelButtonText: 'Cancelar',
         background: '#2a2a2a', color: '#fff'
     }).then((res) => {
         if (res.isConfirmed) {
@@ -268,3 +282,277 @@ window.construirInstalacao = function(tipo, nomeExibicao, custo) {
         }
     });
 };
+
+// Alias para alinhar com os botões simplificados do HTML (ex: represa, chiqueiro, galinheiro)
+window.construir = function(tipo, custo) {
+    const nomesBonitos = {
+        'represa': 'Represa',
+        'chiqueiro': 'Chiqueiro',
+        'galinheiro': 'Galinheiro',
+        'aprisco': 'Aprisco',
+        'haras': 'Haras'
+    };
+    const nomeExibicao = nomesBonitos[tipo] || tipo;
+    window.construirInstalacao(tipo, nomeExibicao, custo);
+};
+
+function iniciarIrrigadoresJS() {
+    const aspersores = document.querySelectorAll('.aspersor-agua');
+
+    aspersores.forEach(el => {
+        // Limpa qualquer canvas anterior para garantir que reinicia
+        el.innerHTML = '';
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 120;
+        canvas.height = 120;
+        el.appendChild(canvas);
+
+        const ctx = canvas.getContext('2d');
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+
+        let anguloJato = 0;
+        const gotas = [];
+
+        function animar() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Rotação contínua do aspersor
+            anguloJato += 0.08; 
+
+            // Dispara gotículas em 2 direções opostas
+            for (let i = 0; i < 2; i++) {
+                const anguloBase = anguloJato + (i * Math.PI);
+                const dispersao = (Math.random() - 0.5) * 0.35; // Leve leque de água
+                const anguloFinal = anguloBase + dispersao;
+                const velocidade = 2.0 + Math.random() * 1.2;
+
+                gotas.push({
+                    x: centerX,
+                    y: centerY,
+                    vx: Math.cos(anguloFinal) * velocidade,
+                    vy: Math.sin(anguloFinal) * velocidade,
+                    vida: 0,
+                    vidaMaxima: 14 + Math.random() * 6,
+                    tamanho: 0.9 + Math.random() * 0.8 // Tamanho ideal para ser visível sem engrossar
+                });
+            }
+
+            // Renderiza cada gota
+            for (let i = gotas.length - 1; i >= 0; i--) {
+                const g = gotas[i];
+                g.x += g.vx;
+                g.y += g.vy;
+                g.vida++;
+
+                const opacidade = (1 - (g.vida / g.vidaMaxima)) * 0.8;
+
+                ctx.beginPath();
+                ctx.arc(g.x, g.y, g.tamanho, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(220, 245, 255, ${opacidade})`;
+                ctx.fill();
+
+                if (g.vida >= g.vidaMaxima) {
+                    gotas.splice(i, 1);
+                }
+            }
+
+            requestAnimationFrame(animar);
+        }
+
+        animar();
+    });
+}
+
+// Executa a função
+iniciarIrrigadoresJS();
+
+
+// 🌊 BRILHO E MOVIMENTO DO LAGO (Suporta múltiplos pontos no mapa)
+function criarMovimentoLago() {
+    const containers = document.querySelectorAll('.container-lago, #container-lago');
+    
+    containers.forEach(container => {
+        container.innerHTML = ''; 
+
+        const rect = container.getBoundingClientRect();
+        const largura = rect.width || container.clientWidth || 100;
+        const altura = rect.height || container.clientHeight || 100;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = largura;
+        canvas.height = altura;
+        canvas.style.position = 'absolute';
+        canvas.style.top = '0';
+        canvas.style.left = '0';
+        canvas.style.width = '100%';
+        canvas.style.height = '100%';
+        canvas.style.pointerEvents = 'none';
+        container.appendChild(canvas);
+
+        const ctx = canvas.getContext('2d');
+
+        // Quantidade de traços proporcional ao tamanho do container
+        const qtdMarolas = Math.max(5, Math.floor((largura * altura) / 400));
+        const marolas = [];
+
+        for (let i = 0; i < qtdMarolas; i++) {
+            marolas.push({
+                x: Math.random() * largura,
+                y: Math.random() * altura,
+                comprimento: 8 + Math.random() * 14,
+                espessura: 1.2 + Math.random() * 1.2,
+                opacidade: Math.random() * 0.4,
+                velocidade: 0.006 + Math.random() * 0.01,
+                crescendo: Math.random() > 0.5
+            });
+        }
+
+        function animarLago() {
+            ctx.clearRect(0, 0, largura, altura);
+
+            marolas.forEach(m => {
+                if (m.crescendo) {
+                    m.opacidade += m.velocidade;
+                    if (m.opacidade >= 0.55) m.crescendo = false;
+                } else {
+                    m.opacidade -= m.velocidade;
+                    if (m.opacidade <= 0.03) {
+                        m.crescendo = true;
+                        m.x = Math.random() * Math.max(5, largura - m.comprimento);
+                        m.y = Math.random() * altura;
+                    }
+                }
+
+                const grad = ctx.createLinearGradient(m.x, m.y, m.x + m.comprimento, m.y);
+                grad.addColorStop(0, 'rgba(255, 255, 255, 0)');
+                grad.addColorStop(0.5, `rgba(255, 255, 255, ${m.opacidade.toFixed(2)})`);
+                grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+
+                ctx.fillStyle = grad;
+                ctx.fillRect(m.x, m.y, m.comprimento, m.espessura);
+            });
+
+            requestAnimationFrame(animarLago);
+        }
+
+        animarLago();
+    });
+}
+
+// Inicialização conjunta
+function inicializarEfeitosAgua() {
+    criarCachoeiras();
+    criarMovimentoLago();
+}
+
+document.addEventListener('DOMContentLoaded', inicializarEfeitosAgua);
+window.addEventListener('load', inicializarEfeitosAgua);
+
+
+// 🏞️ ANIMAÇÃO DAS CACHOEIRAS
+function criarCachoeiras() {
+    const containers = document.querySelectorAll('.container-cachoeira');
+    
+    containers.forEach(container => {
+        container.innerHTML = ''; 
+
+        const largura = container.clientWidth || 25;
+        const altura = container.clientHeight || 50;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = largura;
+        canvas.height = altura;
+        canvas.style.position = 'absolute';
+        canvas.style.top = '0';
+        canvas.style.left = '0';
+        canvas.style.width = '100%';
+        canvas.style.height = '100%';
+        canvas.style.pointerEvents = 'none';
+        container.appendChild(canvas);
+
+        const ctx = canvas.getContext('2d');
+        const filetes = [];
+        const espumas = [];
+
+        for (let i = 0; i < 22; i++) {
+            filetes.push({
+                x: Math.random() * largura,
+                y: Math.random() * altura,
+                comprimento: 6 + Math.random() * 12,
+                velocidade: 2.5 + Math.random() * 2.5,
+                largura: 0.8 + Math.random() * 1.2,
+                opacidade: 0.3 + Math.random() * 0.5,
+                fase: Math.random() * Math.PI * 2
+            });
+        }
+
+        function animarCachoeira() {
+            ctx.clearRect(0, 0, largura, altura);
+
+            filetes.forEach(f => {
+                f.fase += 0.08;
+                const desvioX = Math.sin(f.fase) * 0.4;
+
+                const grad = ctx.createLinearGradient(f.x, f.y, f.x, f.y + f.comprimento);
+                grad.addColorStop(0, `rgba(255, 255, 255, 0)`);
+                grad.addColorStop(0.3, `rgba(255, 255, 255, ${f.opacidade})`);
+                grad.addColorStop(1, `rgba(255, 255, 255, 0)`);
+
+                ctx.strokeStyle = grad;
+                ctx.lineWidth = f.largura;
+                ctx.beginPath();
+                ctx.moveTo(f.x + desvioX, f.y);
+                ctx.lineTo(f.x + desvioX, f.y + f.comprimento);
+                ctx.stroke();
+
+                f.y += f.velocidade;
+
+                if (f.y >= altura - 2) {
+                    f.y = -f.comprimento;
+                    f.x = Math.random() * largura;
+
+                    espumas.push({
+                        x: f.x + (Math.random() - 0.5) * 4,
+                        y: altura - 1,
+                        raio: 0.8 + Math.random() * 1.5,
+                        vx: (Math.random() - 0.5) * 0.8,
+                        vy: -(Math.random() * 0.8),
+                        opacidade: 0.6
+                    });
+                }
+            });
+
+            for (let i = espumas.length - 1; i >= 0; i--) {
+                const e = espumas[i];
+                ctx.beginPath();
+                ctx.arc(e.x, e.y, e.raio, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 255, 255, ${e.opacidade})`;
+                ctx.fill();
+
+                e.x += e.vx;
+                e.y += e.vy;
+                e.raio += 0.05;
+                e.opacidade -= 0.04;
+
+                if (e.opacidade <= 0) {
+                    espumas.splice(i, 1);
+                }
+            }
+
+            requestAnimationFrame(animarCachoeira);
+        }
+
+        animarCachoeira();
+    });
+}
+
+// 🚀 EXECUÇÃO CONJUNTA
+function inicializarEfeitosAgua() {
+    criarCachoeiras();
+    criarMovimentoLago('container-lago');
+}
+
+document.addEventListener('DOMContentLoaded', inicializarEfeitosAgua);
+window.addEventListener('load', inicializarEfeitosAgua);

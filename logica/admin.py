@@ -365,3 +365,231 @@ def limpar_lavouras():
         
     db.session.commit()
     return jsonify({'sucesso': True, 'msg': f'Intervenção aplicada! {len(lotes_sujos)} lavouras foram forçosamente destruídas e aradas.'})
+
+@admin_bp.route('/api/admin/confiscar_lotes_multiplos', methods=['POST'])
+def confiscar_lotes_multiplos():
+    if not verificar_admin(): return jsonify({'sucesso': False, 'erro': 'Acesso negado.'})
+    
+    dados = request.get_json()
+    lote_ids = dados.get('lote_ids', [])
+    
+    if not lote_ids:
+        return jsonify({'sucesso': False, 'erro': 'Nenhum hectare foi selecionado.'})
+        
+    lotes = Lote.query.filter(Lote.id.in_(lote_ids)).all()
+    if not lotes:
+        return jsonify({'sucesso': False, 'erro': 'Nenhum hectare encontrado.'})
+        
+    qtd = len(lotes)
+    for lote in lotes:
+        # Resgata animais para o curral (evita deletar o gado junto com a terra)
+        Animal.query.filter_by(lote_id=lote.id).update({'lote_id': None, 'onde_esta': 'curral'})
+        db.session.delete(lote)
+        
+    db.session.commit()
+    return jsonify({'sucesso': True, 'msg': f'Sucesso! {qtd} hectare(s) foi(ram) confiscado(s) e removido(s) com sucesso!'})
+
+@admin_bp.route('/api/admin/resetar_propriedades_orfas', methods=['POST'])
+def resetar_propriedades_orfas():
+    if not verificar_admin(): 
+        return jsonify({'sucesso': False, 'erro': 'Acesso negado.'})
+    
+    # Busca todas as propriedades que não possuem dono (dono_id é None ou 0)
+    propriedades_orfas = Propriedade.query.filter((Propriedade.dono_id == None) | (Propriedade.dono_id == 0)).all()
+    
+    if not propriedades_orfas:
+        return jsonify({'sucesso': False, 'erro': 'Nenhuma propriedade sem dono encontrada para resetar.'})
+    
+    limites_originais = {'Chácara': 2, 'Sítio': 5, 'Fazenda': 12, 'Latifúndio': 25}
+    qtd_resetadas = len(propriedades_orfas)
+    
+    for fazenda in propriedades_orfas:
+        # 1. Remove animais associados à fazenda
+        Animal.query.filter_by(propriedade_id=fazenda.id).delete()
+        
+        # Remove máquinas e equipa com verificação de segurança (evita NameError)
+        try:
+            from database import Maquinario
+            Maquinario.query.filter_by(propriedade_id=fazenda.id).delete()
+        except Exception:
+            pass
+            
+        try:
+            from database import Equipe
+            Equipe.query.filter_by(propriedade_id=fazenda.id).delete()
+        except Exception:
+            pass
+        
+        # 2. Reseta lotes/hectares e apaga os hectares extras comprados
+        limite_padrao = limites_originais.get(fazenda.tipo, 2)
+        lotes = Lote.query.filter_by(fazenda_id=fazenda.id).order_by(Lote.id).all()
+        for i, lote in enumerate(lotes):
+            if i < limite_padrao:
+                lote.status = 'mato'
+                lote.tem_cerca = False
+                lote.tem_bebedouro = False
+                lote.tem_cocho = False
+                lote.tem_cocho_racao = False
+                lote.sistema_irrigacao = 'nenhum'
+                lote.tipo_cultivo = None
+                lote.tipo_capim = None
+                lote.dias_plantado = 0
+                lote.nivel_pragas = 0
+                lote.fertilidade_solo = 100
+            else:
+                db.session.delete(lote) # Elimina os hectares extras acumulados pelo bug
+                
+        # 3. Restaura estruturas e capacidades originais de fábrica
+        fazenda.cap_silo = 500
+        fazenda.cap_armazem = 200
+        fazenda.cap_curral = 10
+        fazenda.cap_barracao = 0
+        fazenda.cap_represa = 200
+        fazenda.cap_chiqueiro = 50
+        fazenda.cap_galinheiro = 100
+        fazenda.cap_haras = 10
+        fazenda.cap_aprisco = 30
+        fazenda.tem_represa_geral = False
+        fazenda.tem_chiqueiro = False
+        fazenda.tem_galinheiro = False
+        fazenda.tem_haras = False
+        fazenda.tem_aprisco = False
+        
+        # 4. Zera o estoque armazenado na propriedade
+        for campo in ['est_milho', 'est_soja', 'est_arroz', 'est_feijao', 'est_algodao', 'est_mandioca', 
+                      'est_cafe', 'est_cana', 'est_tomate', 'est_banana', 'est_cacau', 'est_acai', 
+                      'est_cupuacu', 'est_pimenta', 'est_melancia', 'est_abacaxi',
+                      'est_sal', 'est_racao', 'est_adubo', 'est_veneno', 'est_combustivel', 
+                      'est_vacina_aftosa', 'est_vacina_brucelose', 'est_medicamento_geral', 
+                      'est_suplemento_engorda', 'est_racao_peixe', 'est_leite', 'est_ovos']:
+            if hasattr(fazenda, campo):
+                setattr(fazenda, campo, 0)
+                
+    db.session.commit()
+    return jsonify({'sucesso': True, 'msg': f'Limpeza Concluída! {qtd_resetadas} propriedade(s) sem dono foi(ram) resetada(s) para o padrão de fábrica.'})
+
+# ==========================================
+# 🐄 CONSULTAR E GERENCIAR REBANHO DO JOGADOR
+# ==========================================
+
+from sqlalchemy import func
+
+@admin_bp.route('/api/admin/animais_jogador/<int:jogador_id>', methods=['GET'])
+def obter_animais_jogador(jogador_id):
+    if not verificar_admin(): 
+        return jsonify({'sucesso': False, 'erro': 'Acesso negado.'})
+    
+    alvo = Jogador.query.get(jogador_id)
+    if not alvo: 
+        return jsonify({'sucesso': False, 'erro': 'Jogador não encontrado.'})
+    
+    propriedades = Propriedade.query.filter_by(dono_id=alvo.id).all()
+    if not propriedades:
+        return jsonify({'sucesso': False, 'erro': f'{alvo.username} não possui propriedades.'})
+        
+    resultado = []
+    for prop in propriedades:
+        animais = Animal.query.filter_by(propriedade_id=prop.id).all()
+        
+        # Agrupa e padroniza a exibição de raça e sexo
+        resumo_map = {}
+        for a in animais:
+            raca_norm = a.raca.capitalize() if a.raca else 'Nelore'
+            
+            # Normaliza sexo (M / Macho -> Macho | F / Fêmea -> Fêmea)
+            sexo_raw = str(a.sexo).strip().lower() if a.sexo else ''
+            if sexo_raw in ['m', 'macho']:
+                sexo_norm = 'Macho'
+            elif sexo_raw in ['f', 'femea', 'fêmea']:
+                sexo_norm = 'Fêmea'
+            else:
+                sexo_norm = a.sexo
+            
+            chave = f"{raca_norm.lower()}|{sexo_norm.lower()}"
+            if chave not in resumo_map:
+                resumo_map[chave] = {"raca": raca_norm, "sexo": sexo_norm, "qtd": 0}
+            resumo_map[chave]["qtd"] += 1
+        
+        resultado.append({
+            'id': prop.id,
+            'nome': prop.nome,
+            'tipo': prop.tipo,
+            'total_animais': len(animais),
+            'resumo': list(resumo_map.values())
+        })
+        
+    return jsonify({'sucesso': True, 'username': alvo.username, 'propriedades': resultado})
+
+
+@admin_bp.route('/api/admin/gerenciar_animais', methods=['POST'])
+def gerenciar_animais():
+    if not verificar_admin(): 
+        return jsonify({'sucesso': False, 'erro': 'Acesso negado.'})
+    
+    dados = request.get_json()
+    jogador_id = dados.get('jogador_id')
+    propriedade_id = dados.get('propriedade_id')
+    acao = dados.get('acao') # 'adicionar' ou 'remover'
+    raca = dados.get('raca', '').strip()
+    sexo = dados.get('sexo', '').strip()
+    qtd = int(dados.get('quantidade', 0))
+    
+    alvo = Jogador.query.get(jogador_id)
+    if not alvo: 
+        return jsonify({'sucesso': False, 'erro': 'Jogador não encontrado.'})
+    
+    fazenda = Propriedade.query.filter_by(id=propriedade_id, dono_id=alvo.id).first()
+    if not fazenda:
+        fazenda = Propriedade.query.filter_by(dono_id=alvo.id).first()
+        
+    if not fazenda: 
+        return jsonify({'sucesso': False, 'erro': 'Propriedade não encontrada.'})
+        
+    if qtd <= 0:
+        return jsonify({'sucesso': False, 'erro': 'A quantidade deve ser maior que zero.'})
+        
+    # Mapeamento flexível para busca no banco
+    raca_busca = raca.lower()
+    if sexo.lower() in ['macho', 'm']:
+        sexos_aceitos = ['macho', 'm']
+        sexo_salvar = 'Macho'
+    else:
+        sexos_aceitos = ['fêmea', 'femea', 'f']
+        sexo_salvar = 'Fêmea'
+        
+    if acao == 'adicionar':
+        for _ in range(qtd):
+            novo_animal = Animal(
+                propriedade_id=fazenda.id,
+                raca=raca.capitalize(),
+                sexo=sexo_salvar,
+                saude=100,
+                fome=0,
+                estresse=0,
+                onde_esta='curral'
+            )
+            db.session.add(novo_animal)
+            
+        db.session.commit()
+        return jsonify({'sucesso': True, 'msg': f'{qtd} animal(is) ({raca} - {sexo}) adicionado(s) na propriedade "{fazenda.nome}"!'})
+        
+    elif acao == 'remover':
+        # Filtro insensível a maiúsculas/minúsculas e que reconhece tanto 'M' quanto 'Macho'
+        animais = Animal.query.filter(
+            Animal.propriedade_id == fazenda.id,
+            func.lower(Animal.raca) == raca_busca,
+            func.lower(Animal.sexo).in_(sexos_aceitos)
+        ).limit(qtd).all()
+        
+        if not animais:
+            return jsonify({'sucesso': False, 'erro': f'Nenhum animal da raça {raca} ({sexo}) encontrado na propriedade "{fazenda.nome}".'})
+            
+        qtd_removida = len(animais)
+        for animal in animais:
+            db.session.delete(animal)
+            
+        db.session.commit()
+        return jsonify({'sucesso': True, 'msg': f'{qtd_removida} animal(is) ({raca} - {sexo}) removido(s) da propriedade "{fazenda.nome}"!'})
+        
+    return jsonify({'sucesso': False, 'erro': 'Ação inválida.'})
+

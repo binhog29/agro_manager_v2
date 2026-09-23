@@ -104,21 +104,9 @@
         <div class="menu-item" id="btn-terras" onclick="trocarAba('terras', this)">
             <img src="/static/img/arvore.png" style="width: 22px; height: 22px; object-fit: contain; margin-right: 5px;"> Terras
         </div>
-        <div class="menu-item" id="btn-pastos" onclick="trocarAba('pastos', this)">
-            <img src="/static/img/cerca.png" style="width: 22px; height: 22px; object-fit: contain; margin-right: 5px;"> Pastos
-        </div>
-        <div class="menu-item" id="btn-cultivo" onclick="trocarAba('cultivo', this)">
-            <img src="/static/img/arado.png" style="width: 22px; height: 22px; object-fit: contain; margin-right: 5px;"> Cultivo
-        </div>
         
         <!-- ESCONDE LOJA, CAIXA E CEMITÉRIO SE FOR VISITA -->
         {% if not visitante %}
-            <div class="menu-item" id="btn-loja" onclick="trocarAba('loja', this)">
-                <img src="/static/img/loja.png" style="width: 22px; height: 22px; object-fit: contain; margin-right: 5px;"> Loja
-            </div>
-            <div class="menu-item" onclick="window.location.href='{{ url_for('cemiterio', prop_id=fazenda.id) }}'" style="cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;">
-                <img src="/static/img/cemiterio.png" style="width: 22px; height: 22px; object-fit: contain; margin-right: 5px;"> Cemitério
-            </div>
             <div class="menu-item" id="btn-caixa" onclick="window.location.href='/financeiro'">
                 <img src="/static/img/financas.png" style="width: 22px; height: 22px; object-fit: contain; margin-right: 5px;"> Caixa
             </div>
@@ -129,182 +117,340 @@
         </div>
     </nav>
 
-    <main class="content-area">
+   <main class="content-area">
         <section id="view-sede" class="view-section active">
-            <div class="sede-grid">
-                
-                <div class="sede-card">
-                    <img src="/static/img/silo.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2829/2829803.png'">
-                    <h4>Silo de Grãos</h4>
-                    <p>Apenas Grãos</p>
-                    {% if not visitante %}
-                        <button class="btn-abrir" onclick="abrirModal('modal-silo')">ABRIR 📦</button>
-                    {% else %}
-                        <button class="btn-abrir" style="background-color: #555; color: #999; cursor: not-allowed;" disabled>VISITA 🔒</button>
-                    {% endif %}
-                </div>
+            <div class="mapa-sede-container">
+                <!-- Container envolvente da imagem do mapa -->
+                <div id="container-mapa" style="position: relative; width: 100%; border-radius: 12px; overflow: hidden; display: inline-block;">
+                    
+                    <!-- Sua imagem da fazenda -->
+                    <img src="/static/img/mapa_sede.png" class="img-mapa-base" alt="Mapa da Sede">
 
-                <div class="sede-card">
-                    <img src="/static/img/celeiro.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2829/2829839.png'">
-                    <h4>Galpão Agrícola</h4>
-                    <p>Frutas, Raízes e Fibras</p>
-                    {% if not visitante %}
-                        <button class="btn-abrir" style="background-color: #8d6e63;" onclick="abrirModal('modal-galpao')">ABRIR 🛖</button>
-                    {% else %}
-                        <button class="btn-abrir" style="background-color: #555; color: #999; cursor: not-allowed;" disabled>VISITA 🔒</button>
-                    {% endif %}
-                </div>
+                    <!-- CLIMA PRESO APENAS AO MAPA -->
+                    <canvas id="canvas-chuva" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; display: none;"></canvas>
+                    <div id="efeito-raio" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 11; display: none; background: transparent; transition: background 0.05s;"></div>
 
-                <div class="sede-card">
-                    <img src="/static/img/celeiro.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2829/2829839.png'">
-                    <h4>Armazém</h4>
-                    <p>Sementes e Insumos</p>
-                    {% if not visitante %}
-                        <button class="btn-abrir" onclick="abrirModal('modal-armazem')">ABRIR 🎒</button>
-                    {% else %}
-                        <button class="btn-abrir" style="background-color: #555; color: #999; cursor: not-allowed;" disabled>VISITA 🔒</button>
-                    {% endif %}
-                </div>
-                
-                <div class="sede-card">
-                    <img src="/static/img/camara_fria.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/869/869469.png'">
-                    <h4>Câmara Fria</h4>
-                    <p>Leite e Ovos</p>
-                    {% if not visitante %}
-                        <button class="btn-abrir" style="background-color: #0288d1;" onclick="abrirModal('modal-camara')">ABRIR 🧊</button>
-                    {% else %}
-                        <button class="btn-abrir" style="background-color: #555; color: #999; cursor: not-allowed;" disabled>VISITA 🔒</button>
-                    {% endif %}
-                </div>
+                    <!-- 🌙 EFEITO DE NOITE E LÂMPADAS -->
+                    <div id="noite-overlay"></div>
 
-                <div class="sede-card">
-                    <img src="/static/img/curral.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2829/2829774.png'">
-                    <h4>Curral</h4>
-                    <p>Manejo de Animais</p>
-                    {% if not visitante %}
-                        <button class="btn-abrir" onclick="abrirModal('modal-curral')">ABRIR 🐄</button>
-                    {% else %}
-                        <button class="btn-abrir" style="background-color: #555; color: #999; cursor: not-allowed;" disabled>VISITA 🔒</button>
-                    {% endif %}
-                </div>
+                    <!-- Pontos de Iluminação (Postes com Lâmpada no topo) -->
+                    <div class="poste" style="top: 32%; left: 30%;">
+                        <div class="lampada"></div>
+                    </div> <!-- Perto da casa -->
 
-                <div class="sede-card">
-                    <img src="/static/img/trator.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2316/2316668.png'">
-                    <h4>Barracão</h4>
-                    <p>Maquinário Agrícola</p>
-                    {% if not visitante %}
-                        <button class="btn-abrir" onclick="abrirPainelBarracao()">VER 🚜</button>
-                    {% else %}
-                        <button class="btn-abrir" style="background-color: #555; color: #999; cursor: not-allowed;" disabled>VISITA 🔒</button>
-                    {% endif %}
-                </div>
-                
-                <div class="sede-card">
-                    <img src="/static/img/represa.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2316/2316668.png'">
-                    <h4>Represa</h4>
-                    <p>Piscicultura</p>
-                    {% if not visitante %}
-                        {% if fazenda.tem_represa_geral %}
-                            <button class="btn-abrir bg-blue" onclick="abrirModalHabitat('represa')">ABRIR 🐟</button>
-                        {% else %}
-                            <button class="btn-construir" onclick="construir('represa', 12000)">CONSTRUIR (12k)</button>
-                        {% endif %}
-                    {% else %}
-                        <button class="btn-abrir" style="background-color: #555; color: #999; cursor: not-allowed;" disabled>VISITA 🔒</button>
-                    {% endif %}
-                </div>
-                
-                <div class="sede-card">
-                    <img src="/static/img/alojamento.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3135/3135768.png'">
-                    <h4>Alojamento</h4>
-                    <p>Gerenciar Equipe</p>
-                    {% if not visitante %}
-                        {% if jogador.nivel >= 3 or jogador.is_admin %}
-                            <button class="btn-abrir" style="background-color: #2e7d32;" onclick="abrirModalRH()">GERENCIAR 👷</button>
-                        {% else %}
-                            <button class="btn-abrir" style="background-color: #555; color: #999; cursor: not-allowed;" disabled>NÍVEL 3 🔒</button>
-                        {% endif %}
-                    {% else %}
-                        <button class="btn-abrir" style="background-color: #555; color: #999; cursor: not-allowed;" disabled>VISITA 🔒</button>
-                    {% endif %}
-                </div>
+                    <div class="poste" style="top: 26%; left: 46.6%;">
+                        <div class="lampada"></div>
+                    </div> <!-- Perto do silo -->
 
-                <div class="sede-card">
-                    <img src="/static/img/chiqueiro.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2316/2316668.png'">
-                    <h4>Chiqueiro</h4>
-                    <p>Suinocultura</p>
-                    {% if not visitante %}
-                        {% if fazenda.tem_chiqueiro %}
-                            <button class="btn-abrir bg-pink" onclick="abrirModalHabitat('chiqueiro')">ABRIR 🐷</button>
-                        {% else %}
-                            <button class="btn-construir" onclick="construir('chiqueiro', 8000)">CONSTRUIR (8k)</button>
-                        {% endif %}
-                    {% else %}
-                        <button class="btn-abrir" style="background-color: #555; color: #999; cursor: not-allowed;" disabled>VISITA 🔒</button>
-                    {% endif %}
-                </div>
+                    <div class="poste" style="top: 56.8%; left: 50%;">
+                        <div class="lampada"></div>
+                    </div> <!-- Outro ponto -->
+                    
+                    <div class="poste" style="top: 19.4%; left: 27.7%;">
+                        <div class="lampada"></div>
+                    </div>
+                    
+                    <div class="poste" style="top: 31%; left: 10%;">
+                        <div class="lampada"></div>
+                    </div>
+                    
+                    <div class="poste" style="top: 80%; left: 38%;">
+                        <div class="lampada"></div>
+                    </div>
+                    
+                    <div class="poste" style="top: 80%; left: 24%;">
+                        <div class="lampada"></div>
+                    </div>
+                    
+                    <div class="poste" style="top: 65%; left: 17.2%;">
+                        <div class="lampada"></div>
+                    </div>
+                    
+                    <div class="poste" style="top: 10.8%; left: 53.6%;">
+                        <div class="lampada"></div>
+                    </div>
+                    
+                    <div class="poste" style="top: 20.1%; left: 74.9%;">
+                        <div class="lampada"></div>
+                    </div>
+                    
+                    <div class="poste" style="top: 37.8%; left: 85.2%;">
+                        <div class="lampada"></div>
+                    </div>
+                    
+                    <div class="poste" style="top: 30.8%; left: 67.6%;">
+                        <div class="lampada"></div>
+                    </div>
+                    
+                    <div class="lampada" style="top: 89.6%; left: 51.8%;"></div>
+                    <div class="lampada" style="top: 89.7%; left: 43.4%;"></div>
+                    <div class="lampada" style="top: 7.6%; left: 34.4%;"></div>
+                    <div class="lampada" style="top: 4.2%; left: 42.4%;"></div>
+                    <div class="lampada" style="top: 90.5%; left: 29.1%;"></div>
+                    <div class="lampada" style="top: 3.6%; left: 18.5%;"></div>
+                    <div class="lampada" style="top: 14%; left: 16.5%;"></div>
+                    
+                    
+                    <!-- Velas no Cemitério -->
+                    <div class="vela" style="top: 74%; left: 12%;"></div>
+                    <div class="vela" style="top: 85%; left: 18%;"></div>
+                    <div class="vela" style="top: 12.5%; left: 93.9%;"></div>
+                    
+                    <!-- Dentro do .mapa-sede-container -->
+                    <!-- Vagalumes espalhados pelas árvores -->
+                    <div class="vagalume" style="top: 80.8%; left: 60.7%;"></div>
+                    <div class="vagalume v2" style="top: 93.0%; left: 8.8%;"></div>
+                    <div class="vagalume v3" style="top: 8.1%; left: 75.6%;"></div>
+                    <div class="vagalume" style="top: 7.8%; left: 5.7%;"></div>
+                    <div class="vagalume v2" style="top: 28.9%; left: 3.0%;"></div>
+                    <div class="vagalume v3" style="top: 87.7%; left: 94.3%;"></div>
+                    <div class="vagalume" style="top: 58.4%; left: 85.1%;"></div>
+                    <div class="vagalume v2" style="top: 50.8%; left: 39.7%;"></div>
+                    <div class="vagalume v3" style="top: 54%; left: 8%;"></div>
 
-                <div class="sede-card">
-                    <img src="/static/img/galinheiro.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2316/2316668.png'">
-                    <h4>Galinheiro</h4>
-                    <p>Avicultura</p>
-                    {% if not visitante %}
-                        {% if fazenda.tem_galinheiro %}
-                            <button class="btn-abrir bg-orange" onclick="abrirModalHabitat('galinheiro')">ABRIR 🐔</button>
-                        {% else %}
-                            <button class="btn-construir" onclick="construir('galinheiro', 5000)">CONSTRUIR (5k)</button>
-                        {% endif %}
-                    {% else %}
-                        <button class="btn-abrir" style="background-color: #555; color: #999; cursor: not-allowed;" disabled>VISITA 🔒</button>
-                    {% endif %}
-                </div>
-                
-                <!-- CARTÃO DO HARAS -->
-<div style="background: #252525; border-radius: 12px; padding: 15px; text-align: center; border: 1px solid #333; display: flex; flex-direction: column; justify-content: space-between;">
-    <div>
-        <img src="/static/img/haras.png" style="width: 50px; height: 50px; object-fit: contain; margin-bottom: 10px;" onerror="this.src='/static/img/cavalo.png'">
-        <h3 style="margin: 0; color: #fff; font-size: 16px;">Haras</h3>
-        <p style="margin: 5px 0 15px 0; color: #aaa; font-size: 12px;">Equinocultura</p>
-    </div>
-    {% if fazenda.tem_haras %}
-        <button onclick="abrirModalHabitat('haras')" style="background: #8d6e63; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%;">
-            ABRIR 🐎
-        </button>
-    {% else %}
-        <button onclick="construirInstalacao('haras', 'Haras', 15000)" style="background: #444; color: #aaa; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%;">
-            CONSTRUIR (15k)
-        </button>
-    {% endif %}
-</div>
+                    
+                    <!-- Aspersores nas lavouras -->
+                    <div class="aspersor-agua" style="top: 39.1%; left: 34.5%;"></div>
+                    <div class="aspersor-agua" style="top: 37.6%; left: 17.9%;"></div>
+                    <div class="aspersor-agua" style="top: 48.9%; left: 16.6%;"></div>
+                    
+                    <!-- Pétalas voando perto do ipê -->
+                    <div class="petala-ipe" style="top: 42.5%; left: 91.8%;"></div>
+                    <div class="petala-ipe p2" style="top: 88.2%; left: 91.8%;"></div>
+                    
+                    <!-- 🌊 MOVIMENTO DA ÁGUA - PERTO DA CACHOEIRA 1 (Esquerda) -->
+                    <div class="container-lago" style="position: absolute; top: 11.5%; left: 8.5%; width: 7.0%; height: 8.0%; pointer-events: none; z-index: 3;"></div>
 
-<!-- CARTÃO DO APRISCO -->
-<div style="background: #252525; border-radius: 12px; padding: 15px; text-align: center; border: 1px solid #333; display: flex; flex-direction: column; justify-content: space-between;">
-    <div>
-        <img src="/static/img/aprisco.png" style="width: 50px; height: 50px; object-fit: contain; margin-bottom: 10px;" onerror="this.src='/static/img/ovelha.png'">
-        <h3 style="margin: 0; color: #fff; font-size: 16px;">Aprisco</h3>
-        <p style="margin: 5px 0 15px 0; color: #aaa; font-size: 12px;">Ovinos e Caprinos</p>
-    </div>
-    {% if fazenda.tem_aprisco %}
-        <button onclick="abrirModalHabitat('aprisco')" style="background: #aed581; color: #000; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%;">
-            ABRIR 🐑
-        </button>
-    {% else %}
-        <button onclick="construirInstalacao('aprisco', 'Aprisco', 10000)" style="background: #444; color: #aaa; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%;">
-            CONSTRUIR (10k)
-        </button>
-    {% endif %}
+                    <!-- 🌊 MOVIMENTO DA ÁGUA - PERTO DA CACHOEIRA 2 (Direita - A que já ajustou) -->
+                    <div class="container-lago" style="position: absolute; top: 7.5%; left: 16.5%; width: 5.0%; height: 6.0%; pointer-events: none; z-index: 3;"></div>
+                    
+                    
+																																																<!-- 🏞️ CACHOEIRA 1 (Esquerda - Posição Exata) -->
+																																																<div class="container-cachoeira" style="
+																																																    position: absolute; 
+																																																    top: 8.0%; 
+																																																    left: 9.8%; 
+																																																    width: 1.5%; 
+																																																    height: 4.0%; 
+																																																    pointer-events: none; 
+																																																    z-index: 5;
+																																																    mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 75%, transparent 100%), linear-gradient(to right, transparent 0%, black 20%, black 80%, transparent 100%);
+																																																    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 75%, transparent 100%), linear-gradient(to right, transparent 0%, black 20%, black 80%, transparent 100%);
+																																																    mask-composite: intersect;
+																																																    -webkit-mask-composite: destination-in;
+																																																"></div>
+
+                    <!-- 🏞️ CACHOEIRA 2 (Direita - Posição Exata) -->
+																																																<div class="container-cachoeira" style="
+																																																    position: absolute; 
+																																																    top: 5%; 
+																																																    left: 17.7%; 
+																																																    width: 1.5%; 
+																																																    height: 4.0%; 
+																																																    pointer-events: none; 
+																																																    z-index: 5;
+																																																    mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 75%, transparent 100%), linear-gradient(to right, transparent 0%, black 20%, black 80%, transparent 100%);
+																																																    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 75%, transparent 100%), linear-gradient(to right, transparent 0%, black 20%, black 80%, transparent 100%);
+																																																    mask-composite: intersect;
+																																																    -webkit-mask-composite: destination-in;
+																																																    "></div>
+                    
+                    
 </div>
 
 
-                <div class="sede-card">
-                    <img src="/static/img/comunidade.png" class="img-sede" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2316/2316668.png'">
-                    <h4>Comunidade</h4>
-                    <p>Chat e Amigos</p>
-                    <button class="btn-abrir bg-purple" onclick="abrirChatGlobal()">SOCIAL 💬</button>
-                </div>
 
-            </div>
-        </section>
+        <!-- ========================================== -->
+        <!-- INSTALAÇÕES BÁSICAS -->
+        <!-- ========================================== -->
+
+        <!-- 1. REPRESA (Canto superior esquerdo) -->
+        {% if not visitante %}
+        <!-- Brilhos na Represa -->
+        <div class="brilho-agua lento" style="top: 8%; left: 12%;"></div>
+        <div class="brilho-agua rapido" style="top: 16.7%; left: 19.6%;"></div>
+        <div class="brilho-agua" style="top: 12%; left: 8%;"></div>
+        <!-- vapor na Represa -->
+        <div class="efeito-fumaca" style="top: 10.7%; left: 11.2%;"></div>
+        <div class="efeito-fumaca atraso" style="top: 10.7%; left: 11%;"></div>
+        
+        <!-- ========================================== -->
+        <!-- VAPOR DA CACHOEIRA (Represa - Topo Esquerda) -->
+        <!-- ========================================== -->
+        <div class="vapor-cachoeira" style="top: 5%; left: 18%;"></div>
+        <div class="vapor-cachoeira atraso-1" style="top: 5%; left: 18%;"></div>
+        <div class="vapor-cachoeira atraso-2" style="top: 8%; left: 7%;"></div>
+            
+        {% if fazenda.tem_represa_geral %}
+                <div class="map-area" onclick="abrirModalHabitat('represa')" style="top: 2%; left: 2%; width: 22%; height: 18%;" title="Represa"></div>
+            {% else %}
+                <div class="map-area construir" onclick="construir('represa', 12000)" style="top: 2%; left: 2%; width: 22%; height: 18%;" title="Construir Represa (12k)"></div>
+            {% endif %}
+        {% else %}
+            <div class="map-area bloqueado" style="top: 2%; left: 2%; width: 22%; height: 18%;" title="Represa (Visita 🔒)"></div>
+        {% endif %}
+
+        <!-- 2. SILO DE GRÃOS (Silos metálicos no topo) -->
+        {% if not visitante %}
+            <div class="map-area" onclick="abrirModal('modal-silo')" style="top: 4%; left: 32%; width: 14%; height: 10%;" title="Silo de Grãos"></div>
+        {% else %}
+            <div class="map-area bloqueado" style="top: 4%; left: 32%; width: 14%; height: 10%;" title="Silo (Visita 🔒)"></div>
+        {% endif %}
+
+        <!-- 3. GALPÃO AGRÍCOLA (Metade esquerda do galpão cinza) -->
+        {% if not visitante %}
+            <div class="map-area" onclick="abrirModal('modal-galpao')" style="top: 14%; left: 32%; width: 11%; height: 11%;" title="Galpão Agrícola"></div>
+        {% else %}
+            <div class="map-area bloqueado" style="top: 14%; left: 32%; width: 11%; height: 11%;" title="Galpão (Visita 🔒)"></div>
+        {% endif %}
+
+        <!-- 4. ARMAZÉM (Metade direita do galpão cinza) -->
+        {% if not visitante %}
+            <div class="map-area" onclick="abrirModal('modal-armazem')" style="top: 14%; left: 43%; width: 11%; height: 11%;" title="Armazém"></div>
+        {% else %}
+            <div class="map-area bloqueado" style="top: 14%; left: 43%; width: 11%; height: 11%;" title="Armazém (Visita 🔒)"></div>
+        {% endif %}
+
+        <!-- ========================================== -->
+        <!-- CÂMARA FRIA (Agora na casa à esquerda, logo acima dos cultivos) -->
+        <!-- ========================================== -->
+        {% if not visitante %}
+            <div class="map-area" onclick="abrirModal('modal-camara')" style="top: 21%; left: 8%; width: 23%; height: 11%;" title="Câmara Fria"></div>
+        {% else %}
+            <div class="map-area bloqueado" style="top: 21%; left: 8%; width: 23%; height: 11%;" title="Câmara Fria (Visita 🔒)"></div>
+        {% endif %}
+
+        <!-- 6. BARRACÃO (Onde estão estacionados os tratores) -->
+        {% if not visitante %}
+            <div class="map-area" onclick="abrirPainelBarracao()" style="top: 12%; left: 57%; width: 17%; height: 9%;" title="Barracão"></div>
+        {% else %}
+            <div class="map-area bloqueado" style="top: 12%; left: 57%; width: 17%; height: 9%;" title="Barracão (Visita 🔒)"></div>
+        {% endif %}
+
+        <!-- 7. ALOJAMENTO RH (Casa no canto superior direito) -->
+        {% if not visitante %}
+            {% if jogador.nivel >= 3 or jogador.is_admin %}
+                <div class="map-area" onclick="abrirModalRH()" style="top: 8%; left: 78%; width: 19%; height: 12%;" title="Alojamento (RH)"></div>
+            {% else %}
+                <div class="map-area bloqueado" style="top: 8%; left: 78%; width: 19%; height: 12%;" title="Alojamento (Nível 3 🔒)"></div>
+            {% endif %}
+        {% else %}
+            <div class="map-area bloqueado" style="top: 8%; left: 78%; width: 19%; height: 12%;" title="Alojamento (Visita 🔒)"></div>
+        {% endif %}
+
+        <!-- ========================================== -->
+        <!-- ÁREAS NOVAS PEDIDAS (Loja, Cultivos, Pastos) -->
+        <!-- ========================================== -->
+
+        <!-- ========================================== -->
+        <!-- LOJA (Agora no prédio de madeira acima dos tratores) -->
+        <!-- ========================================== -->
+        {% if not visitante %}
+            <!-- ATENÇÃO: Troque "NOME_DA_SUA_FUNCAO_AQUI()" pela função real do seu JS que abre a loja -->
+            <div class="map-area" onclick="trocarAba('loja', this)" style="top: 4%; left: 55%; width: 19%; height: 7%;" title="Loja da Fazenda"></div>
+        {% else %}
+            <div class="map-area bloqueado" style="top: 4%; left: 55%; width: 19%; height: 7%;" title="Loja (Visita 🔒)"></div>
+        {% endif %}
+
+        <!-- 9. CULTIVOS (Os 4 grandes campos irrigados à esquerda) -->
+        <!-- Ajuste o onclick para a função que muda de aba no seu sistema -->
+        <div class="map-area" onclick="trocarAba('cultivo', this)" style="top: 34%; left: 5%; width: 41%; height: 27%;" title="Acessar Cultivos"></div>
+
+        <!-- 10. PASTOS (Todo o campo aberto com gado no canto inferior direito) -->
+        <!-- Ajuste o onclick para a função que muda de aba no seu sistema -->
+        <div class="map-area" onclick="trocarAba('pastos', this)" style="top: 66%; left: 51%; width: 46%; height: 31%;" title="Acessar Pastos"></div>
+
+
+        <!-- ========================================== -->
+        <!-- ANIMAIS E SEDE -->
+        <!-- ========================================== -->
+
+        <!-- 11. CHIQUEIRO (Porcos, no meio) -->
+        {% if not visitante %}
+            {% if fazenda.tem_chiqueiro %}
+                <div class="map-area" onclick="abrirModalHabitat('chiqueiro')" style="top: 24%; left: 50%; width: 18%; height: 9%;" title="Chiqueiro"></div>
+            {% else %}
+                <div class="map-area construir" onclick="construir('chiqueiro', 8000)" style="top: 24%; left: 50%; width: 18%; height: 9%;" title="Construir Chiqueiro (8k)"></div>
+            {% endif %}
+        {% else %}
+            <div class="map-area bloqueado" style="top: 24%; left: 50%; width: 18%; height: 9%;" title="Chiqueiro (Visita 🔒)"></div>
+        {% endif %}
+
+        <!-- 12. GALINHEIRO (Galinhas, ao lado dos porcos) -->
+        {% if not visitante %}
+            {% if fazenda.tem_galinheiro %}
+                <div class="map-area" onclick="abrirModalHabitat('galinheiro')" style="top: 24%; left: 69%; width: 12%; height: 9%;" title="Galinheiro"></div>
+            {% else %}
+                <div class="map-area construir" onclick="construir('galinheiro', 5000)" style="top: 24%; left: 69%; width: 12%; height: 9%;" title="Construir Galinheiro (5k)"></div>
+            {% endif %}
+        {% else %}
+            <div class="map-area bloqueado" style="top: 24%; left: 69%; width: 12%; height: 9%;" title="Galinheiro (Visita 🔒)"></div>
+        {% endif %}
+
+        <!-- 13. APRISCO (Ovelhas, no canto direito abaixo do alojamento) -->
+        {% if not visitante %}
+            {% if fazenda.tem_aprisco %}
+                <div class="map-area" onclick="abrirModalHabitat('aprisco')" style="top: 22%; left: 84%; width: 14%; height: 13%;" title="Aprisco"></div>
+            {% else %}
+                <div class="map-area construir" onclick="construirInstalacao('aprisco', 'Aprisco', 10000)" style="top: 22%; left: 84%; width: 14%; height: 13%;" title="Construir Aprisco (10k)"></div>
+            {% endif %}
+        {% else %}
+            <div class="map-area bloqueado" style="top: 24%; left: 82%; width: 15%; height: 13%;" title="Aprisco (Visita 🔒)"></div>
+        {% endif %}
+
+        <!-- 14. HARAS (Cavalos, no meio-direito) -->
+        {% if not visitante %}
+            {% if fazenda.tem_haras %}
+                <div class="map-area" onclick="abrirModalHabitat('haras')" style="top: 35%; left: 50%; width: 32%; height: 11%;" title="Haras">
+                    <div class="efeito-poeira" style="top: 45%; left: 28%;"></div>
+                    <div class="efeito-poeira" style="top: 45%; left: 50%;"></div>
+                    <div class="efeito-poeira p2" style="top: 20%; left: 96%;"></div>
+                    <div class="efeito-poeira p3" style="top: 25%; left: 85%;"></div>
+                </div>
+            {% else %}
+                <div class="map-area construir" onclick="construirInstalacao('haras', 'Haras', 15000)" style="top: 35%; left: 50%; width: 32%; height: 11%;" title="Construir Haras (15k)"></div>
+            {% endif %}
+        {% else %}
+            <div class="map-area bloqueado" style="top: 35%; left: 50%; width: 32%; height: 11%;" title="Haras (Visita 🔒)"></div>
+        {% endif %}
+
+        <!-- 15. CURRAL (Gado confinado, abaixo dos cavalos) -->
+        {% if not visitante %}
+                <!-- ========================================== -->
+                <!-- PARTÍCULAS DE POEIRA NO CAMINHO DE TERRA   -->
+                <!-- ========================================== -->
+                <div class="efeito-poeira" style="top: 58%; left: 58%;"></div>
+                <div class="efeito-poeira p2" style="top: 59%; left: 60%;"></div>
+                <div class="efeito-poeira p3" style="top: 57%; left: 62%;"></div>
+                
+            <div class="map-area" onclick="abrirModal('modal-curral')" style="top: 48%; left: 50%; width: 46%; height: 16%;" title="Curral"></div>
+        {% else %}
+            <div class="map-area bloqueado" style="top: 48%; left: 50%; width: 46%; height: 16%;" title="Curral (Visita 🔒)"></div>
+        {% endif %}
+
+        <!-- 16. COMUNIDADE / SEDE PRINCIPAL (Casa grande canto inferior esquerdo) -->
+        <div class="map-area" onclick="abrirChatGlobal()" style="top: 64%; left: 20%; width: 23%; height: 25%;" title="Comunidade (Chat)">
+            <!-- ========================================== -->
+            <!-- ANIMAÇÕES VISUAIS DO CENÁRIO               -->
+            <!-- ========================================== -->
+            <!-- Fumaça na chaminé da Sede (Casa Principal) -->
+            <div class="efeito-fumaca" style="top: 0%; left: 63%;"></div>
+            <div class="efeito-fumaca atraso" style="top: 0%; left: 63%;"></div>
+        </div>
+        
+        <!-- ========================================== -->
+        <!-- CEMITÉRIO (Casa pequena na beirada esquerda) -->
+        <!-- ========================================== -->
+        {% if not visitante %}
+            <div class="map-area" onclick="window.location.href='/cemiterio/{{ fazenda.id }}'" style="top: 65%; left: 3%; width: 14%; height: 14%;" title="Cemitério"></div>
+        
+        {% else %}
+            <div class="map-area bloqueado" style="top: 65%; left: 3%; width: 14%; height: 14%;" title="Cemitério (Visita 🔒)"></div>
+        {% endif %}
+
+    </div>
+            
+</section>
     </main>
 
     {% include 'partes/silo.html' %}
@@ -327,9 +473,21 @@
         <i class="fas fa-question"></i>
     </a>
     
+    <!-- EXCLUSIVO PARA CONTA CEO / ADMIN -->
+{% if user and user.is_admin %}
+<div style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 999999; display: flex; gap: 8px; background: rgba(0, 0, 0, 0.85); padding: 8px 12px; border-radius: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
+    <button onclick="atualizarEfeitoClima('chuvoso')" style="background: #2196F3; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer;">🌧️ Chuva</button>
+    <button onclick="atualizarEfeitoClima('tempestade')" style="background: #ff9800; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer;">⚡ Raio</button>
+    <button onclick="atualizarEfeitoClima('limpo')" style="background: #4CAF50; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer;">☀️ Limpo</button>
+    <button class="btn-clima btn-noite" onclick="alternarModoNoiteDev()">🌙 Noite</button>
+</div>
+{% endif %}
+    
     <script src="{{ url_for('static', filename='js/silo.js') }}"></script>
     <script src="{{ url_for('static', filename='js/habitats.js') }}?v=2"></script>
     <script src="{{ url_for('static', filename='js/fazenda.js') }}?v=2"></script>
     <script src="{{ url_for('static', filename='js/barracao.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/relogio.js') }}?v=1"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/estilo_ceo.css') }}?v=2">
 </body>
 </html>

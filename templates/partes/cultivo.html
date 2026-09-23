@@ -7,10 +7,8 @@
             {% if lote.status in ['arado', 'coveado', 'plantado', 'colhendo', 'colheita_incompleta'] %}
                 {% set ns.tem_cultivo = true %}
                 
-                <!-- 🔥 CALCULANDO A ÁREA BASEADO NO TIPO DA PROPRIEDADE -->
                 {% set area = 30 if fazenda.tipo == 'Latifúndio' else 15 if fazenda.tipo == 'Fazenda' else 5 if fazenda.tipo == 'Sítio' else 1 %}
 
-                <!-- 🔥 ENVIANDO O TIPO DA FAZENDA PARA O JS AQUI E ADICIONANDO O GIF NOVO -->
                 <div class="card cultivo-card" onclick="abrirGerenciamentoCultivo({{ lote.id }}, '{{ lote.status }}', '{{ lote.tipo_cultivo|default('') }}', '{{ fazenda.tipo }}')" 
                     style="
                     {% if lote.status == 'colheita_incompleta' %}
@@ -34,7 +32,6 @@
                         <img src="/static/img/{{ img_nome }}.png" width="50" style="border-radius: 8px; background: rgba(51, 51, 51, 0.8); padding: 5px; object-fit: contain;" onerror="this.src='/static/img/arado.png'">
                         
                         <div style="flex: 1;">
-                            <!-- 🔥 MOSTRANDO O TAMANHO DO LOTE -->
                             <h3 style="margin: 0; color: #fff; font-size: 16px; text-shadow: 1px 1px 3px #000;">{{ lote.nome }} <span style="font-size: 11px; color: #fbc02d;">({{ area }} ha)</span></h3>
                             <div style="color: {% if lote.status == 'colheita_incompleta' %}#ff9800{% else %}#fbc02d{% endif %}; font-size: 13px; font-weight: bold; text-transform: capitalize; text-shadow: 1px 1px 3px #000;">
                                 {% if lote.status in ['arado', 'coveado'] %}
@@ -75,8 +72,9 @@
         {% endfor %}
 
         {% if not ns.tem_cultivo %}
-        <div style="text-align: center; color: #888; padding: 20px; font-style: italic;">
-            Você não tem terras aradas ou cultivadas.<br>Vá até a aba "Terras" e prepare o solo!
+        <div style="text-align: center; color: #fff; padding: 30px 20px; background: #2a2a2a; border-radius: 12px; border: 1px dashed #555; margin-top: 10px;">
+            <h3 style="margin-top: 0; color: #fbc02d;">🌱 Nenhum cultivo ativo</h3>
+            <p style="color: #aaa; font-size: 13px; margin: 0;">Você não tem terras aradas ou cultivadas.<br>Vá até a aba <b>"Terras"</b> e prepare o solo!</p>
         </div>
         {% endif %}
 

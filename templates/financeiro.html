@@ -4,58 +4,271 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Financeiro - Agro Manager</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- SCRIPT ANTI-TELA-PRETA -->
+    <script>
+        window.addEventListener("pageshow", function (event) {
+            if (event.persisted) {
+                window.location.reload();
+            }
+        });
+    </script>
+
     <style>
-        body { font-family: 'Poppins', sans-serif; background-color: #121212; color: #fff; margin: 0; padding: 20px; }
-        .card { background: #1a1a1a; border-radius: 12px; padding: 20px; border: 1px solid #333; margin-bottom: 20px; }
-        .card-header { font-size: 18px; font-weight: bold; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
-        .saldo-total { font-size: 28px; font-weight: 900; color: #4caf50; margin-bottom: 20px; }
-        .fluxo-container { display: flex; justify-content: space-between; border-top: 1px dashed #444; padding-top: 15px; }
-        .entrada-texto { color: #4caf50; font-weight: bold; font-size: 16px; }
-        .saida-texto { color: #f44336; font-weight: bold; font-size: 16px; }
-        .transacao-item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #2a2a2a; font-size: 14px; }
-        .btn-voltar { display: block; width: 100%; padding: 15px; background: #333; color: #fff; text-align: center; text-decoration: none; border-radius: 12px; font-weight: bold; margin-top: 10px; }
+        :root {
+            --bg-dark: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.75);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent-green: #22c55e;
+            --accent-red: #ef4444;
+            --accent-orange: #f59e0b;
+        }
+
+        body { 
+            font-family: 'Poppins', sans-serif; 
+            background: linear-gradient(135deg, #090d16 0%, #1e1b4b 100%);
+            background-attachment: fixed;
+            color: var(--text-main); 
+            margin: 0; 
+            padding: 16px; 
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* BARRA SUPERIOR DE NAVEGAÇÃO (BOTÕES PEQUENOS) */
+        .top-nav {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .btn-top {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px;
+            background: rgba(30, 41, 59, 0.85);
+            color: var(--text-main);
+            text-decoration: none;
+            border-radius: 14px;
+            font-weight: 600;
+            font-size: 13px;
+            border: 1px solid var(--card-border);
+            box-shadow: 0 4px 15px -4px rgba(0, 0, 0, 0.3);
+            transition: all 0.2s ease;
+            box-sizing: border-box;
+        }
+
+        .btn-top:hover {
+            background: rgba(51, 65, 85, 0.9);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-top i {
+            font-size: 14px;
+            color: #38bdf8;
+            background: rgba(56, 189, 248, 0.1);
+            padding: 6px;
+            border-radius: 8px;
+        }
+
+        .card { 
+            background: var(--card-bg); 
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: 20px; 
+            padding: 22px; 
+            border: 1px solid var(--card-border); 
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+            margin-bottom: 20px; 
+        }
+
+        .card-header { 
+            font-size: 17px; 
+            font-weight: 700; 
+            margin-bottom: 15px; 
+            display: flex; 
+            align-items: center; 
+            gap: 10px; 
+            letter-spacing: 0.5px;
+        }
+
+        .card-header i {
+            font-size: 20px;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+        }
+
+        .saldo-box {
+            background: linear-gradient(145deg, rgba(15, 23, 42, 0.6) 0%, rgba(30, 41, 59, 0.4) 100%);
+            border-radius: 14px;
+            padding: 16px;
+            border: 1px solid rgba(34, 197, 94, 0.2);
+            margin-bottom: 18px;
+        }
+
+        .saldo-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .saldo-total { 
+            font-size: 32px; 
+            font-weight: 800; 
+            color: var(--accent-green); 
+            text-shadow: 0 2px 10px rgba(34, 197, 94, 0.2);
+        }
+
+        .fluxo-container { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 12px;
+            border-top: 1px solid var(--card-border); 
+            padding-top: 15px; 
+        }
+
+        .fluxo-card {
+            background: rgba(15, 23, 42, 0.4);
+            padding: 12px 14px;
+            border-radius: 12px;
+            border: 1px solid var(--card-border);
+        }
+
+        .entrada-texto { color: var(--accent-green); font-weight: 700; font-size: 15px; }
+        .saida-texto { color: var(--accent-red); font-weight: 700; font-size: 15px; }
+
+        .transacao-lista {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 350px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .transacao-lista::-webkit-scrollbar {
+            width: 4px;
+        }
+        .transacao-lista::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+
+        .transacao-item { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            padding: 12px 14px; 
+            background: rgba(15, 23, 42, 0.4);
+            border-radius: 12px;
+            border: 1px solid var(--card-border);
+            font-size: 14px; 
+            transition: transform 0.2s ease;
+        }
+
+        .transacao-item:hover {
+            transform: translateX(2px);
+            background: rgba(15, 23, 42, 0.6);
+        }
     </style>
 </head>
 <body>
 
-    <div class="card">
-        <div class="card-header"><i class="fas fa-chart-pie" style="color: #ff9800;"></i> Fluxo de Caixa</div>
-        <div class="saldo-total">R$ {{ "{:,.2f}".format(saldo).replace(',','v').replace('.',',').replace('v','.') }}</div>
+    <div class="container">
+        <!-- BOTÕES SUPERIORES (SEDE E MAPA) -->
+<div class="top-nav">
+    <a href="#" id="btn-sede-oficial" class="btn-top">
+        <i class="fas fa-home"></i> Sede
+    </a>
+    
+    <a href="/mapa" class="btn-top">
+        <i class="fas fa-map"></i> Mapa
+    </a>
+</div>
+
+<script>
+    document.getElementById('btn-sede-oficial').addEventListener('click', function(e) {
+        e.preventDefault();
         
-        <div class="fluxo-container">
-            <div>
-                <div style="color: #aaa; font-size: 13px;">Entradas:</div>
-                <div class="entrada-texto">+ R$ {{ "{:,.2f}".format(entradas).replace(',','v').replace('.',',').replace('v','.') }}</div>
+        // Pega a URL base da fazenda (ex: /fazenda/235) e força a aba 'sede'
+        const idFlask = "{{ fazenda.id if fazenda else '' }}";
+        const urlSalva = sessionStorage.getItem('url_ultima_fazenda');
+        
+        let urlBase = "/mapa";
+        if (idFlask) {
+            urlBase = "/fazenda/" + idFlask;
+        } else if (urlSalva) {
+            // Remove qualquer hash anterior se houver
+            urlBase = urlSalva.split('#')[0];
+        }
+        
+        // Grava no localStorage que a aba padrão ao abrir deve ser a sede
+        localStorage.setItem('aba_ativa_fazenda', 'sede');
+        
+        // Redireciona de forma limpa
+        window.location.href = urlBase;
+    });
+</script>
+
+        <!-- FLUXO DE CAIXA -->
+        <div class="card">
+            <div class="card-header"><i class="fas fa-chart-pie" style="color: var(--accent-orange);"></i> Fluxo de Caixa</div>
+            
+            <div class="saldo-box">
+                <div class="saldo-label">Saldo Atual</div>
+                <div class="saldo-total">R$ {{ "{:,.2f}".format(saldo).replace(',','v').replace('.',',').replace('v','.') }}</div>
             </div>
-            <div style="text-align: right;">
-                <div style="color: #aaa; font-size: 13px;">Saídas:</div>
-                <div class="saida-texto">- R$ {{ "{:,.2f}".format(saidas).replace(',','v').replace('.',',').replace('v','.') }}</div>
+            
+            <div class="fluxo-container">
+                <div class="fluxo-card">
+                    <div style="color: var(--text-muted); font-size: 12px; margin-bottom: 2px;">Entradas</div>
+                    <div class="entrada-texto">+ R$ {{ "{:,.2f}".format(entradas).replace(',','v').replace('.',',').replace('v','.') }}</div>
+                </div>
+                <div class="fluxo-card" style="text-align: right;">
+                    <div style="color: var(--text-muted); font-size: 12px; margin-bottom: 2px;">Saídas</div>
+                    <div class="saida-texto">- R$ {{ "{:,.2f}".format(saidas).replace(',','v').replace('.',',').replace('v','.') }}</div>
+                </div>
             </div>
         </div>
-    </div>
 
-    <div class="card">
-        <div class="card-header"><i class="fas fa-history" style="color: #bbb;"></i> Histórico Recente</div>
-        
-        {% if not historico %}
-            <p style="color: #777; font-style: italic; text-align: center; margin: 20px 0;">Nenhuma transação registrada ainda.</p>
-        {% else %}
-            {% for t in historico %}
-                <div class="transacao-item">
-                    <span style="color: #ccc;">{{ t.descricao }}</span>
-                    {% if t.tipo == 'entrada' %}
-                        <b class="entrada-texto">+ R$ {{ "{:,.2f}".format(t.valor).replace(',','v').replace('.',',').replace('v','.') }}</b>
-                    {% else %}
-                        <b class="saida-texto">- R$ {{ "{:,.2f}".format(t.valor).replace(',','v').replace('.',',').replace('v','.') }}</b>
-                    {% endif %}
+        <!-- HISTÓRICO RECENTE -->
+        <div class="card">
+            <div class="card-header"><i class="fas fa-history" style="color: var(--text-muted);"></i> Histórico Recente</div>
+            
+            {% if not historico %}
+                <p style="color: var(--text-muted); font-style: italic; text-align: center; margin: 25px 0;">Nenhuma transação registrada ainda.</p>
+            {% else %}
+                <div class="transacao-lista">
+                    {% for t in historico %}
+                        <div class="transacao-item">
+                            <span style="color: #e2e8f0; font-weight: 500;">{{ t.descricao }}</span>
+                            {% if t.tipo == 'entrada' %}
+                                <b class="entrada-texto">+ R$ {{ "{:,.2f}".format(t.valor).replace(',','v').replace('.',',').replace('v','.') }}</b>
+                            {% else %}
+                                <b class="saida-texto">- R$ {{ "{:,.2f}".format(t.valor).replace(',','v').replace('.',',').replace('v','.') }}</b>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
                 </div>
-            {% endfor %}
-        {% endif %}
+            {% endif %}
+        </div>
     </div>
-
-    <a href="/mapa" class="btn-voltar"><i class="fas fa-arrow-left"></i> Voltar para o Mapa</a>
 
 </body>
 </html>

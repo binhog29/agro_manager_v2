@@ -138,3 +138,4 @@ window.abrirCheckoutCarrinho = function() {
         }
     });
 };
+

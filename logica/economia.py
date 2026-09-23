@@ -14,8 +14,9 @@ def registrar_transacao(jogador_id, tipo, valor, descricao):
     db.session.add(nova_transacao)
 
 # --- ROTA DA TELA FINANCEIRA ---
-@economia_bp.route('/financeiro')
-def financeiro():
+@economia_bp.route('/financeiro', defaults={'prop_id': None})
+@economia_bp.route('/financeiro/<int:prop_id>')
+def financeiro(prop_id):
     if 'usuario' not in session:
         return redirect(url_for('login'))
     
@@ -23,6 +24,13 @@ def financeiro():
     if not usuario:
         return redirect(url_for('login'))
         
+    # Se não veio o ID na URL, tenta pegar a primeira propriedade do jogador como fallback
+    if not prop_id:
+        primeira_prop = Propriedade.query.filter_by(dono_id=usuario.id).first()
+        prop_id = primeira_prop.id if primeira_prop else 1
+        
+    fazenda_atual = Propriedade.query.get(prop_id)
+    
     # Busca o histórico e calcula as entradas/saídas totais
     historico = Transacao.query.filter_by(jogador_id=usuario.id).order_by(Transacao.data.desc()).limit(20).all()
     todas_transacoes = Transacao.query.filter_by(jogador_id=usuario.id).all()
@@ -36,7 +44,8 @@ def financeiro():
         entradas=entradas, 
         saidas=saidas, 
         saldo=usuario.saldo,
-        historico=historico
+        historico=historico,
+        fazenda=fazenda_atual  # Envia a fazenda exata para o HTML
     )
 
 @economia_bp.route('/api/comprar_fazenda/<int:prop_id>', methods=['POST'])

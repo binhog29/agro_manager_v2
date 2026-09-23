@@ -1,0 +1,76 @@
+/* Container do Peão no Mapa */
+.peao-worker {
+    position: absolute;
+    width: 24px;
+    height: 32px;
+    z-index: 25 !important;
+    transform: translate(-50%, -100%); /* Garante que os pés fiquem cravados nas coordenadas X,Y */
+    transform-origin: bottom center;
+    cursor: pointer;
+    pointer-events: auto;
+    user-select: none;
+}
+
+/* Corpo e Estrutura */
+.peao-corpo {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-origin: bottom center;
+    transition: filter 0.3s ease;
+}
+
+/* Balão de Fala / Status (Reduzido para acompanhar a escala) */
+.balao-status-func {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255, 255, 255, 0.92);
+    color: #1a1a1a;
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-size: 9px;
+    font-weight: 600;
+    white-space: nowrap;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.35);
+    border: 1px solid rgba(0,0,0,0.15);
+    z-index: 30;
+    margin-bottom: 2px;
+    pointer-events: none;
+}
+
+/* --- ANIMAÇÕES DE CAMINHADA --- */
+/* Nota: Usamos margin-top no lugar de transform para não sobrescrever o scaleX(-1) do JS */
+@keyframes caminhar-bobbing {
+    0%, 100% { margin-top: 0; }
+    50% { margin-top: -2px; }
+}
+
+@keyframes perna-passo {
+    0%, 100% { transform: rotate(-22deg); }
+    50% { transform: rotate(22deg); }
+}
+
+.peao-worker.andando .peao-corpo {
+    animation: caminhar-bobbing 0.28s infinite ease-in-out;
+}
+
+.peao-worker.andando .perna.esq {
+    animation: perna-passo 0.28s infinite ease-in-out;
+    transform-origin: top center;
+}
+
+.peao-worker.andando .perna.dir {
+    animation: perna-passo 0.28s infinite ease-in-out reverse;
+    transform-origin: top center;
+}
+
+/* --- ESTADO DORMINDO / NOITE --- */
+.peao-worker.dormindo {
+    filter: brightness(0.75); /* Fica mais escuro à noite */
+}
+
+.peao-worker.dormindo .peao-corpo {
+    transform: scale(0.55) rotate(-12deg) !important; /* Leve inclinação de repouso ao dormir */
+}
