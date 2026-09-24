@@ -526,19 +526,29 @@ def gerenciar_animais():
     if not verificar_admin(): 
         return jsonify({'sucesso': False, 'erro': 'Acesso negado.'})
     
-    dados = request.get_json()
+    dados = request.get_json() or {}
     jogador_id = dados.get('jogador_id')
     propriedade_id = dados.get('propriedade_id')
     acao = dados.get('acao') # 'adicionar' ou 'remover'
-    raca = dados.get('raca', '').strip()
-    sexo = dados.get('sexo', '').strip()
-    qtd = int(dados.get('quantidade', 0))
+    raca = str(dados.get('raca', '')).strip()
+    sexo = str(dados.get('sexo', '')).strip()
+    
+    try:
+        qtd = int(dados.get('quantidade', 0))
+    except (ValueError, TypeError):
+        qtd = 0
     
     alvo = Jogador.query.get(jogador_id)
     if not alvo: 
         return jsonify({'sucesso': False, 'erro': 'Jogador não encontrado.'})
     
-    fazenda = Propriedade.query.filter_by(id=propriedade_id, dono_id=alvo.id).first()
+    # Conversão segura do ID da propriedade para int
+    prop_id_int = int(propriedade_id) if propriedade_id and str(propriedade_id).isdigit() else None
+    
+    fazenda = None
+    if prop_id_int:
+        fazenda = Propriedade.query.filter_by(id=prop_id_int, dono_id=alvo.id).first()
+        
     if not fazenda:
         fazenda = Propriedade.query.filter_by(dono_id=alvo.id).first()
         
@@ -548,8 +558,7 @@ def gerenciar_animais():
     if qtd <= 0:
         return jsonify({'sucesso': False, 'erro': 'A quantidade deve ser maior que zero.'})
         
-    # Mapeamento flexível para busca no banco
-    raca_busca = raca.lower()
+    # Mapeamento flexível para sexo
     if sexo.lower() in ['macho', 'm']:
         sexos_aceitos = ['macho', 'm']
         sexo_salvar = 'Macho'
@@ -557,39 +566,53 @@ def gerenciar_animais():
         sexos_aceitos = ['fêmea', 'femea', 'f']
         sexo_salvar = 'Fêmea'
         
+    raca_salvar = raca.capitalize() if raca else 'Nelore'
+    raca_busca = raca.lower()
+        
     if acao == 'adicionar':
-        for _ in range(qtd):
-            novo_animal = Animal(
-                propriedade_id=fazenda.id,
-                raca=raca.capitalize(),
-                sexo=sexo_salvar,
-                saude=100,
-                fome=0,
-                estresse=0,
-                onde_esta='curral'
-            )
-            db.session.add(novo_animal)
-            
-        db.session.commit()
-        return jsonify({'sucesso': True, 'msg': f'{qtd} animal(is) ({raca} - {sexo}) adicionado(s) na propriedade "{fazenda.nome}"!'})
-        
+        try:
+            for _ in range(qtd):
+                novo_animal = Animal(
+                    propriedade_id=fazenda.id,
+                    raca=raca_salvar,
+                    sexo=sexo_salvar,
+                    fase='Adulto',
+                    peso=250.0,             # 👈 OBRIGATÓRIO: Define um peso inicial em kg
+                    idade_meses=12,         # Define a idade em meses
+                    saude=100,
+                    fome=0,
+                    estresse=0,
+                    qualidade_genetica=100,
+                    doenca_atual='nenhuma', # Evita erro NOT NULL na doença
+                    onde_esta='curral'
+                )
+                db.session.add(novo_animal)
+                
+            db.session.commit()
+            return jsonify({'sucesso': True, 'msg': f'{qtd} animal(is) ({raca_salvar} - {sexo_salvar}) adicionado(s) na propriedade "{fazenda.nome}"!'})
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'sucesso': False, 'erro': f'Erro ao salvar no banco: {str(e)}'})
+       
     elif acao == 'remover':
-        # Filtro insensível a maiúsculas/minúsculas e que reconhece tanto 'M' quanto 'Macho'
-        animais = Animal.query.filter(
-            Animal.propriedade_id == fazenda.id,
-            func.lower(Animal.raca) == raca_busca,
-            func.lower(Animal.sexo).in_(sexos_aceitos)
-        ).limit(qtd).all()
-        
-        if not animais:
-            return jsonify({'sucesso': False, 'erro': f'Nenhum animal da raça {raca} ({sexo}) encontrado na propriedade "{fazenda.nome}".'})
+        try:
+            animais = Animal.query.filter(
+                Animal.propriedade_id == fazenda.id,
+                func.lower(Animal.raca) == raca_busca,
+                func.lower(Animal.sexo).in_(sexos_aceitos)
+            ).limit(qtd).all()
             
-        qtd_removida = len(animais)
-        for animal in animais:
-            db.session.delete(animal)
-            
-        db.session.commit()
-        return jsonify({'sucesso': True, 'msg': f'{qtd_removida} animal(is) ({raca} - {sexo}) removido(s) da propriedade "{fazenda.nome}"!'})
+            if not animais:
+                return jsonify({'sucesso': False, 'erro': f'Nenhum animal da raça {raca_salvar} ({sexo_salvar}) encontrado na propriedade "{fazenda.nome}".'})
+                
+            qtd_removida = len(animais)
+            for animal in animais:
+                db.session.delete(animal)
+                
+            db.session.commit()
+            return jsonify({'sucesso': True, 'msg': f'{qtd_removida} animal(is) ({raca_salvar} - {sexo_salvar}) removido(s) da propriedade "{fazenda.nome}"!'})
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'sucesso': False, 'erro': f'Erro ao remover do banco: {str(e)}'})
         
     return jsonify({'sucesso': False, 'erro': 'Ação inválida.'})
-
