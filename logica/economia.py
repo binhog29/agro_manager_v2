@@ -94,13 +94,16 @@ def renomear_fazenda(prop_id):
 
 @economia_bp.route('/api/cotacoes_diarias')
 def cotacoes_diarias():
-    if 'usuario' not in session: return jsonify({'sucesso': False})
+    if 'usuario' not in session: 
+        return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
     
     usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    if not usuario:
+        return jsonify({'sucesso': False, 'erro': 'Usuário não encontrado.'})
     
     from logica.mercado import PRECOS_REAIS, calcular_fator_dia
     from logica.silo import PRECOS_VENDA
-    from logica.galpao import PRECOS_GALPAO  # 🔥 IMPORTAÇÃO DO GALPÃO ADICIONADA AQUI!
+    from logica.galpao import PRECOS_GALPAO
     
     fator = calcular_fator_dia(usuario.dia, usuario.mes, usuario.ano)
     
@@ -120,15 +123,24 @@ def cotacoes_diarias():
         'Equinos (Cavalo)': round(PRECOS_REAIS.get('equino', 15.0) * fator, 2)
     }
     
-    # 3. Derivados (Atualmente com preço fixo no jogo)
+    # 3. Derivados
     derivados = {
         'Leite (Litro)': 2.50,
         'Ovos (Unidade)': 0.50
     }
     
-    # 🔥 JUNTA O SILO (Grãos) E O GALPÃO (Frutas/Raízes) NO MERCADO
+    # 4. Culturas (Silo e Galpão) com flutuação diária do mercado
     culturas_combinadas = {**PRECOS_VENDA, **PRECOS_GALPAO}
-    culturas = {k.capitalize(): v for k, v in culturas_combinadas.items()}
+    
+    culturas = {}
+    for k, v in culturas_combinadas.items():
+        nome_formatado = k.capitalize()
+        if isinstance(v, (int, float)):
+            culturas[nome_formatado] = round(v * fator, 2)
+        elif isinstance(v, dict) and 'preco' in v:
+            culturas[nome_formatado] = round(v['preco'] * fator, 2)
+        else:
+            culturas[nome_formatado] = v
     
     return jsonify({
         'sucesso': True,
