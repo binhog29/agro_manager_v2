@@ -324,9 +324,26 @@ def comprar_lote_ia():
         texto_frete = " + Frete Terceirizado"
         
     registrar_transacao(usuario.id, 'saida', custo_final_com_frete, f'Compra de Lote Completo ({total_animais} animais){texto_frete}')
+    
+        # --- CÁLCULO DE XP RIGOROSO E SEGURO ---
+    # Identifica se a compra contém peixes ou aves (itens comprados em grande quantidade)
+    tem_peixe_ou_ave = any(
+        any(p in item.get('raca', '').lower() for p in ['peixe', 'tambaqui', 'pirarucu', 'pacu', 'matrinxa', 'jaraqui', 'curimata', 'surubim', 'pintado', 'cachara', 'tucunare', 'piau', 'galinha', 'pato', 'peru', 'ave'])
+        for item in carrinho
+    )
 
-    if getattr(usuario, 'xp', None) is None: usuario.xp = 0
-    usuario.xp += (10 * total_animais)
+    if tem_peixe_ou_ave:
+        xp_ganho = 5  # 🔒 Fixo em apenas 5 XP por lote completo de peixes/aves
+    else:
+        xp_ganho = min(10 + total_animais, 25) # 🔒 No máximo 25 XP para gado/cavalos
+
+    # Aplica o XP
+    if hasattr(usuario, 'adicionar_xp'):
+        usuario.adicionar_xp(xp_ganho)
+    else:
+        if getattr(usuario, 'xp', None) is None: 
+            usuario.xp = 0
+        usuario.xp += xp_ganho
     
     db.session.add_all(animais_para_adicionar)
     db.session.commit()
