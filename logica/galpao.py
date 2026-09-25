@@ -16,7 +16,7 @@ PRECOS_GALPAO = {
     'cacau': 9.00,       # Caiu de 12.00 para 9.00
     'acai': 2.80,
     'cupuacu': 3.20,
-    'pimenta': 12.00,
+    'pimenta': 9.00,
     'algodao': 3.00,
     'cafe': 6.50,
     'cana': 0.20       
