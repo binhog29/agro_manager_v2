@@ -46,10 +46,13 @@
         <h2 style="margin: 0; color: #ffb300;"><i class="fas fa-crown"></i> Painel do CEO</h2>
         <p style="margin: 5px 0 0 0; font-size: 12px; color: #aaa;">Controle Absoluto do Servidor</p>
 
-        <!-- 🔥 BOTÃO GLOBAL: RESETAR PROPRIEDADES SEM DONO (ESTADO) 🔥 -->
-        <div style="margin-top: 15px;">
+                <!-- 🔥 BOTÕES GLOBAIS DE ADMINISTRAÇÃO 🔥 -->
+        <div style="margin-top: 15px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+            <a href="/admin/precos" class="btn-god" style="background: #f57f17; text-decoration: none; font-size: 13px; padding: 10px 18px; border-radius: 8px; display: inline-flex; align-items: center; gap: 8px; font-weight: bold;">
+                <i class="fas fa-coins"></i> Ajustar Economia (Preços)
+            </a>
             <button class="btn-god bg-gavel" onclick="resetarPropriedadesOrfas()" style="font-size: 13px; padding: 10px 18px; border-radius: 8px; display: inline-flex; align-items: center; gap: 8px;">
-                <i class="fas fa-broom"></i> Resetar Terras Sem Dono (Estado)
+                <i class="fas fa-broom"></i> Resetar Terras Sem Dono
             </button>
         </div>
     </div>

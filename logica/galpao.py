@@ -1,19 +1,18 @@
 from flask import Blueprint, jsonify, request, session
-from database import db, Jogador, Propriedade
+from database import db, Jogador, Propriedade, obter_preco_base # 👈 Import adicionado aqui
 from logica.economia import registrar_transacao
 from logica.mercado import calcular_fator_dia
 from logica.funcionarios import obter_bonus_equipe
 
 galpao_bp = Blueprint('galpao', __name__)
 
-# Tabela de preços base exclusiva do Galpão (Meio-Termo Excelente)
 PRECOS_GALPAO = {
     'tomate': 0.90,
     'melancia': 0.30,
     'abacaxi': 1.00,
     'mandioca': 0.25,
-    'banana': 0.60,      # Caiu de 1.00 para 0.60 (Ainda dá lucro ótimo!)
-    'cacau': 9.00,       # Caiu de 12.00 para 9.00
+    'banana': 0.60,
+    'cacau': 9.00,
     'acai': 2.80,
     'cupuacu': 3.20,
     'pimenta': 9.00,
@@ -46,7 +45,6 @@ def vender_galpao():
     if qtd_venda <= 0:
         return jsonify({'sucesso': False, 'erro': 'A quantidade deve ser maior que zero.'})
 
-    # Verifica se a coluna de estoque existe no banco de dados
     coluna_estoque = f'est_{item}'
     if not hasattr(propriedade, coluna_estoque):
         return jsonify({'sucesso': False, 'erro': 'Este item não pertence ao Galpão.'})
@@ -55,9 +53,10 @@ def vender_galpao():
     if estoque_atual < qtd_venda:
         return jsonify({'sucesso': False, 'erro': 'Estoque insuficiente no Galpão.'})
 
-    # 1. Aplica a Volatilidade do Mercado
+    # 1. Procura o Preço Base definido pelo CEO (com fallback para a tabela padrão)
     fator = calcular_fator_dia(usuario.dia, usuario.mes, usuario.ano)
-    preco_base = PRECOS_GALPAO.get(item, 1.0)
+    valor_padrao = PRECOS_GALPAO.get(item, 1.0)
+    preco_base = obter_preco_base(item, valor_padrao) # 👈 Lógica do CEO aplicada aqui
     preco_mercado = preco_base * fator
 
     # 2. Aplica o Bônus de Venda do Capataz
@@ -69,13 +68,12 @@ def vender_galpao():
     imposto = valor_bruto * 0.04
     valor_liquido = valor_bruto - imposto
 
-    # Efetiva a venda
     setattr(propriedade, coluna_estoque, estoque_atual - qtd_venda)
     usuario.saldo += valor_liquido
     
     if getattr(usuario, 'xp', None) is None:
         usuario.xp = 0
-    usuario.xp += 10 # 10 XP por lote vendido do galpão
+    usuario.xp += 10
 
     registrar_transacao(
         usuario.id,

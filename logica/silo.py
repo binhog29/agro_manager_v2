@@ -1,19 +1,14 @@
 from flask import Blueprint, jsonify, request, session
-from database import db, Jogador, Propriedade, Transacao
+from database import db, Jogador, Propriedade, Transacao, obter_preco_base # 👈 Import adicionado aqui
 from logica.funcionarios import obter_bonus_equipe
 
 silo_bp = Blueprint('silo', __name__)
 
-# logica/silo.py
-
-# Deixe apenas os grãos do Silo aqui!
-# logica/silo.py
-
 PRECOS_VENDA = {
-    'soja': 2.20,   # Saca a ~132
-    'milho': 0.85,  # Saca a ~51
-    'arroz': 1.90,  # Saca a ~95
-    'feijao': 3.50  # Mais valioso, mas produz menos
+    'soja': 2.20,
+    'milho': 0.85,
+    'arroz': 1.90,
+    'feijao': 3.50
 }
 
 @silo_bp.route('/api/silo/vender', methods=['POST'])
@@ -56,21 +51,20 @@ def vender_grao():
     itens_silo = ['soja', 'milho', 'arroz', 'feijao']
     local_venda = "Silo" if item_chave in itens_silo else "Galpão"
 
-    # 🔥 BALANCEAMENTO: O PREÇO AGORA FLUTUA COM O MERCADO DO DIA!
+    # 🔥 O PREÇO AGORA BUSCA O VALOR BASE DO CEO E FLUTUA COM O MERCADO DO DIA!
     from logica.mercado import calcular_fator_dia
     fator_mercado = calcular_fator_dia(jogador.dia, jogador.mes, jogador.ano)
-    preco_base = PRECOS_VENDA.get(item_chave, 50) 
+    
+    valor_padrao = PRECOS_VENDA.get(item_chave, 2.0)
+    preco_base = obter_preco_base(item_chave, valor_padrao) # 👈 Lógica do CEO aplicada aqui
     preco_unidade = preco_base * fator_mercado
     
     from logica.funcionarios import obter_bonus_equipe
     bonus_rh = obter_bonus_equipe(fazenda.id)
     multiplicador_venda = bonus_rh.get('bonus_venda', 1.0)
     
-    # Cálculo do Valor Bruto
     valor_bruto = (quantidade_venda * preco_unidade) * multiplicador_venda
     
-    # 🔥 BALANCEAMENTO LATE-GAME: Desconto de FUNRURAL e Escoamento (Logística)
-    # Total de 4% de retenção na fonte. Freia milionários.
     imposto_retido = valor_bruto * 0.04 
     valor_liquido = valor_bruto - imposto_retido
 
@@ -85,7 +79,6 @@ def vender_grao():
 
     db.session.add(Transacao(jogador_id=jogador.id, tipo='entrada', valor=valor_liquido, descricao=texto_venda))
     
-    # Lança a despesa da logística no extrato para justificar a retenção
     if imposto_retido > 0:
         db.session.add(Transacao(jogador_id=jogador.id, tipo='saida', valor=imposto_retido, descricao=f"Retenção Direta: FUNRURAL e Escoamento de Safra"))
 
@@ -96,6 +89,7 @@ def vender_grao():
     db.session.commit()
     
     return jsonify({'sucesso': True, 'msg': f'Foram creditados R$ {valor_liquido:,.2f} líquidos na sua conta após impostos!'})
+
 
 @silo_bp.route('/api/silo/expandir', methods=['POST'])
 def expandir_silo():

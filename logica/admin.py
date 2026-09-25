@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, session, redirect, url_for, request, jsonify
-from database import db, Jogador, Propriedade, Transacao, MensagemChat, Animal, Lote
+from database import db, Jogador, Propriedade, Transacao, MensagemChat, Animal, Lote, PrecoConfig
 
 admin_bp = Blueprint('admin_ceo', __name__)
 
@@ -616,3 +616,87 @@ def gerenciar_animais():
             return jsonify({'sucesso': False, 'erro': f'Erro ao remover do banco: {str(e)}'})
         
     return jsonify({'sucesso': False, 'erro': 'Ação inválida.'})
+
+# ==========================================
+# 💰 CONTROLE DE PREÇOS BASE COMPLETO (CEO)
+# ==========================================
+
+def inicializar_precos_padrao():
+    padroes = [
+        # --- PECUÁRIA ---
+        ('bovino_corte', '1_pecuaria', 'Boi de Corte (@)', 280.0),
+        ('bovino_leite', '1_pecuaria', 'Vaca Leiteira (@)', 250.0),
+        ('suino', '1_pecuaria', 'Suíno (Kg)', 8.0),
+        ('ovino', '1_pecuaria', 'Ovino (Kg)', 20.0),
+        ('ave', '1_pecuaria', 'Ave (Kg)', 6.0),
+        ('peixe_gigante', '1_pecuaria', 'Peixe Nobre / Pirarucu (Kg)', 20.0),
+        ('peixe_medio', '1_pecuaria', 'Peixe / Tambaqui (Kg)', 10.0),
+        ('equino', '1_pecuaria', 'Equino (Kg)', 15.0),
+
+        # --- SILO (GRÃOS) ---
+        ('soja', '2_silo', 'Soja (Kg/Saco)', 3.50),
+        ('milho', '2_silo', 'Milho (Kg/Saco)', 2.80),
+        ('arroz', '2_silo', 'Arroz (Kg/Saco)', 3.20),
+        ('feijao', '2_silo', 'Feijão (Kg/Saco)', 4.50),
+
+        # --- HORTIFRÚTI & CULTURAS PERENES (GALPÃO) ---
+        ('algodao', '3_galpao', 'Algodão (Kg)', 4.00),
+        ('mandioca', '3_galpao', 'Mandioca (Kg)', 1.20),
+        ('tomate', '3_galpao', 'Tomate (Kg)', 3.00),
+        ('abacaxi', '3_galpao', 'Abacaxi (Kg)', 2.50),
+        ('melancia', '3_galpao', 'Melancia (Kg)', 1.50),
+        ('cana', '3_galpao', 'Cana-de-Açúcar (Kg)', 0.80),
+        ('banana', '3_galpao', 'Banana (Kg)', 2.20),
+        ('cacau', '3_galpao', 'Cacau (Kg)', 12.00),
+        ('acai', '3_galpao', 'Açaí (Kg)', 6.00),
+        ('cupuacu', '3_galpao', 'Cupuaçu (Kg)', 5.00),
+        ('pimenta', '3_galpao', 'Pimenta (Kg)', 8.00),
+        ('cafe', '3_galpao', 'Café Clonal (Kg)', 8.00),
+
+        # --- DERIVADOS & INSUMOS ---
+        ('leite_litro', '4_derivados', 'Leite (Litro)', 2.50),
+        ('ovo_unidade', '4_derivados', 'Ovo (Unidade)', 0.50),
+        ('adubo', '5_insumos', 'Saco de Adubo', 80.0),
+        ('veneno', '5_insumos', 'Galão de Defensivo', 120.0)
+    ]
+
+    try:
+        houve_alteracao = False
+        for chave, cat, nome, valor in padroes:
+            item_existente = PrecoConfig.query.filter_by(chave=chave).first()
+            if not item_existente:
+                # Se o item ainda não existe no banco, adiciona
+                db.session.add(PrecoConfig(chave=chave, categoria=cat, nome_exibicao=nome, valor_base=valor))
+                houve_alteracao = True
+            else:
+                # Atualiza a categoria e o nome de exibição para manter organizados no HTML
+                item_existente.categoria = cat
+                item_existente.nome_exibicao = nome
+                houve_alteracao = True
+
+        if houve_alteracao:
+            db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+
+@admin_bp.route('/admin/precos', methods=['GET', 'POST'])
+def gerenciar_precos():
+    if not verificar_admin():
+        return redirect(url_for('login'))
+
+    usuario_atual = Jogador.query.filter_by(username=session['usuario']).first()
+
+    if request.method == 'POST':
+        dados = request.get_json() or {}
+        for chave, novo_valor in dados.items():
+            config = PrecoConfig.query.filter_by(chave=chave).first()
+            if config:
+                config.valor_base = float(novo_valor)
+        db.session.commit()
+        return jsonify({'sucesso': True, 'msg': 'Preços da economia atualizados com sucesso!'})
+
+    # Verifica item por item se falta algum no banco antes de carregar o HTML
+    inicializar_precos_padrao()
+    precos = PrecoConfig.query.order_by(PrecoConfig.categoria).all()
+    return render_template('admin_precos.html', precos=precos, user=usuario_atual)

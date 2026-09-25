@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Economia do Servidor - CEO</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        body { margin: 0; padding: 0; font-family: 'Poppins', sans-serif; background: #121212; color: #fff; }
+        .header { background: #222; padding: 20px; text-align: center; border-bottom: 2px solid #333; position: relative; }
+        .btn-voltar { position: absolute; top: 20px; left: 20px; color: #fff; font-size: 20px; text-decoration: none; }
+        .container { padding: 20px; max-width: 800px; margin: 0 auto; }
+        .card { background: #1e1e1e; border: 1px solid #333; border-radius: 12px; padding: 20px; }
+        
+        .cat-titulo { color: #f57f17; font-size: 16px; font-weight: bold; margin: 20px 0 10px 0; border-bottom: 1px solid #333; padding-bottom: 5px; display: flex; align-items: center; gap: 8px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+        
+        .item-preco { background: #2a2a2a; padding: 12px; border-radius: 8px; border-left: 4px solid #f57f17; }
+        .item-preco label { display: block; font-size: 12px; color: #aaa; margin-bottom: 5px; font-weight: bold; }
+        .item-preco input { width: 90%; background: #111; border: 1px solid #444; color: #4caf50; font-size: 16px; font-weight: bold; padding: 8px; border-radius: 6px; }
+        
+        .btn-salvar { width: 100%; background: #2e7d32; color: #fff; border: none; padding: 15px; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 25px; transition: 0.2s; }
+        .btn-salvar:hover { background: #388e3c; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <a href="/admin/painel-ceo" class="btn-voltar"><i class="fas fa-arrow-left"></i></a>
+        <h2 style="margin: 0; color: #ffb300;"><i class="fas fa-coins"></i> Ajuste Global de Economia</h2>
+        <p style="margin: 5px 0 0 0; font-size: 12px; color: #aaa;">Preços Base de Pecuária, Silos, Galpão e Insumos</p>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <p style="font-size: 12px; color: #888; margin-top: 0;">
+                <i class="fas fa-info-circle"></i> Os valores inseridos abaixo representam a base do mercado. A cotação diária do jogo incidirá dinamicamente sobre estes preços.
+            </p>
+
+            {% set ns = namespace(cat_atual='') %}
+            {% for p in precos %}
+                {% if p.categoria != ns.cat_atual %}
+                    {% set ns.cat_atual = p.categoria %}
+                    {% if not loop.first %}</div>{% endif %}
+                    
+                    <div class="cat-titulo">
+                        {% if 'pecuaria' in p.categoria %}<i class="fas fa-cow"></i> Pecuária
+                        {% elif 'silo' in p.categoria %}<i class="fas fa-warehouse"></i> Silo (Grãos)
+                        {% elif 'galpao' in p.categoria %}<i class="fas fa-seedling"></i> Galpão & Perenes
+                        {% elif 'derivados' in p.categoria %}<i class="fas fa-cheese"></i> Derivados
+                        {% else %}<i class="fas fa-box"></i> Insumos & Outros{% endif %}
+                    </div>
+                    <div class="grid">
+                {% endif %}
+
+                <div class="item-preco">
+                    <label>{{ p.nome_exibicao }}</label>
+                    <input type="number" step="0.01" id="preco-{{ p.chave }}" value="{{ p.valor_base }}">
+                </div>
+
+                {% if loop.last %}</div>{% endif %}
+            {% endfor %}
+
+            <button onclick="salvarPrecos()" class="btn-salvar"><i class="fas fa-save"></i> APLICAR TODOS OS PREÇOS</button>
+        </div>
+    </div>
+
+    <script>
+        function salvarPrecos() {
+            let payload = {};
+            document.querySelectorAll('[id^="preco-"]').forEach(input => {
+                let chave = input.id.replace('preco-', '');
+                payload[chave] = parseFloat(input.value) || 0;
+            });
+
+            Swal.fire({ title: 'Salvando economia...', didOpen: () => Swal.showLoading() });
+
+            fetch('/admin/precos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(r => r.json())
+            .then(d => {
+                if(d.sucesso) {
+                    Swal.fire({ icon: 'success', title: 'Sucesso!', text: d.msg, background: '#222', color: '#fff' });
+                } else {
+                    Swal.fire({ icon: 'error', title: 'Erro', text: d.erro, background: '#222', color: '#fff' });
+                }
+            })
+            .catch(() => Swal.fire('Erro Fatal', 'Servidor não respondeu.', 'error'));
+        }
+    </script>
+</body>
+</html>

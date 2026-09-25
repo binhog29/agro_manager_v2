@@ -94,54 +94,45 @@ def renomear_fazenda(prop_id):
 
 @economia_bp.route('/api/cotacoes_diarias')
 def cotacoes_diarias():
-    if 'usuario' not in session: 
-        return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
-    
+    if 'usuario' not in session: return jsonify({'sucesso': False})
+
     usuario = Jogador.query.filter_by(username=session['usuario']).first()
-    if not usuario:
-        return jsonify({'sucesso': False, 'erro': 'Usuário não encontrado.'})
-    
+    if not usuario: return jsonify({'sucesso': False})
+
     from logica.mercado import PRECOS_REAIS, calcular_fator_dia
     from logica.silo import PRECOS_VENDA
     from logica.galpao import PRECOS_GALPAO
-    
+    from database import obter_preco_base
+
     fator = calcular_fator_dia(usuario.dia, usuario.mes, usuario.ano)
-    
-    # 1. Pecuária em Arroba (@)
+
     gado_arroba = {
-        'Corte (Nelore, Angus, etc)': round(PRECOS_REAIS.get('bovino_corte', 280.0) * fator, 2),
-        'Leite (Girolando)': round(PRECOS_REAIS.get('bovino_leite', 250.0) * fator, 2)
+        'Corte (Nelore, Angus, etc)': round(obter_preco_base('bovino_corte', PRECOS_REAIS.get('bovino_corte', 280.0)) * fator, 2),
+        'Leite (Girolando)': round(obter_preco_base('bovino_leite', PRECOS_REAIS.get('bovino_leite', 250.0)) * fator, 2)
     }
-    
-    # 2. Pecuária em Kg
+
     gado_kg = {
-        'Suínos (Porco)': round(PRECOS_REAIS.get('suino', 8.0) * fator, 2),
-        'Ovinos (Ovelha, Cabra)': round(PRECOS_REAIS.get('ovino', 20.0) * fator, 2),
-        'Aves (Galinha, Peru)': round(PRECOS_REAIS.get('ave', 6.0) * fator, 2),
-        'Peixes Nobres (Pirarucu)': round(PRECOS_REAIS.get('peixe_gigante', 20.0) * fator, 2),
-        'Peixes (Tambaqui, Pacu)': round(PRECOS_REAIS.get('peixe_medio', 10.0) * fator, 2),
-        'Equinos (Cavalo)': round(PRECOS_REAIS.get('equino', 15.0) * fator, 2)
+        'Suínos (Porco)': round(obter_preco_base('suino', PRECOS_REAIS.get('suino', 8.0)) * fator, 2),
+        'Ovinos (Ovelha, Cabra)': round(obter_preco_base('ovino', PRECOS_REAIS.get('ovino', 20.0)) * fator, 2),
+        'Aves (Galinha, Peru)': round(obter_preco_base('ave', PRECOS_REAIS.get('ave', 6.0)) * fator, 2),
+        'Peixes Nobres (Pirarucu)': round(obter_preco_base('peixe_gigante', PRECOS_REAIS.get('peixe_gigante', 20.0)) * fator, 2),
+        'Peixes (Tambaqui, Pacu)': round(obter_preco_base('peixe_medio', PRECOS_REAIS.get('peixe_medio', 10.0)) * fator, 2),
+        'Equinos (Cavalo)': round(obter_preco_base('equino', PRECOS_REAIS.get('equino', 15.0)) * fator, 2)
     }
-    
-    # 3. Derivados
+
     derivados = {
-        'Leite (Litro)': 2.50,
-        'Ovos (Unidade)': 0.50
+        'Leite (Litro)': round(obter_preco_base('leite_litro', 2.50), 2),
+        'Ovos (Unidade)': round(obter_preco_base('ovo_unidade', 0.50), 2)
     }
-    
-    # 4. Culturas (Silo e Galpão) com flutuação diária do mercado
+
     culturas_combinadas = {**PRECOS_VENDA, **PRECOS_GALPAO}
-    
     culturas = {}
     for k, v in culturas_combinadas.items():
-        nome_formatado = k.capitalize()
-        if isinstance(v, (int, float)):
-            culturas[nome_formatado] = round(v * fator, 2)
-        elif isinstance(v, dict) and 'preco' in v:
-            culturas[nome_formatado] = round(v['preco'] * fator, 2)
-        else:
-            culturas[nome_formatado] = v
-    
+        chave_db = k.lower()
+        preco_padrao = v if isinstance(v, (int, float)) else (v.get('preco', 3.0) if isinstance(v, dict) else 3.0)
+        preco_editado = obter_preco_base(chave_db, preco_padrao)
+        culturas[k.capitalize()] = round(preco_editado * fator, 2)
+
     return jsonify({
         'sucesso': True,
         'gado_arroba': gado_arroba,

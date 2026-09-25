@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, session, redirect, url_for, request, jsonify
-from database import db, Jogador, Anuncio, Propriedade, Animal, TABELA_PRECOS, INFO_ESPECIES, Maquinario
+from database import db, Jogador, Anuncio, Propriedade, Animal, TABELA_PRECOS, INFO_ESPECIES, Maquinario, obter_preco_base
 from logica.economia import registrar_transacao
 import random
 
@@ -16,6 +16,10 @@ PRECOS_REAIS = {
     'ovino': 20.0
 }
 
+def obter_preco_familia(familia):
+    valor_padrao = PRECOS_REAIS.get(familia, 200.0)
+    return obter_preco_base(familia, valor_padrao)
+    
 def calcular_fator_dia(dia, mes, ano):
     semente = ano * 10000 + mes * 100 + dia
     rng = random.Random(semente)
@@ -40,7 +44,7 @@ def get_precos():
                 peso_filhote_kg = float(d.get('peso_jovem', 90.0))
                 break
                 
-        preco_base = PRECOS_REAIS.get(familia, 200.0) * fator
+        preco_base = obter_preco_familia(familia) * fator
         
         # 🔥 Cavalos e Ovelhas saíram da lista de Arrobas!
         if familia in ['bovino_corte', 'bovino_leite']:

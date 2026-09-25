@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request, session
-from database import db, Lote, Propriedade, Jogador, Maquinario
+from database import db, Lote, Propriedade, Jogador, Maquinario, obter_preco_base
 from logica.economia import registrar_transacao
 
 cultivo_bp = Blueprint('cultivo', __name__)
@@ -179,7 +179,9 @@ def plantar():
     qtd_prop = Propriedade.query.filter_by(dono_id=usuario.id).count()
     fator_inflacao = 1.0 + (getattr(usuario, 'nivel', 1) * 0.02) + (qtd_prop * 0.05)
 
-    custo_base = (dna_planta.custo_semente + dna_planta.custo_maquina_plantio) * area
+    # O custo da semente agora busca o preço base dinâmico do CEO (ou usa o padrão do catálogo)
+    custo_semente_ceo = obter_preco_base(f'semente_{tipo}', dna_planta.custo_semente)
+    custo_base = (custo_semente_ceo + dna_planta.custo_maquina_plantio) * area
     custo_total = int(custo_base * fator_inflacao)
 
     if usuario.saldo < custo_total:

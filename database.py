@@ -424,3 +424,24 @@ class Notificacao(db.Model):
     lida = db.Column(db.Boolean, default=False)
     data = db.Column(db.DateTime, default=datetime.utcnow)
     jogador = db.relationship('Jogador', backref=db.backref('notificacoes_recebidas', lazy=True))
+
+# ==========================================
+# MODELO E FUNÇÃO DO PAINEL DE PREÇOS (CEO)
+# ==========================================
+
+class PrecoConfig(db.Model):
+    __tablename__ = 'precos_config'
+    id = db.Column(db.Integer, primary_key=True)
+    chave = db.Column(db.String(50), unique=True, nullable=False)
+    categoria = db.Column(db.String(30), nullable=False)
+    nome_exibicao = db.Column(db.String(100), nullable=False)
+    valor_base = db.Column(db.Float, nullable=False)
+
+def obter_preco_base(chave, valor_padrao):
+    try:
+        config = PrecoConfig.query.filter_by(chave=chave).first()
+        if config and config.valor_base is not None:
+            return config.valor_base
+    except Exception:
+        pass
+    return valor_padrao
