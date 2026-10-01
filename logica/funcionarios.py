@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, session
-from database import db, Jogador, Propriedade, Equipe
+from database import db, Jogador, Propriedade, Equipe, Maquinario, Lote, Notificacao
 from logica.economia import registrar_transacao
 
 funcionarios_bp = Blueprint('funcionarios', __name__)
@@ -19,7 +19,9 @@ class GerenciadorRH:
         'tratoristas': Cargo('tratoristas', 'Tratorista', 1200.0, 12.0, '+15% Colheita (Máx 5)'),
         'capatazes': Cargo('capatazes', 'Capataz', 8000.0, 20.0, '+5% Venda (Máx 5)'),
         'veterinarios': Cargo('veterinarios', 'Veterinário', 3000.0, 25.0, 'Reduz doenças'),
-        'agronomos': Cargo('agronomos', 'Agrônomo', 3500.0, 30.0, '-20% Safra (Máx 2)')
+        'agronomos': Cargo('agronomos', 'Agrônomo', 3500.0, 30.0, '-20% Safra (Máx 2)'),
+        'piloto_drone': Cargo('piloto_drone', 'Piloto de Drone', 4500.0, 35.0, 'Operação e Recarga de Drones (Máx 2)'),
+        'piloto_aviao': Cargo('piloto_aviao', 'Piloto de Avião', 12000.0, 50.0, 'Pulverização e Adubação Aérea (Máx 2)')
     }
     
     @classmethod
@@ -65,7 +67,13 @@ def contratar_funcionario():
     if qtd_atual is None:
         qtd_atual = 0
         
-    limite_maximo = 2 if id_cargo == 'agronomos' else 5
+    if id_cargo == 'agronomos':
+        limite_maximo = 2
+    elif id_cargo in ['piloto_drone', 'piloto_aviao']:
+        limite_maximo = 2
+    else:
+        limite_maximo = 5
+
     if qtd_atual >= limite_maximo:
         return jsonify({'sucesso': False, 'erro': f'Alojamento lotado! O limite é de {limite_maximo} {cargo_obj.nome}(s) por fazenda.'})
         
@@ -92,9 +100,11 @@ def cobrar_folha_pagamento(jogador, horas_passadas):
         equipe = Equipe.query.filter_by(propriedade_id=prop.id).first()
         if equipe:
             custo_total += GerenciadorRH.calcular_folha(equipe, horas_passadas)
+            
+            # 🔥 AUTOMAÇÃO DOS PILOTOS DE DRONE E AVIÃO 🔥
+            processar_trabalho_pilotos(jogador, prop, equipe)
 
     if custo_total > 0:
-        # 🔥 BLINDAGEM: Impede a conta de cair em dívida impagável (Softlock)
         valor_cobrado = custo_total if jogador.saldo >= custo_total else jogador.saldo
         jogador.saldo -= valor_cobrado
         
@@ -104,15 +114,90 @@ def cobrar_folha_pagamento(jogador, horas_passadas):
         
     return custo_total
 
+def processar_trabalho_pilotos(jogador, propriedade, equipe):
+    """Executa a rotina automatizada do Piloto de Drone e do Piloto de Avião."""
+    fator_area = {
+        'Chácara': 1,
+        'Sítio': 5,
+        'Fazenda': 15,
+        'Latifúndio': 30
+    }.get(propriedade.tipo, 1)
+
+    maquinas = Maquinario.query.filter_by(propriedade_id=propriedade.id).all()
+    lotes = Lote.query.filter_by(fazenda_id=propriedade.id).all()
+    lotes_ativos = [l for l in lotes if l.status in ['plantado', 'colhendo']]
+
+    if not lotes_ativos:
+        return
+
+    # 1. AUTOMAÇÃO DO PILOTO DE DRONE
+    if getattr(equipe, 'piloto_drone', 0) > 0:
+        drone = next((m for m in maquinas if 'Drone' in str(getattr(m, 'modelo', ''))), None)
+        if drone:
+            # Compatibilidade com colunas de bateria ou combustível
+            nivel_energia = getattr(drone, 'bateria', getattr(drone, 'nivel_combustivel', 100))
+            
+            if nivel_energia >= 20:
+                lotes_precisam_adubo = [l for l in lotes_ativos if getattr(l, 'fertilidade_solo', 100) < 100]
+                lotes_precisam_praga = [l for l in lotes_ativos if getattr(l, 'nivel_pragas', 0) > 0]
+
+                if lotes_precisam_adubo and getattr(propriedade, 'est_adubo', 0) >= len(lotes_precisam_adubo) * fator_area:
+                    qtd_insumo = len(lotes_precisam_adubo) * fator_area
+                    propriedade.est_adubo -= qtd_insumo
+                    for lote in lotes_precisam_adubo:
+                        lote.fertilidade_solo = min(100, getattr(lote, 'fertilidade_solo', 100) + 40)
+                    
+                    if hasattr(drone, 'bateria'):
+                        drone.bateria = max(0, drone.bateria - 15)
+                    elif hasattr(drone, 'nivel_combustivel'):
+                        drone.nivel_combustivel = max(0, drone.nivel_combustivel - 15)
+                    
+                    db.session.add(Notificacao(
+                        jogador_id=jogador.id,
+                        texto=f"🛸 [Piloto de Drone] O drone aplicou adubo em {len(lotes_precisam_adubo)} lote(s) na {propriedade.nome}."
+                    ))
+
+                elif lotes_precisam_praga and getattr(propriedade, 'est_veneno', 0) >= len(lotes_precisam_praga) * fator_area:
+                    qtd_insumo = len(lotes_precisam_praga) * fator_area
+                    propriedade.est_veneno -= qtd_insumo
+                    for lote in lotes_precisam_praga:
+                        lote.nivel_pragas = 0
+                    
+                    if hasattr(drone, 'bateria'):
+                        drone.bateria = max(0, drone.bateria - 15)
+                    elif hasattr(drone, 'nivel_combustivel'):
+                        drone.nivel_combustivel = max(0, drone.nivel_combustivel - 15)
+                    
+                    db.session.add(Notificacao(
+                        jogador_id=jogador.id,
+                        texto=f"🛸 [Piloto de Drone] O drone pulverizou defensivo em {len(lotes_precisam_praga)} lote(s) na {propriedade.nome}."
+                    ))
+
+    # 2. AUTOMAÇÃO DO PILOTO DE AVIÃO
+    if getattr(equipe, 'piloto_aviao', 0) > 0:
+        aviao = next((m for m in maquinas if 'Avião' in str(getattr(m, 'modelo', '')) or 'Ipanema' in str(getattr(m, 'modelo', ''))), None)
+        if aviao and getattr(propriedade, 'est_qav', 0) >= 2:
+            lotes_criticos = [l for l in lotes_ativos if getattr(l, 'nivel_pragas', 0) > 0 or getattr(l, 'fertilidade_solo', 100) < 60]
+            
+            if lotes_criticos:
+                insumo_necessario = len(lotes_criticos) * fator_area
+                if getattr(propriedade, 'est_veneno', 0) >= insumo_necessario:
+                    propriedade.est_veneno -= insumo_necessario
+                    propriedade.est_qav -= 2
+                    for lote in lotes_criticos:
+                        lote.nivel_pragas = 0
+                    
+                    db.session.add(Notificacao(
+                        jogador_id=jogador.id,
+                        texto=f"🛩️ [Piloto de Avião] O comandante realizou pulverização aérea em {len(lotes_criticos)} lote(s) na {propriedade.nome}."
+                    ))
+
 def obter_bonus_equipe(propriedade_id):
     equipe = Equipe.query.filter_by(propriedade_id=propriedade_id).first()
     if not equipe:
         return {'bonus_colheita': 1.0, 'protecao_animal': False, 'bonus_venda': 1.0, 'reduz_doencas': False, 'acelera_safra': 1.0}
 
     bonus_trator = min(0.75, getattr(equipe, 'tratoristas', 0) * 0.15) 
-    
-    # 🔥 A MÁGICA DOS 5% ACONTECE AQUI:
-    # 0.05 é 5% por funcionário. 0.25 é a trava máxima de 25% (5 capatazes).
     bonus_venda = min(0.25, getattr(equipe, 'capatazes', 0) * 0.05)    
 
     return {
@@ -122,7 +207,6 @@ def obter_bonus_equipe(propriedade_id):
         'reduz_doencas': getattr(equipe, 'veterinarios', 0) > 0,
         'acelera_safra': max(0.5, 1.0 - (getattr(equipe, 'agronomos', 0) * 0.20))
     }
-
 
 @funcionarios_bp.route('/api/rh/listar/<int:propriedade_id>', methods=['GET'])
 def listar_equipe(propriedade_id):
@@ -139,7 +223,7 @@ def listar_equipe(propriedade_id):
     
     if not equipe:
         return jsonify({'sucesso': True, 'equipe': {
-            'peoes': 0, 'tratoristas': 0, 'capatazes': 0, 'veterinarios': 0, 'agronomos': 0
+            'peoes': 0, 'tratoristas': 0, 'capatazes': 0, 'veterinarios': 0, 'agronomos': 0, 'piloto_drone': 0, 'piloto_aviao': 0
         }})
         
     return jsonify({'sucesso': True, 'equipe': {
@@ -148,6 +232,8 @@ def listar_equipe(propriedade_id):
         'capatazes': getattr(equipe, 'capatazes', 0),
         'veterinarios': getattr(equipe, 'veterinarios', 0),
         'agronomos': getattr(equipe, 'agronomos', 0),
+        'piloto_drone': getattr(equipe, 'piloto_drone', 0),
+        'piloto_aviao': getattr(equipe, 'piloto_aviao', 0)
     }})
 
 @funcionarios_bp.route('/api/rh/demitir', methods=['POST'])

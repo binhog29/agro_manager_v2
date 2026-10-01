@@ -115,7 +115,7 @@ class GerenciadorTempo:
         # BALANCEAMENTO MESTRE: FOLHA DE PAGAMENTO E ITR PROGRESSIVO
         if meses_passados > 0:
             from logica.funcionarios import cobrar_folha_pagamento
-            from database import Lote
+            from database import Lote, obter_preco_base  # 👈 Adicionado obter_preco_base
             
             horas_cobradas = meses_passados * 240
             custo_rh = cobrar_folha_pagamento(jogador, horas_cobradas)
@@ -127,13 +127,16 @@ class GerenciadorTempo:
                 prop_itr = Propriedade.query.get(lote.fazenda_id)
                 area_lote = {'Chácara': 1, 'Sítio': 5, 'Fazenda': 15, 'Latifúndio': 30}.get(getattr(prop_itr, 'tipo', 'Chácara'), 1)
                 total_hectares_reais += area_lote
-                
+
+            # 🔥 Puxa o valor base do ITR definido pelo CEO no Painel (padrão R$ 150.00 se não configurado)
+            valor_base_itr = obter_preco_base('itr_aliquota', 150.0)
+
             if total_hectares_reais <= 10:
-                imposto_itr = (total_hectares_reais * 150.0) * meses_passados 
+                imposto_itr = (total_hectares_reais * valor_base_itr) * meses_passados 
             else:
                 hectares_extras = total_hectares_reais - 10
                 multiplicador_imposto = 1.0 + (hectares_extras * 0.02)
-                valor_por_hectare = 200.0 * multiplicador_imposto
+                valor_por_hectare = (valor_base_itr * 1.33) * multiplicador_imposto
                 imposto_itr = (total_hectares_reais * valor_por_hectare) * meses_passados
             
             taxa_fortuna = 0

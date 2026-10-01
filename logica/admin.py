@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, session, redirect, url_for, request, jsonify
-from database import db, Jogador, Propriedade, Transacao, MensagemChat, Animal, Lote, PrecoConfig
+from database import db, Jogador, Propriedade, Transacao, MensagemChat, Animal, Lote, PrecoConfig, Maquinario, Equipe
 
 admin_bp = Blueprint('admin_ceo', __name__)
 
@@ -657,7 +657,42 @@ def inicializar_precos_padrao():
         ('leite_litro', '4_derivados', 'Leite (Litro)', 2.50),
         ('ovo_unidade', '4_derivados', 'Ovo (Unidade)', 0.50),
         ('adubo', '5_insumos', 'Saco de Adubo', 80.0),
-        ('veneno', '5_insumos', 'Galão de Defensivo', 120.0)
+        ('veneno', '5_insumos', 'Galão de Defensivo', 120.0),
+
+        # --- 🚜 MAQUINÁRIO, IMPLEMENTOS & VEÍCULOS ---
+        ('maq_trator_leve', '6_maquinario', 'Trator Leve', 85000.0),
+        ('maq_trator_pesado', '6_maquinario', 'Trator Pesado', 350000.0),
+        ('maq_trator_esteira', '6_maquinario', 'Trator de Esteira', 450000.0),
+        ('maq_escavadeira', '6_maquinario', 'Escavadeira', 550000.0),
+        ('maq_colheitadeira', '6_maquinario', 'Colheitadeira Grãos', 850000.0),
+        ('maq_pulverizador', '6_maquinario', 'Pulverizador Autopropelido', 420000.0),
+        ('maq_pulv_arrasto', '6_maquinario', 'Pulverizador de Arrasto', 35000.0),
+        ('maq_plantadeira', '6_maquinario', 'Plantadeira de Precisão', 150000.0),
+        ('maq_grade_aradora', '6_maquinario', 'Grade Aradora', 65000.0),
+        ('maq_caminhonete_usada', '6_maquinario', 'Caminhonete Usada', 45000.0),
+        ('maq_caminhonete_nova', '6_maquinario', 'Caminhonete Nova', 180000.0),
+        ('maq_caminhao_boiadeiro', '6_maquinario', 'Caminhão Boiadeiro', 250000.0),
+        ('maq_caminhao_bau', '6_maquinario', 'Caminhão Baú (Frios)', 200000.0),
+        ('maq_caminhao_prancha', '6_maquinario', 'Caminhão Prancha', 380000.0),
+        ('maq_drone_agricola', '6_maquinario', 'Drone Agrícola de Precisão', 180000.0),
+        ('maq_aviao_agricola', '6_maquinario', 'Avião Agrícola EMB-202', 2500000.0),
+        
+        # 🛩️ ALUGUERES AÉREOS E RECURSOS HUMANOS (RH)
+        ('aluguel_aviao', '6_maquinario', 'Pulverização Aérea (Por Voo)', 35000.0),
+        ('aluguel_aviao_adubo', '6_maquinario', 'Aluguer Aéreo de Adubação', 45000.0),
+        
+        # --- RECURSOS HUMANOS (RH) ---
+        ('salario_peao', '8_rh', 'Salário/h: Peão', 10.42),
+        ('salario_tratorista', '8_rh', 'Salário/h: Tratorista', 12.0),
+        ('salario_capataz', '8_rh', 'Salário/h: Capataz', 20.0),
+        ('salario_veterinario', '8_rh', 'Salário/h: Veterinário', 25.0),
+        ('salario_agronomo', '8_rh', 'Salário/h: Agrônomo', 30.0),
+        ('salario_piloto_drone', '8_rh', 'Salário/h: Piloto de Drone', 35.0),
+        ('salario_piloto_aviao', '8_rh', 'Salário/h: Piloto de Avião', 50.0),
+        
+        # --- IMPOSTOS E TAXAS GOVERNAMENTAIS ---
+        ('itr_aliquota', '7_impostos', 'Alíquota ITR Base (%)', 1.50),
+        ('funrural_taxa', '7_impostos', 'Taxa FUNRURAL Vendas (%)', 4.00)
     ]
 
     try:
@@ -665,11 +700,9 @@ def inicializar_precos_padrao():
         for chave, cat, nome, valor in padroes:
             item_existente = PrecoConfig.query.filter_by(chave=chave).first()
             if not item_existente:
-                # Se o item ainda não existe no banco, adiciona
                 db.session.add(PrecoConfig(chave=chave, categoria=cat, nome_exibicao=nome, valor_base=valor))
                 houve_alteracao = True
             else:
-                # Atualiza a categoria e o nome de exibição para manter organizados no HTML
                 item_existente.categoria = cat
                 item_existente.nome_exibicao = nome
                 houve_alteracao = True

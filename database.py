@@ -151,7 +151,8 @@ class Propriedade(db.Model):
     
     est_leite = db.Column(db.Float, default=0.0)             
     est_ovos = db.Column(db.Integer, default=0)              
-    est_calcario = db.Column(db.Float, default=0.0)          
+    est_calcario = db.Column(db.Float, default=0.0)
+    est_qav = db.Column(db.Integer, default=0)
 
     lotes = db.relationship('Lote', backref='fazenda', lazy=True)
     maquinarios = db.relationship('Maquinario', backref='fazenda', lazy=True)
@@ -299,7 +300,9 @@ class Equipe(db.Model):
     tratoristas = db.Column(db.Integer, default=0)
     capatazes = db.Column(db.Integer, default=0)
     veterinarios = db.Column(db.Integer, default=0) 
-    agronomos = db.Column(db.Integer, default=0)    
+    agronomos = db.Column(db.Integer, default=0) 
+    piloto_drone = db.Column(db.Integer, default=0)
+    piloto_aviao = db.Column(db.Integer, default=0)
     
     propriedade = db.relationship('Propriedade', backref=db.backref('equipe', uselist=False, lazy=True))
 

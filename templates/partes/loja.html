@@ -150,6 +150,17 @@
                 <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('combustivel', 'Combustível', 150.0, 1)">+</button>
             </div>
         </div>
+        
+        <div class="loja-card-pequeno">
+            <img src="/static/img/tambor_oleo.png" onerror="this.src='/static/img/combustivel.png'">
+            <h5>Combustível QAV</h5>
+            <div class="preco">$150 gl</div>
+            <div class="loja-controles">
+                <button class="loja-btn-qtd" onclick="alterarQtdCarrinho('qav', 'Combustível QAV', 150.0, -1)">-</button>
+                <input type="number" class="loja-qtd-display" id="qtd-qav" value="0" min="0" oninput="atualizarQtdDireta('qav', 'Combustível QAV', 150.0, this)">
+                <button class="loja-btn-qtd add" onclick="alterarQtdCarrinho('qav', 'Combustível QAV', 150.0, 1)">+</button>
+            </div>
+        </div>
     </div>
     
     <!-- GRÃOS E CEREAIS -->

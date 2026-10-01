@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request, session
-from database import db, Lote, Propriedade, Jogador, Maquinario, obter_preco_base
+from database import db, Lote, Propriedade, Jogador, Maquinario, obter_preco_base, Notificacao, Equipe
 from logica.economia import registrar_transacao
 
 cultivo_bp = Blueprint('cultivo', __name__)
@@ -542,3 +542,271 @@ def colher_tudo(fazenda_id):
         'sucesso': True, 
         'msg': f'Colheita em massa concluída! {colhidos_count} lote(s) colhidos, totalizando {total_kg_colhidos:,.0f} kg recolhidos.'
     })
+
+@cultivo_bp.route('/api/cultivo/drone_adubar_tudo/<int:fazenda_id>', methods=['POST'])
+def drone_adubar_tudo(fazenda_id):
+    if 'usuario' not in session: 
+        return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
+        
+    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    fazenda = Propriedade.query.filter_by(id=fazenda_id, dono_id=usuario.id).first()
+    
+    if not fazenda:
+        return jsonify({'sucesso': False, 'erro': 'Fazenda não encontrada.'})
+
+    # 1. Localiza o Drone na fazenda
+    maquinas = Maquinario.query.filter_by(propriedade_id=fazenda.id).all()
+    drone = next((m for m in maquinas if 'Drone' in m.modelo), None)
+    
+    if not drone:
+        return jsonify({'sucesso': False, 'erro': 'Você precisa adquirir um Drone Agrícola no Barracão desta fazenda!'})
+
+    # 2. Checa se o Drone tem bateria suficiente (mínimo 20%)
+    if drone.nivel_combustivel < 20:
+        return jsonify({
+            'sucesso': False, 
+            'erro': f'🔋 Bateria fraca ({drone.nivel_combustivel:.0f}%)! Recarregue o Drone no Barracão antes do voo.'
+        })
+
+    area = MULTIPLICADOR_AREA.get(fazenda.tipo, 1)
+    lotes = Lote.query.filter_by(fazenda_id=fazenda.id).all()
+    
+    # Filtra lotes que precisam de adubo (plantados e com fertilidade < 100)
+    lotes_alvo = [l for l in lotes if l.status in ['plantado', 'colhendo'] and getattr(l, 'fertilidade_solo', 100) < 100]
+    
+    if not lotes_alvo:
+        return jsonify({'sucesso': False, 'erro': 'Todos os lotes já estão com 100% de fertilidade!'})
+
+    adubo_necessario = len(lotes_alvo) * area
+    
+    if getattr(fazenda, 'est_adubo', 0) < adubo_necessario:
+        return jsonify({
+            'sucesso': False, 
+            'erro': f'Estoque insuficiente! O voo requer {adubo_necessario} sc de Adubo ({len(lotes_alvo)} lotes).'
+        })
+
+    # Executa a adubação em massa via Drone
+    fazenda.est_adubo -= adubo_necessario
+    for lote in lotes_alvo:
+        lote.fertilidade_solo = min(100, getattr(lote, 'fertilidade_solo', 100) + 40)
+
+    # Consome 20% da bateria do Drone
+    drone.nivel_combustivel -= 20
+    db.session.commit()
+    
+    return jsonify({
+        'sucesso': True, 
+        'msg': f'🛸 Voo concluído! {len(lotes_alvo)} lotes adubados ({adubo_necessario} sc de adubo). Bateria restante: {drone.nivel_combustivel:.0f}%.'
+    })
+
+
+@cultivo_bp.route('/api/cultivo/drone_pulverizar_tudo/<int:fazenda_id>', methods=['POST'])
+def drone_pulverizar_tudo(fazenda_id):
+    if 'usuario' not in session: 
+        return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
+        
+    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    fazenda = Propriedade.query.filter_by(id=fazenda_id, dono_id=usuario.id).first()
+    
+    if not fazenda:
+        return jsonify({'sucesso': False, 'erro': 'Fazenda não encontrada.'})
+
+    # 1. Localiza o Drone na fazenda
+    maquinas = Maquinario.query.filter_by(propriedade_id=fazenda.id).all()
+    drone = next((m for m in maquinas if 'Drone' in m.modelo), None)
+    
+    if not drone:
+        return jsonify({'sucesso': False, 'erro': 'Você precisa adquirir um Drone Agrícola no Barracão desta fazenda!'})
+
+    # 2. Checa se o Drone tem bateria suficiente (mínimo 20%)
+    if drone.nivel_combustivel < 20:
+        return jsonify({
+            'sucesso': False, 
+            'erro': f'🔋 Bateria fraca ({drone.nivel_combustivel:.0f}%)! Recarregue o Drone no Barracão antes do voo.'
+        })
+
+    area = MULTIPLICADOR_AREA.get(fazenda.tipo, 1)
+    lotes = Lote.query.filter_by(fazenda_id=fazenda.id).all()
+    
+    # Filtra lotes vulneráveis a pragas
+    lotes_alvo = [l for l in lotes if l.status in ['plantado', 'colhendo'] and getattr(l, 'nivel_pragas', 0) >= 0]
+    
+    if not lotes_alvo:
+        return jsonify({'sucesso': False, 'erro': 'Todas as lavouras já estão blindadas contra pragas!'})
+
+    veneno_necessario = len(lotes_alvo) * area
+    
+    if getattr(fazenda, 'est_veneno', 0) < veneno_necessario:
+        return jsonify({
+            'sucesso': False, 
+            'erro': f'Estoque insuficiente! O voo requer {veneno_necessario} gl de Defensivo.'
+        })
+
+    # Executa a pulverização em massa
+    fazenda.est_veneno -= veneno_necessario
+    for lote in lotes_alvo:
+        lote.nivel_pragas = -60  # Aplica efeito residual contra pragas
+
+    # Consome 20% da bateria do Drone
+    drone.nivel_combustivel -= 20
+    db.session.commit()
+    
+    return jsonify({
+        'sucesso': True, 
+        'msg': f'🛸 Pulverização de precisão concluída! {len(lotes_alvo)} lavouras blindadas (-60 pragas). Bateria restante: {drone.nivel_combustivel:.0f}%.'
+    })
+
+@cultivo_bp.route('/api/cultivo/aviao_pulverizar_tudo/<int:fazenda_id>', methods=['POST'])
+def aviao_pulverizar_tudo(fazenda_id):
+    if 'usuario' not in session: 
+        return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
+        
+    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    fazenda = Propriedade.query.filter_by(id=fazenda_id, dono_id=usuario.id).first()
+    
+    if not fazenda:
+        return jsonify({'sucesso': False, 'erro': 'Fazenda não encontrada.'})
+
+    dados = request.get_json() or {}
+    modo_aluguel = dados.get('modo_aluguel', False)
+
+    lotes = Lote.query.filter_by(fazenda_id=fazenda.id).all()
+    lotes_alvo = [l for l in lotes if l.status in ['plantado', 'colhendo']]
+    
+    if not lotes_alvo:
+        return jsonify({'sucesso': False, 'erro': 'Não há lavouras ativas nesta fazenda para pulverizar!'})
+
+    area = MULTIPLICADOR_AREA.get(fazenda.tipo, 1)
+
+    # ----------------------------------------------------
+    # MODO 1: ALUGUEL TERCEIRIZADO (Pulverização ou Adubação)
+    # ----------------------------------------------------
+    if modo_aluguel:
+        hora_atual = getattr(usuario, 'hora', 6)
+        if hora_atual < 6 or hora_atual >= 18:
+            return jsonify({
+                'sucesso': False, 
+                'erro': f'🌙 Operações aéreas suspensas à noite! O horário de voo é das 06:00 às 18:00 (Hora atual: {hora_atual:02d}:00).'
+            })
+
+        # Garante que 'dados' existe para evitar NameError
+        try:
+            dados = request.get_json() or {}
+        except Exception:
+            dados = {}
+
+        # Identifica se o botão clicado foi o de adubação ou pulverização
+        tipo_servico = dados.get('tipo', 'aluguel_aviao')
+        eh_adubacao = (tipo_servico == 'aluguel_aviao_adubo')
+
+        # 🔥 BUSCA OS PREÇOS DINÂMICOS CONFIGURADOS NO PAINEL DE ADMINISTRAÇÃO
+        chave_preco = 'aluguel_aviao_adubo' if eh_adubacao else 'aluguel_aviao'
+        CUSTO_ALUGUEL = float(obter_preco_base(chave_preco, 45000.0 if eh_adubacao else 35000.0))
+        
+        # Define um valor seguro para a área caso não venha definida no escopo
+        fator_area = area if 'area' in locals() else 1
+        insumo_necessario = len(lotes_alvo) * fator_area
+
+        if usuario.saldo < CUSTO_ALUGUEL:
+            return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente! O serviço custa R$ {CUSTO_ALUGUEL:,.2f}.'})
+        
+        # Valida o estoque correto dependendo do serviço escolhido
+        if eh_adubacao:
+            if getattr(fazenda, 'est_adubo', 0) < insumo_necessario:
+                return jsonify({'sucesso': False, 'erro': f'Estoque insuficiente! Requer {insumo_necessario} sc de Adubo.'})
+            fazenda.est_adubo -= insumo_necessario
+            nome_transacao = f'Aluguel Aéreo de Adubação ({fazenda.nome})'
+            msg_sucesso = f'🌱 Adubação Aérea concluída com sucesso! Custo: R$ {CUSTO_ALUGUEL:,.2f}'
+        else:
+            if getattr(fazenda, 'est_veneno', 0) < insumo_necessario:
+                return jsonify({'sucesso': False, 'erro': f'Estoque insuficiente! Requer {insumo_necessario} gl de Defensivo.'})
+            fazenda.est_veneno -= insumo_necessario
+            nome_transacao = f'Aluguel de Aviação Agrícola ({fazenda.nome})'
+            msg_sucesso = f'🛩️ Pulverização Aérea concluída com sucesso! Custo: R$ {CUSTO_ALUGUEL:,.2f}'
+
+        usuario.saldo -= CUSTO_ALUGUEL
+        registrar_transacao(usuario.id, 'saida', CUSTO_ALUGUEL, nome_transacao)
+        
+        # Aplica o efeito correto na lavoura
+        for lote in lotes_alvo:
+            if eh_adubacao:
+                lote.fertilidade_solo = 100  # Restaura a fertilidade do solo
+            else:
+                lote.nivel_pragas = -100     # Blinda contra pragas
+            
+        notificacao = Notificacao(
+            jogador_id=usuario.id,
+            texto=f"🛩️ Serviço aéreo executado com sucesso na {fazenda.nome}."
+        )
+        db.session.add(notificacao)
+        db.session.commit()
+
+        return jsonify({'sucesso': True, 'msg': msg_sucesso})
+
+    # ----------------------------------------------------
+    # MODO 2: USAR AVIÃO PRÓPRIO (EXIGE PILOTO OBRIGATORIAMENTE)
+    # ----------------------------------------------------
+    if not modo_aluguel:
+        hora_atual = getattr(usuario, 'hora', 6)
+        if hora_atual < 6 or hora_atual >= 18:
+            return jsonify({
+                'sucesso': False, 
+                'erro': f'🌙 Operações aéreas suspensas à noite! O horário de voo é das 06:00 às 18:00 (Hora atual: {hora_atual:02d}:00).'
+            })
+
+        maquinas = Maquinario.query.filter_by(propriedade_id=fazenda.id).all()
+        aviao = next((m for m in maquinas if 'Avião' in m.modelo or 'Ipanema' in m.modelo), None)
+
+        if not aviao:
+            return jsonify({'sucesso': False, 'erro': 'Você não possui um Avião Agrícola no Barracão desta fazenda!'})
+
+        # 🔒 VALIDAÇÃO EXCLUSIVA DO AVIÃO PRÓPRIO: Exige o Piloto no Alojamento
+        from database import Equipe
+        equipe = Equipe.query.filter_by(propriedade_id=fazenda.id).first()
+        if not equipe or getattr(equipe, 'piloto_aviao', 0) < 1:
+            return jsonify({'sucesso': False, 'erro': 'Você precisa contratar um Piloto de Avião no menu de Funcionários para operar seu avião próprio!'})
+
+        tipo_servico = dados.get('tipo', 'aluguel_aviao')
+        eh_adubacao = ('adubo' in tipo_servico)
+
+        fator_area = area if 'area' in locals() else 1
+        insumo_necessario = len(lotes_alvo) * fator_area
+
+        QAV_NECESSARIO = 2
+        if getattr(fazenda, 'est_qav', 0) < QAV_NECESSARIO:
+            return jsonify({'sucesso': False, 'erro': f'Estoque de QAV insuficiente no Armazém! Requer {QAV_NECESSARIO} galões de Querosene de Aviação.'})
+
+        if eh_adubacao:
+            if getattr(fazenda, 'est_adubo', 0) < insumo_necessario:
+                return jsonify({'sucesso': False, 'erro': f'Estoque insuficiente! Requer {insumo_necessario} sc de Adubo.'})
+            fazenda.est_adubo -= insumo_necessario
+            msg_notif = f"🌱 O Comandante realizou a Adubação Aérea com o Avião Próprio! {len(lotes_alvo)} lotes adubados na {fazenda.nome}."
+            msg_sucesso = f'🌱 Adubação Aérea com Avião Próprio concluída! {len(lotes_alvo)} lotes atendidos. QAV consumido: {QAV_NECESSARIO} galões.'
+        else:
+            if getattr(fazenda, 'est_veneno', 0) < insumo_necessario:
+                return jsonify({'sucesso': False, 'erro': f'Estoque insuficiente! Requer {insumo_necessario} gl de Defensivo.'})
+            fazenda.est_veneno -= insumo_necessario
+            msg_notif = f"🛩️ O Comandante realizou a Pulverização com o Avião Próprio! {len(lotes_alvo)} lotes blindados na {fazenda.nome} (+15% bónus de rendimento)."
+            msg_sucesso = f'🛩️ Voo de alta precisão concluído! {len(lotes_alvo)} lotes atendidos. QAV consumido: {QAV_NECESSARIO} galões.'
+
+        fazenda.est_qav -= QAV_NECESSARIO
+
+        for lote in lotes_alvo:
+            if eh_adubacao:
+                lote.fertilidade_solo = 100
+            else:
+                lote.nivel_pragas = -100
+                if hasattr(lote, 'bonus_produtividade'):
+                    lote.bonus_produtividade = 1.15
+
+        notificacao = Notificacao(
+            jogador_id=usuario.id,
+            texto=msg_notif
+        )
+        db.session.add(notificacao)
+        db.session.commit()
+
+        return jsonify({
+            'sucesso': True, 
+            'msg': msg_sucesso
+        })

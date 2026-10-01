@@ -4,7 +4,7 @@ from database import db, Jogador, Propriedade, Transacao
 loja_bp = Blueprint('loja', __name__)
 
 ITENS_ARMAZEM = [
-    'sal', 'racao', 'adubo', 'veneno', 'combustivel', 
+    'sal', 'racao', 'adubo', 'veneno', 'combustivel', 'qav', 
     'vacina_aftosa', 'vacina_brucelose', 'medicamento_geral', 
     'suplemento_engorda', 'racao_peixe'
 ]
@@ -17,7 +17,7 @@ ITENS_GALPAO = [
 ]
 
 PRECOS_LOJA = {
-    'sal': 25.0, 'racao': 40.0, 'adubo': 50.0, 'veneno': 80.0, 'combustivel': 150.0,
+    'sal': 25.0, 'racao': 40.0, 'adubo': 50.0, 'veneno': 80.0, 'combustivel': 150.0, 'qav': 150.0,
     'vacina_aftosa': 50.0, 'vacina_brucelose': 60.0, 'medicamento_geral': 30.0,
     'suplemento_engorda': 40.0, 'racao_peixe': 35.0,
     'soja': 350.0, 'milho': 200.0, 'arroz': 180.0, 'feijao': 250.0,
@@ -26,12 +26,13 @@ PRECOS_LOJA = {
     'cupuacu': 400.0, 'pimenta': 300.0, 'melancia': 50.0, 'abacaxi': 250.0
 }
 
-# 🔥 A MÁGICA DA CONVERSÃO: 1 Saca/Muda na Loja = X Kg na Fazenda
+# 🔥 A MÁGICA DA CONVERSÃO: 1 Saca/Muda/Galão na Loja = X Kg ou Galões na Fazenda
 CONVERSAO_KG = {
     'soja': 30, 'milho': 30, 'arroz': 20, 'feijao': 15,
     'algodao': 20, 'mandioca': 40, 'tomate': 2, 'banana': 35,
     'cana': 250, 'cafe': 15, 'cacau': 12, 'acai': 25,
-    'cupuacu': 18, 'pimenta': 12, 'melancia': 10, 'abacaxi': 50
+    'cupuacu': 18, 'pimenta': 12, 'melancia': 50, 'abacaxi': 50,
+    'qav': 1
 }
 
 @loja_bp.route('/api/loja/comprar', methods=['POST'])
@@ -57,7 +58,7 @@ def comprar_item():
     if jogador.saldo < custo_total: return jsonify({'sucesso': False, 'erro': 'Saldo insuficiente!'})
 
     try:
-        # Aplica a conversão de Kg
+        # Aplica a conversão de Kg/Galões
         qtd_convertida = quantidade * CONVERSAO_KG.get(nome_banco, 1)
 
         if nome_banco in ITENS_ARMAZEM:
@@ -71,18 +72,18 @@ def comprar_item():
                 return jsonify({'sucesso': False, 'erro': f'Silo cheio! Expanda-o primeiro!'})
 
         nome_coluna = f'est_{nome_banco}'
-        estoque_atual = getattr(fazenda, nome_coluna)
+        estoque_atual = getattr(fazenda, nome_coluna, 0)
         
         setattr(fazenda, nome_coluna, estoque_atual + qtd_convertida)
         jogador.saldo -= custo_total
         
-        unidade_txt = "kg" if nome_banco in ITENS_SILO_GRAOS or nome_banco in ITENS_GALPAO else "un"
-        db.session.add(Transacao(jogador_id=jogador.id, tipo='saida', valor=custo_total, descricao=f"Compra: {qtd_convertida}{unidade_txt} {nome_banco.capitalize()}"))
+        unidade_txt = "gl" if nome_banco == 'qav' else ("kg" if nome_banco in ITENS_SILO_GRAOS or nome_banco in ITENS_GALPAO else "un")
+        db.session.add(Transacao(jogador_id=jogador.id, tipo='saida', valor=custo_total, descricao=f"Compra: {qtd_convertida}{unidade_txt} {nome_banco.upper() if nome_banco == 'qav' else nome_banco.capitalize()}"))
         
         if getattr(jogador, 'xp', None) is None: jogador.xp = 0
         jogador.xp += 10
         db.session.commit()
-        return jsonify({'sucesso': True, 'msg': f'Compra realizada! Foram entregues {qtd_convertida}{unidade_txt} no estoque.'})
+        return jsonify({'sucesso': True, 'msg': f'Compra realizada! Foram entregues {qtd_convertida}{unidade_txt} no Armazém.'})
         
     except AttributeError:
         return jsonify({'sucesso': False, 'erro': 'Erro na coluna do banco de dados!'})
@@ -136,11 +137,11 @@ def checkout_carrinho():
         
         nome_coluna = f'est_{chave}'
         if hasattr(fazenda, nome_coluna):
-            estoque_atual = getattr(fazenda, nome_coluna)
+            estoque_atual = getattr(fazenda, nome_coluna, 0)
             setattr(fazenda, nome_coluna, estoque_atual + qtd_convertida)
             
-            unidade_texto = "kg" if chave in ITENS_SILO_GRAOS or chave in ITENS_GALPAO else "un"
-            resumo_compra.append(f"{qtd_convertida}{unidade_texto} {chave.capitalize()}")
+            unidade_texto = "gl" if chave == 'qav' else ("kg" if chave in ITENS_SILO_GRAOS or chave in ITENS_GALPAO else "un")
+            resumo_compra.append(f"{qtd_convertida}{unidade_texto} {chave.upper() if chave == 'qav' else chave.capitalize()}")
 
     jogador.saldo -= custo_total_carrinho
     texto_desc = "Compra: " + ", ".join(resumo_compra)

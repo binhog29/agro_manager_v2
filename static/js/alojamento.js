@@ -21,7 +21,9 @@ window.abrirModalRH = async function() {
             { id: 'tratoristas', nome: 'Tratorista', custo: 1200, salario: 12, icone: 'fa-tractor', benef: '+15% Colheita' },
             { id: 'capatazes', nome: 'Capataz', custo: 8000, salario: 20, icone: 'fa-dollar-sign', benef: '+5% Venda' },
             { id: 'veterinarios', nome: 'Veterinário', custo: 3000, salario: 25, icone: 'fa-notes-medical', benef: 'Reduz Doenças' },
-            { id: 'agronomos', nome: 'Agrônomo', custo: 3500, salario: 30, icone: 'fa-seedling', benef: 'Safra Rápida' }
+            { id: 'agronomos', nome: 'Agrônomo', custo: 3500, salario: 30, icone: 'fa-seedling', benef: 'Safra Rápida' },
+            { id: 'piloto_drone', nome: 'Piloto de Drone', custo: 4500, salario: 35, icone: 'fa-drone', benef: 'Operação de Drones' },
+            { id: 'piloto_aviao', nome: 'Piloto de Avião', custo: 12000, salario: 50, icone: 'fa-plane', benef: 'Aviação Agrícola' }
         ];
 
 
@@ -79,16 +81,33 @@ window.abrirModalRH = async function() {
 
 window.contratarFuncionario = function(prop_id, cargo) {
     Swal.fire({
-        title: 'Assinar Contrato', text: "Deseja contratar este profissional?", icon: 'question',
-        background: '#2a2a2a', color: '#fff', showCancelButton: true, confirmButtonColor: '#2e7d32', confirmButtonText: 'Sim'
+        title: 'Assinar Contrato', 
+        text: "Deseja contratar este profissional?", 
+        icon: 'question',
+        background: '#2a2a2a', 
+        color: '#fff', 
+        showCancelButton: true, 
+        confirmButtonColor: '#2e7d32', 
+        confirmButtonText: 'Sim'
     }).then((result) => {
         if (result.isConfirmed) {
-            Swal.fire({ title: 'Processando...', didOpen: () => Swal.showLoading() });
+            // Em vez de usar Swal de loading que trava o modal, atualizamos direto
             fetch('/api/rh/contratar', {
-                method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ propriedade_id: prop_id, cargo: cargo })
-            }).then(r => r.json()).then(d => {
-                if (d.sucesso) Swal.fire('Contratado!', d.msg, 'success').then(() => { localStorage.setItem('modal_aberto_fazenda', 'modal-rh'); location.reload(); });
-                else Swal.fire('Atenção', d.erro, 'warning');
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify({ propriedade_id: prop_id, cargo: cargo })
+            })
+            .then(r => r.json())
+            .then(d => {
+                if (d.sucesso) {
+                    // Atualiza o painel do RH instantaneamente com os novos dados
+                    window.abrirModalRH();
+                } else {
+                    Swal.fire('Atenção', d.erro, 'warning');
+                }
+            })
+            .catch(() => {
+                Swal.fire('Erro', 'Falha de comunicação com o servidor.', 'error');
             });
         }
     });
@@ -96,16 +115,34 @@ window.contratarFuncionario = function(prop_id, cargo) {
 
 window.demitirFuncionario = function(prop_id, cargo) {
     Swal.fire({
-        title: 'Demitir Funcionário?', text: "Tem certeza que deseja dispensar este profissional?", icon: 'warning',
-        background: '#2a2a2a', color: '#fff', showCancelButton: true, confirmButtonColor: '#d32f2f', confirmButtonText: 'Sim', cancelButtonText: 'Cancelar'
+        title: 'Demitir Funcionário?', 
+        text: "Tem certeza que deseja dispensar este profissional?", 
+        icon: 'warning',
+        background: '#2a2a2a', 
+        color: '#fff', 
+        showCancelButton: true, 
+        confirmButtonColor: '#d32f2f', 
+        confirmButtonText: 'Sim', 
+        cancelButtonText: 'Cancelar'
     }).then((result) => {
         if (result.isConfirmed) {
-            Swal.fire({ title: 'Processando rescisão...', didOpen: () => Swal.showLoading() });
+            // Executa a demissão em segundo plano sem abrir caixas de loading conflitantes
             fetch('/api/rh/demitir', {
-                method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ propriedade_id: prop_id, cargo: cargo })
-            }).then(r => r.json()).then(d => {
-                if (d.sucesso) Swal.fire('Demitido!', d.msg, 'success').then(() => { localStorage.setItem('modal_aberto_fazenda', 'modal-rh'); location.reload(); });
-                else Swal.fire('Atenção', d.erro, 'warning');
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify({ propriedade_id: prop_id, cargo: cargo })
+            })
+            .then(r => r.json())
+            .then(d => {
+                if (d.sucesso) {
+                    // Atualiza o painel do RH instantaneamente com os novos dados
+                    window.abrirModalRH();
+                } else {
+                    Swal.fire('Atenção', d.erro, 'warning');
+                }
+            })
+            .catch(() => {
+                Swal.fire('Erro', 'Falha de comunicação com o servidor.', 'error');
             });
         }
     });

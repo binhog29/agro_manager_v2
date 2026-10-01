@@ -143,24 +143,47 @@ class MotorAgricultura:
                         teve_ataque = True
                         
                     # ----------------------------------------------------
-                    # 🔥 MÁGICA 3 e 4: AUTOMAÇÃO AGRÍCOLA (TRATORISTAS)
+                    # 🔥 MÁGICA 3 e 4: AUTOMAÇÃO AGRÍCOLA (TRATORISTAS, DRONES E AVIÕES)
                     # ----------------------------------------------------
                     tem_tratorista = equipe and getattr(equipe, 'tratoristas', 0) > 0
+                    tem_piloto_drone = equipe and getattr(equipe, 'piloto_drone', 0) > 0
+                    tem_piloto_aviao = equipe and getattr(equipe, 'piloto_aviao', 0) > 0
                     area_lote = {'Chácara': 1, 'Sítio': 5, 'Fazenda': 15, 'Latifúndio': 30}.get(getattr(fazenda, 'tipo', 'Chácara'), 1)
                         
                     # 🚜 Defesa contra Pragas (Veneno)
                     if getattr(lote, 'nivel_pragas', 0) > 0:
-                        # 🔥 CORREÇÃO: Agora o tratorista aceita QUALQUER UM dos pulverizadores!
-                        pulverizador = next((m for m in dados_faz['maquinas_obj'] if m.modelo in ['Pulverizador', 'Pulverizador de Arrasto'] and m.nivel_combustivel >= 2 and m.estado_conservacao >= 1), None)
+                        # Verifica se tem Avião, Drone ou Pulverizador tradicional disponíveis
+                        aviao = next((m for m in dados_faz['maquinas_obj'] if ('Avião' in str(m.modelo) or 'Ipanema' in str(m.modelo)) and getattr(fazenda, 'est_qav', 0) >= 2 and m.estado_conservacao >= 1), None) if tem_piloto_aviao else None
+                        drone = next((m for m in dados_faz['maquinas_obj'] if 'Drone' in str(m.modelo) and getattr(m, 'bateria', 100) >= 20 and m.estado_conservacao >= 1), None) if tem_piloto_drone else None
+                        pulverizador = next((m for m in dados_faz['maquinas_obj'] if m.modelo in ['Pulverizador', 'Pulverizador de Arrasto'] and m.nivel_combustivel >= 2 and m.estado_conservacao >= 1), None) if tem_tratorista else None
                         
-                        if tem_tratorista and pulverizador and getattr(fazenda, 'est_veneno', 0) >= area_lote:
+                        # 📍 É EXATAMENTE AQUI QUE FICA O BLOCO DO AVIÃO:
+                        if aviao and getattr(fazenda, 'est_veneno', 0) >= area_lote:
+                            fazenda.est_veneno -= area_lote
+                            fazenda.est_qav -= 2
+                            lote.nivel_pragas = 0
+                            aviao.estado_conservacao -= 1
+                            teve_ataque = False 
+                            msg_aviao = f"🛩️ [Piloto de Avião] Realizou pulverização aérea em {lote.nome}."
+                            if msg_aviao not in avisos_turno: avisos_turno.append(msg_aviao)
+
+                        elif drone and getattr(fazenda, 'est_veneno', 0) >= area_lote:
+                            fazenda.est_veneno -= area_lote
+                            lote.nivel_pragas = 0
+                            if hasattr(drone, 'bateria'): drone.bateria = max(0, drone.bateria - 15)
+                            drone.estado_conservacao -= 1
+                            teve_ataque = False 
+                            msg_drone = f"🛸 [Piloto de Drone] Operou o drone e pulverizou {lote.nome}."
+                            if msg_drone not in avisos_turno: avisos_turno.append(msg_drone)
+
+                        elif pulverizador and getattr(fazenda, 'est_veneno', 0) >= area_lote:
                             fazenda.est_veneno -= area_lote
                             lote.nivel_pragas = 0
                             pulverizador.nivel_combustivel -= 2
                             pulverizador.estado_conservacao -= 1
                             teve_ataque = False 
                             
-                            # 🔥 BÔNUS: A mensagem agora avisa o nome exato da máquina que ele escolheu usar!
+                            # 🔥 MANTIDO EXATAMENTE COMO O TEU ORIGINAL:
                             msg_veneno = f"🚜 Um Tratorista usou o {pulverizador.modelo} e defendeu o {lote.nome} contra pragas."
                             if msg_veneno not in avisos_turno: avisos_turno.append(msg_veneno)
                             
@@ -169,12 +192,24 @@ class MotorAgricultura:
 
                     # 🚜 Recuperação de Solo (Adubo)
                     if getattr(lote, 'fertilidade_solo', 100) <= 60:
-                        trator = next((m for m in dados_faz['maquinas_obj'] if m.tipo == 'Trator' and m.nivel_combustivel >= 2 and m.estado_conservacao >= 1), None)
-                        if tem_tratorista and trator and getattr(fazenda, 'est_adubo', 0) >= area_lote:
+                        drone_adubo = next((m for m in dados_faz['maquinas_obj'] if 'Drone' in str(m.modelo) and getattr(m, 'bateria', 100) >= 20 and m.estado_conservacao >= 1), None) if tem_piloto_drone else None
+                        trator = next((m for m in dados_faz['maquinas_obj'] if m.tipo == 'Trator' and m.nivel_combustivel >= 2 and m.estado_conservacao >= 1), None) if tem_tratorista else None
+                        
+                        if drone_adubo and getattr(fazenda, 'est_adubo', 0) >= area_lote:
+                            fazenda.est_adubo -= area_lote
+                            lote.fertilidade_solo = min(100, getattr(lote, 'fertilidade_solo', 100) + 40)
+                            if hasattr(drone_adubo, 'bateria'): drone_adubo.bateria = max(0, drone_adubo.bateria - 15)
+                            drone_adubo.estado_conservacao -= 1
+                            msg_drone_adubo = f"🛸 [Piloto de Drone] Aplicou adubo no {lote.nome}."
+                            if msg_drone_adubo not in avisos_turno: avisos_turno.append(msg_drone_adubo)
+
+                        elif trator and getattr(fazenda, 'est_adubo', 0) >= area_lote:
                             fazenda.est_adubo -= area_lote
                             lote.fertilidade_solo = min(100, getattr(lote, 'fertilidade_solo', 100) + 40)
                             trator.nivel_combustivel -= 2
                             trator.estado_conservacao -= 1
+                            
+                            # 🔥 MANTIDO EXATAMENTE COMO O TEU ORIGINAL:
                             msg_adubo = f"🚜 O Tratorista usou o {trator.modelo} para aplicar Adubo no {lote.nome}."
                             if msg_adubo not in avisos_turno: avisos_turno.append(msg_adubo)
 

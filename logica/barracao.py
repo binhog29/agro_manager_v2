@@ -1,26 +1,39 @@
 from flask import Blueprint, jsonify, request, session
-from database import db, Jogador, Propriedade, Maquinario, Transacao
+from database import db, Jogador, Propriedade, Maquinario, Transacao, PrecoConfig
 from logica.economia import registrar_transacao
 
 barracao_bp = Blueprint('barracao', __name__)
 
 class Concessionaria:
     CATALOGO = {
-        'trator_leve': {'nome': 'Trator Leve', 'tipo': 'Trator', 'hp': 75, 'preco': 85000},
-        'trator_pesado': {'nome': 'Trator Pesado', 'tipo': 'Trator', 'hp': 220, 'preco': 350000},
-        'trator_esteira': {'nome': 'Trator de Esteira', 'tipo': 'Trator', 'hp': 170, 'preco': 450000},
-        'escavadeira': {'nome': 'Escavadeira', 'tipo': 'Escavadeira', 'hp': 140, 'preco': 550000},
-        'colheitadeira': {'nome': 'Colheitadeira Grãos', 'tipo': 'Colheitadeira', 'hp': 320, 'preco': 850000},
-        'pulverizador': {'nome': 'Pulverizador', 'tipo': 'Implemento', 'hp': 190, 'preco': 420000},
-        'pulv_arrasto': {'nome': 'Pulverizador de Arrasto', 'tipo': 'Implemento', 'hp': 75, 'preco': 35000},
-        'plantadeira': {'nome': 'Plantadeira', 'tipo': 'Implemento', 'hp': 120, 'preco': 150000},
-        'grade_aradora': {'nome': 'Grade Aradora', 'tipo': 'Implemento', 'hp': 140, 'preco': 65000},
-        'caminhonete_usada': {'nome': 'Caminhonete Usada', 'tipo': 'Veiculo', 'hp': 110, 'preco': 45000},
-        'caminhonete_nova': {'nome': 'Caminhonete Nova', 'tipo': 'Veiculo', 'hp': 160, 'preco': 180000},
-        'caminhao_boiadeiro': {'nome': 'Caminhão Boiadeiro', 'tipo': 'Caminhao', 'hp': 300, 'preco': 250000},
-        'caminhao_bau': {'nome': 'Caminhão Baú (Frios)', 'tipo': 'Caminhao', 'hp': 250, 'preco': 200000},
-        'caminhao_prancha': {'nome': 'Caminhão Prancha', 'tipo': 'Caminhao', 'hp': 400, 'preco': 380000}
+        'trator_leve': {'nome': 'Trator Leve', 'tipo': 'Trator', 'hp': 75, 'preco_base': 85000},
+        'trator_pesado': {'nome': 'Trator Pesado', 'tipo': 'Trator', 'hp': 220, 'preco_base': 350000},
+        'trator_esteira': {'nome': 'Trator de Esteira', 'tipo': 'Trator', 'hp': 170, 'preco_base': 450000},
+        'escavadeira': {'nome': 'Escavadeira', 'tipo': 'Escavadeira', 'hp': 140, 'preco_base': 550000},
+        'colheitadeira': {'nome': 'Colheitadeira Grãos', 'tipo': 'Colheitadeira', 'hp': 320, 'preco_base': 850000},
+        'pulverizador': {'nome': 'Pulverizador', 'tipo': 'Implemento', 'hp': 190, 'preco_base': 420000},
+        'pulv_arrasto': {'nome': 'Pulverizador de Arrasto', 'tipo': 'Implemento', 'hp': 75, 'preco_base': 35000},
+        'plantadeira': {'nome': 'Plantadeira', 'tipo': 'Implemento', 'hp': 120, 'preco_base': 150000},
+        'grade_aradora': {'nome': 'Grade Aradora', 'tipo': 'Implemento', 'hp': 140, 'preco_base': 65000},
+        'caminhonete_usada': {'nome': 'Caminhonete Usada', 'tipo': 'Veiculo', 'hp': 110, 'preco_base': 45000},
+        'caminhonete_nova': {'nome': 'Caminhonete Nova', 'tipo': 'Veiculo', 'hp': 160, 'preco_base': 180000},
+        'caminhao_boiadeiro': {'nome': 'Caminhão Boiadeiro', 'tipo': 'Caminhao', 'hp': 300, 'preco_base': 250000},
+        'caminhao_bau': {'nome': 'Caminhão Baú (Frios)', 'tipo': 'Caminhao', 'hp': 250, 'preco_base': 200000},
+        'caminhao_prancha': {'nome': 'Caminhão Prancha', 'tipo': 'Caminhao', 'hp': 400, 'preco_base': 380000},
+        'drone_agricola': {'nome': 'Drone Agrícola de Precisão', 'tipo': 'Tecnologia', 'hp': 0, 'preco_base': 180000},
+        'aviao_agricola': {'nome': 'Avião Agrícola EMB-202', 'tipo': 'Aviao', 'hp': 300, 'preco_base': 2500000.0}
     }
+
+    @staticmethod
+    def obter_preco(chave):
+        # Se for aluguer, busca direto a chave exata; se for máquina, adiciona o prefixo maq_
+        config_key = chave if chave.startswith('aluguel_') else f'maq_{chave}'
+        config = PrecoConfig.query.filter_by(chave=config_key).first()
+        if config:
+            return float(config.valor_base)
+        
+        item = Concessionaria.CATALOGO.get(chave)
+        return float(item['preco_base']) if item else 0.0
 
 def get_imagem(modelo):
     mapa = {
@@ -37,7 +50,9 @@ def get_imagem(modelo):
         'Caminhão Baú (Frios)': 'caminhao_bau.png',
         'Caminhonete Usada': 'caminhonete_usada.png',
         'Caminhonete Nova': 'caminhonete_nova.png',
-        'Caminhão Prancha': 'caminhao_prancha.png'
+        'Caminhão Prancha': 'caminhao_prancha.png',
+        'Drone Agrícola de Precisão': 'drone.png',
+        'Avião Agrícola EMB-202': 'aviao_agricola.png'
     }
     return mapa.get(modelo, 'trator.png')
 
@@ -53,7 +68,6 @@ def listar_barracao():
     fazenda = Propriedade.query.filter_by(id=fazenda_id, dono_id=jogador.id).first()
     if not fazenda: return jsonify({'sucesso': False, 'erro': 'Fazenda não encontrada'})
 
-    # Traz somente as máquinas que estão na fazenda e paradas (não em viagem)
     maquinas = Maquinario.query.filter(
         Maquinario.propriedade_id == fazenda.id,
         db.or_(Maquinario.horas_viagem == None, Maquinario.horas_viagem <= 0)
@@ -101,10 +115,13 @@ def comprar_maquina():
     if qtd_atual >= limite:
         return jsonify({'sucesso': False, 'erro': f'Barracão lotado! Limite de {limite} vagas.'})
 
-    if jogador.saldo < maquina_info['preco']:
-        return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente. Custa R$ {maquina_info["preco"]:,.2f}.'})
+    # Pega o preço atualizado (dinâmico do painel de admin ou base)
+    preco_atual = Concessionaria.obter_preco(chave)
 
-    jogador.saldo -= maquina_info['preco']
+    if jogador.saldo < preco_atual:
+        return jsonify({'sucesso': False, 'erro': f'Saldo insuficiente. Custa R$ {preco_atual:,.2f}.'})
+
+    jogador.saldo -= preco_atual
     
     nova_maquina = Maquinario(
         propriedade_id=fazenda.id,
@@ -118,7 +135,7 @@ def comprar_maquina():
     )
     
     db.session.add(nova_maquina)
-    registrar_transacao(jogador.id, 'saida', maquina_info['preco'], f'Compra de Máquina: {maquina_info["nome"]}')
+    registrar_transacao(jogador.id, 'saida', preco_atual, f'Compra de Máquina: {maquina_info["nome"]}')
     
     if getattr(jogador, 'xp', None) is None: jogador.xp = 0
     jogador.xp += 100
@@ -141,7 +158,7 @@ def vender_maquina():
     preco_base = 0
     for chave, info in Concessionaria.CATALOGO.items():
         if info['nome'] == maquina.modelo:
-            preco_base = info['preco']
+            preco_base = Concessionaria.obter_preco(chave)
             break
             
     valor_venda = preco_base * 0.50 if preco_base > 0 else 10000.0
@@ -193,7 +210,7 @@ def manutencao_maquina():
     preco_base = 0
     for chave, info in Concessionaria.CATALOGO.items():
         if info['nome'] == maquina.modelo:
-            preco_base = info['preco']
+            preco_base = Concessionaria.obter_preco(chave)
             break
             
     custo_reparo = dano * (preco_base * 0.0015) if preco_base > 0 else dano * 350.0
@@ -308,3 +325,46 @@ def transferir_maquina():
     db.session.commit()
     msg_extra = "foi rodando pela estrada" if maquina.tipo in ['Veiculo', 'Caminhao'] else ("embarcado na sua Prancha" if usa_prancha else "embarcado no guincho terceirizado")
     return jsonify({'sucesso': True, 'msg': f'{maquina.modelo} {msg_extra}! Chega em {tempo_viagem} horas.'})
+
+@barracao_bp.route('/api/barracao/recarregar_drone', methods=['POST'])
+def recarregar_drone():
+    if 'usuario' not in session: 
+        return jsonify({'sucesso': False, 'erro': 'Sessão expirada.'})
+        
+    usuario = Jogador.query.filter_by(username=session['usuario']).first()
+    dados = request.get_json() or {}
+    
+    drone = Maquinario.query.get(dados.get('maquina_id'))
+    if not drone or 'Drone' not in drone.modelo:
+        return jsonify({'sucesso': False, 'erro': 'Drone não encontrado.'})
+
+    if drone.nivel_combustivel >= 100:
+        return jsonify({'sucesso': False, 'erro': 'A bateria do Drone já está em 100%!'})
+
+    falta_bateria = 100 - drone.nivel_combustivel
+    CUSTO_POR_PERCENTUAL = 2.0
+    custo_energia = falta_bateria * CUSTO_POR_PERCENTUAL
+
+    if usuario.saldo < custo_energia:
+        return jsonify({
+            'sucesso': False, 
+            'erro': f'Saldo insuficiente! Custa R$ {custo_energia:,.2f} em energia elétrica.'
+        })
+
+    usuario.saldo -= custo_energia
+    drone.nivel_combustivel = 100
+
+    registrar_transacao(usuario.id, 'saida', custo_energia, f'Energia Elétrica: Recarga ({drone.modelo})')
+    db.session.commit()
+
+    return jsonify({
+        'sucesso': True, 
+        'msg': f'Bateria recarregada para 100%! Custo de luz: R$ {custo_energia:,.2f}.'
+    })
+
+@barracao_bp.route('/api/precos/lista', methods=['GET'])
+def api_listar_precos():
+    configs = PrecoConfig.query.all()
+    # Retorna um dicionário com chave e valor
+    tabela = {c.chave: float(c.valor_base) for c in configs}
+    return jsonify({'sucesso': True, 'precos': tabela})

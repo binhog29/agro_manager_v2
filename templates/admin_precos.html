@@ -47,11 +47,16 @@
                     
                     <div class="cat-titulo">
                         {% if 'pecuaria' in p.categoria %}<i class="fas fa-cow"></i> Pecuária
-                        {% elif 'silo' in p.categoria %}<i class="fas fa-warehouse"></i> Silo (Grãos)
-                        {% elif 'galpao' in p.categoria %}<i class="fas fa-seedling"></i> Galpão & Perenes
-                        {% elif 'derivados' in p.categoria %}<i class="fas fa-cheese"></i> Derivados
-                        {% else %}<i class="fas fa-box"></i> Insumos & Outros{% endif %}
-                    </div>
+																																																    {% elif 'silo' in p.categoria %}<i class="fas fa-warehouse"></i> Silo (Grãos)
+																																																    {% elif 'galpao' in p.categoria %}<i class="fas fa-seedling"></i> Galpão & Perenes
+																																																    {% elif 'derivados' in p.categoria %}<i class="fas fa-cheese"></i> Derivados
+																																																    {% elif 'insumos' in p.categoria %}<i class="fas fa-box"></i> Insumos
+																																																    {% elif 'impostos' in p.categoria %}<i class="fas fa-file-invoice-dollar"></i> Impostos e Taxas
+																																																    {% elif 'maquinario' in p.categoria %}<i class="fas fa-tractor"></i> Maquinário
+																																																    {% elif 'rh' in p.categoria %}<i class="fas fa-users"></i> RH
+																																																    {% else %}<i class="fas fa-tag"></i> {{ p.categoria | title }}{% endif %}
+																																																</div>
+        
                     <div class="grid">
                 {% endif %}
 

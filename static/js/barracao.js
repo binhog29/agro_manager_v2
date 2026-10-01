@@ -20,11 +20,49 @@ window.abrirPainelBarracao = async function() {
             maquinasHtml = `<div style="text-align:center; padding: 20px; color:#888; border: 1px dashed #444; border-radius: 8px;">Nenhuma máquina estacionada. Vá à Concessionária!</div>`;
         } else {
             data.maquinas.forEach(m => {
-                const corTanque = m.combustivel > 40 ? '#ff9800' : '#f44336';
+                const eDrone = m.modelo.includes('Drone');
+                const eAviao = m.modelo.includes('Avião') || m.modelo.includes('Ipanema');
+                
+                // Cores e rótulos dinâmicos para Drone vs Avião vs Máquinas normais
+                let corTanque = m.combustivel > 40 ? '#ff9800' : '#f44336';
+                if (eDrone) corTanque = '#00bcd4';
+                else if (eAviao) corTanque = '#e91e63';
+
                 const corSaude = m.saude > 50 ? '#4caf50' : '#f44336';
                 const imgSrc = `/static/img/${m.imagem}`;
                 
-                // 🔥 NOVA LÓGICA: Se a máquina está na prancha, bloqueia tudo. Se não, exibe os 4 botões!
+                let infoSubtitulo = `Motor: ${m.potencia_hp} HP | IPVA: ${m.ipva ? '<span style="color:#4caf50">OK</span>' : 'Atrasado'}`;
+                if (eDrone) {
+                    infoSubtitulo = '<span style="color:#00bcd4; font-weight: bold;">Tecnologia Agrícola | 100% Elétrico</span>';
+                } else if (eAviao) {
+                    infoSubtitulo = '<span style="color:#e91e63; font-weight: bold;">Alta Performance | QAV-1</span>';
+                }
+
+                let rotuloEnergia = '<i class="fas fa-gas-pump"></i> Tanque';
+                if (eDrone) {
+                    rotuloEnergia = '<i class="fas fa-battery-three-quarters" style="color:#00bcd4;"></i> Bateria';
+                } else if (eAviao) {
+                    rotuloEnergia = '<i class="fas fa-plane-departure" style="color:#e91e63;"></i> QAV (Aviação)';
+                }
+
+                let botaoAbastecerRecarregar = '';
+                if (eDrone) {
+                    botaoAbastecerRecarregar = `
+                        <button onclick="recarregarDrone(${m.id})" style="flex: 1; min-width: 45%; background: linear-gradient(135deg, #00bcd4, #00838f); color: #fff; border: none; padding: 6px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer;">
+                            <i class="fas fa-bolt"></i> Recarregar
+                        </button>`;
+                } else if (eAviao) {
+                    botaoAbastecerRecarregar = `
+                    <button onclick="executarVooAviaoBarracao(${m.id})" style="flex: 1; min-width: 45%; background: linear-gradient(135deg, #e91e63, #ad1457); color: #fff; border: none; padding: 6px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer;">
+                    <i class="fas fa-paper-plane"></i> Voar & Pulverizar
+                    </button>`;
+                } else {
+                    botaoAbastecerRecarregar = `
+                        <button onclick="abastecerMaquina(${m.id})" style="flex: 1; min-width: 45%; background: #ff9800; color: #000; border: none; padding: 6px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer;">
+                            <i class="fas fa-gas-pump"></i> Abastecer
+                        </button>`;
+                }
+
                 let botoesAcaoHtml = '';
                 if (m.em_viagem) {
                     botoesAcaoHtml = `
@@ -35,20 +73,17 @@ window.abrirPainelBarracao = async function() {
                 } else {
                     botoesAcaoHtml = `
                         <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px;">
-                            <button onclick="abastecerMaquina(${m.id})" style="flex: 1; min-width: 45%; background: #ff9800; color: #000; border: none; padding: 6px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer;">
-                                <i class="fas fa-gas-pump"></i> Abastecer
-                            </button>
+                            ${botaoAbastecerRecarregar}
                             <button onclick="repararMaquina(${m.id})" style="flex: 1; min-width: 45%; background: #0288d1; color: #fff; border: none; padding: 6px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer;">
                                 <i class="fas fa-tools"></i> Oficina
                             </button>
                             <button onclick="venderMaquina(${m.id}, '${m.modelo}')" style="flex: 1; min-width: 45%; background: #d32f2f; color: #fff; border: none; padding: 6px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer;">
                                 <i class="fas fa-dollar-sign"></i> Vender
                             </button>
-                            
-                    <button onclick="prepararTransferenciaMaquina(${m.id}, '${m.modelo}', '${m.tipo}')" style="flex: 1; min-width: 45%; background: #9c27b0; color: #fff; border: none; padding: 6px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer;">
-                    <i class="fas fa-truck"></i> Transferir
-                    </button>
-                    </div>
+                            <button onclick="prepararTransferenciaMaquina(${m.id}, '${m.modelo}', '${m.tipo}')" style="flex: 1; min-width: 45%; background: #9c27b0; color: #fff; border: none; padding: 6px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer;">
+                                <i class="fas fa-truck"></i> Transferir
+                            </button>
+                        </div>
                     `;
                 }
                 
@@ -59,14 +94,14 @@ window.abrirPainelBarracao = async function() {
                         <img src="${imgSrc}" style="width: 60px; height: 60px; object-fit: contain; background: #111; padding: 5px; border-radius: 8px; border: 1px solid #333;" onerror="this.src='/static/img/trator.png'">
                         <div>
                             <h4 style="margin: 0; color: #fff; font-size: 16px;">${m.modelo}</h4>
-                            <span style="font-size: 11px; color: #aaa;">Motor: ${m.potencia_hp} HP | IPVA: ${m.ipva ? '<span style="color:#4caf50">OK</span>' : 'Atrasado'}</span>
+                            <span style="font-size: 11px; color: #aaa;">${infoSubtitulo}</span>
                         </div>
                     </div>
                     
-                    <!-- Barra de Combustível -->
+                    <!-- Barra de Bateria / Combustível -->
                     <div style="margin-bottom: 8px;">
                         <div style="display: flex; justify-content: space-between; font-size: 11px; color: #ccc; margin-bottom: 3px;">
-                            <span><i class="fas fa-gas-pump"></i> Tanque</span> <span>${m.combustivel}%</span>
+                            <span>${rotuloEnergia}</span> <span>${m.combustivel}%</span>
                         </div>
                         <div style="width: 100%; background: #111; height: 10px; border-radius: 5px; overflow: hidden; border: 1px solid #333;">
                             <div style="width: ${m.combustivel}%; background: ${corTanque}; height: 100%;"></div>
@@ -112,6 +147,165 @@ window.abrirPainelBarracao = async function() {
     } catch (e) {
         Swal.fire('Erro', 'Falha na comunicação com o servidor.', 'error');
     }
+};
+
+window.dispararAviaoAgricola = async function(eAluguel, tipoAluguel) {
+    const fazendaId = window.location.pathname.split('/').pop();
+    
+    let tipoAplicacao = tipoAluguel || 'aluguel_aviao';
+
+    // Se não veio pré-definido, pergunta ao jogador o que deseja aplicar
+    if (!eAluguel && !tipoAluguel) {
+        const { value: escolha } = await Swal.fire({
+            title: 'Operação Aérea',
+            text: 'O que deseja aplicar na lavoura com o Avião Agrícola?',
+            input: 'select',
+            inputOptions: {
+                'defensivo': 'Defensivos Agrícolas (Pulverização)',
+                'adubo': 'Adubação Aérea (Fertilizante)'
+            },
+            inputPlaceholder: 'Selecione o serviço',
+            showCancelButton: true,
+            confirmButtonText: 'Decolar 🛩️',
+            cancelButtonText: 'Cancelar',
+            background: '#1a1a24',
+            color: '#fff',
+            confirmButtonColor: '#e91e63'
+        });
+
+        if (!escolha) return;
+        tipoAplicacao = (escolha === 'adubo') ? 'aluguel_aviao_adubo' : 'aluguel_aviao';
+    }
+
+    Swal.fire({ title: 'Avião em missão...', background: '#1a1a24', color: '#fff', didOpen: () => Swal.showLoading() });
+
+    // Envia para a rota correta do backend
+    fetch(`/api/cultivo/aviao_pulverizar_tudo/${fazendaId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            modo_aluguel: Boolean(eAluguel), 
+            tipo: tipoAplicacao
+        })
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.sucesso) {
+            Swal.fire('Sucesso! 🛩️', d.msg, 'success').then(() => {
+                if (typeof abrirPainelBarracao === 'function') {
+                    abrirPainelBarracao();
+                } else {
+                    location.reload();
+                }
+            });
+        } else {
+            Swal.fire('Atenção', d.erro, 'warning');
+        }
+    })
+    .catch(() => {
+        Swal.fire('Erro', 'Falha ao processar a solicitação aérea.', 'error');
+    });
+};
+
+window.executarVooAviaoBarracao = async function(maquinaId) {
+    const fazendaId = window.location.pathname.split('/').pop();
+
+    // 1. Pergunta ao jogador qual o serviço desejado
+    const { value: tipoAplicacao } = await Swal.fire({
+        title: 'Operação Aérea',
+        text: 'O que deseja aplicar na lavoura com o Avião Agrícola?',
+        input: 'select',
+        inputOptions: {
+            'defensivo': 'Defensivos Agrícolas (Pulverização)',
+            'adubo': 'Adubação Aérea (Fertilizante)'
+        },
+        inputPlaceholder: 'Selecione o serviço',
+        showCancelButton: true,
+        confirmButtonText: 'Decolar 🛩️',
+        cancelButtonText: 'Cancelar',
+        background: '#1a1a24',
+        color: '#fff',
+        confirmButtonColor: '#e91e63'
+    });
+
+    if (!tipoAplicacao) return;
+
+    const tipoMapeado = (tipoAplicacao === 'adubo') ? 'aluguel_aviao_adubo' : 'aluguel_aviao';
+
+    Swal.fire({
+        title: 'A verificar condições do voo...',
+        background: '#1a1a24',
+        color: '#fff',
+        didOpen: () => Swal.showLoading()
+    });
+
+    // 2. Faz o pedido ao backend
+    fetch(`/api/cultivo/aviao_pulverizar_tudo/${fazendaId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            modo_aluguel: false, 
+            maquina_id: maquinaId,
+            tipo: tipoMapeado
+        })
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.sucesso) {
+            Swal.close(); // Fecha o loading
+            
+            // 3. Dispara a animação visual do arquivo aviao_animacao.js
+            if (typeof window.executarAnimacaoAviao === 'function') {
+                window.executarAnimacaoAviao(function() {
+                    // Quando a animação termina, mostra o sucesso e recarrega
+                    Swal.fire({
+                        title: '🛩️ Sucesso Aéreo!',
+                        text: d.msg,
+                        icon: 'success',
+                        background: '#1a1a24',
+                        color: '#fff'
+                    }).then(() => {
+                        if (typeof abrirPainelBarracao === 'function') {
+                            abrirPainelBarracao();
+                        } else {
+                            location.reload();
+                        }
+                    });
+                });
+            } else {
+                // Fallback caso a animação não carregue por algum motivo
+                Swal.fire('Sucesso! 🛩️', d.msg, 'success').then(() => location.reload());
+            }
+        } else {
+            Swal.fire('Atenção', d.erro, 'warning');
+        }
+    })
+    .catch(() => {
+        Swal.fire('Erro', 'Falha ao processar a solicitação aérea.', 'error');
+    });
+};
+
+// Atalho para garantir compatibilidade com os botões existentes
+window.dispararAviaoAgricola = window.executarVooAviaoBarracao;
+
+window.recarregarDrone = function(maquinaId) {
+    Swal.fire({ title: 'Carregando baterias na rede elétrica...', didOpen: () => Swal.showLoading() });
+
+    fetch('/api/barracao/recarregar_drone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ maquina_id: maquinaId })
+    })
+    .then(r => r.json())
+    .then(d => {
+        if(d.sucesso) {
+            Swal.fire('⚡ Bateria Cheia!', d.msg, 'success').then(() => {
+                if (typeof abrirPainelBarracao === 'function') abrirPainelBarracao();
+            });
+        } else {
+            Swal.fire('Atenção', d.erro, 'warning');
+        }
+    });
 };
 
 window.venderMaquina = function(id, modelo) {
@@ -183,7 +377,6 @@ window.repararMaquina = function(maquinaId) {
     });
 };
 
-// 🔥 FUNÇÃO NOVA: Abre o painel para embarcar a máquina no guincho
 window.prepararTransferenciaMaquina = async function(maquinaId, modeloNome, tipoMaquina) {
     const fazendaId = window.location.pathname.split('/').pop();
     
@@ -270,4 +463,4 @@ window.prepararTransferenciaMaquina = async function(maquinaId, modeloNome, tipo
     } catch (e) {
         Swal.fire('Erro', 'Falha de comunicação.', 'error');
     }
-}
+};

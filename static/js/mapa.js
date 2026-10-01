@@ -274,11 +274,30 @@ document.addEventListener('DOMContentLoaded', function() {
         L.marker([latLoja, lngLoja], {icon: iconLoja}).addTo(layerAncoras);
     }
     
-    window.abrirConcessionaria = function() {
+        window.abrirConcessionaria = async function() {
         const minhasTerras = todasAsTerras.filter(t => t.e_minha);
         if(minhasTerras.length === 0) {
             Swal.fire('Atenção', 'Você precisa comprar uma propriedade antes de adquirir máquinas!', 'warning');
             return;
+        }
+
+        // Mostra um loading rápido enquanto busca os preços atualizados do Painel de Administração
+        Swal.fire({
+            title: 'A carregar concessionária...',
+            background: '#121212',
+            color: '#fff',
+            didOpen: () => Swal.showLoading()
+        });
+
+        let precosDinamicos = {};
+        try {
+            const resPrecos = await fetch('/api/precos/lista');
+            const dadosPrecos = await resPrecos.json();
+            if (dadosPrecos.sucesso) {
+                precosDinamicos = dadosPrecos.precos;
+            }
+        } catch (e) {
+            console.error("Erro ao carregar preços do painel:", e);
         }
 
         let selectFazenda = `<select id="conc-fazenda-destino" style="width:100%; padding:12px; border-radius:8px; border:1px solid #444; background:#111; color:#fff; margin-bottom:15px; font-family: 'Poppins', sans-serif; font-size: 14px; outline: none;">`;
@@ -286,20 +305,24 @@ document.addEventListener('DOMContentLoaded', function() {
         selectFazenda += `</select>`;
 
         const catalogo = [
-            { chave: 'trator_leve', nome: 'Trator Leve', preco: 85000, desc: 'Tração geral. Usado na adubação automática.', imagem: 'trator_leve.png', icon: 'fa-tractor', cor: '#ff9800' },
-            { chave: 'trator_pesado', nome: 'Trator Pesado', preco: 350000, desc: 'Alta potência e confiabilidade diária.', imagem: 'trator_pesado.png', icon: 'fa-tractor', cor: '#f57c00' },
-            { chave: 'trator_esteira', nome: 'Trator de Esteira', preco: 450000, desc: 'Desmatamento pesado. Extrai +R$1.000 por Hectare.', imagem: 'trator_esteira.png', icon: 'fa-snowplow', cor: '#fbc02d' },
-            { chave: 'escavadeira', nome: 'Escavadeira', preco: 550000, desc: 'Zera custos de escavação em bebedouros e represas.', imagem: 'escavadeira.png', icon: 'fa-water', cor: '#03a9f4' },
-            { chave: 'colheitadeira', nome: 'Colheitadeira Grãos', preco: 850000, desc: 'Zera as taxas de aluguel na colheita.', imagem: 'colheitadeira.png', icon: 'fa-truck-monster', cor: '#4caf50' },
-            { chave: 'pulverizador', nome: 'Pulverizador Autopropelido', preco: 420000, desc: 'Aplica defensivos sem custo de aluguel.', imagem: 'pulverizador.png', icon: 'fa-spray-can', cor: '#ab47bc' },
-            { chave: 'pulv_arrasto', nome: 'Pulverizador de Arrasto', preco: 35000, desc: 'Econômico. Zera aluguel, mas gasta horas.', imagem: 'pulv_arrasto.png', icon: 'fa-spray-can', cor: '#9c27b0' },
-            { chave: 'plantadeira', nome: 'Plantadeira', preco: 150000, desc: 'Reduz os custos logísticos no plantio.', imagem: 'plantadeira.png', icon: 'fa-seedling', cor: '#8bc34a' },
-            { chave: 'grade_aradora', nome: 'Grade Aradora', preco: 65000, desc: 'Reduz em 80% o custo para Arar a terra.', imagem: 'grade_aradora.png', icon: 'fa-tools', cor: '#795548' },
-            { chave: 'caminhonete_usada', nome: 'Caminhonete Usada', preco: 45000, desc: 'Frete grátis básico para lotes pequenos.', imagem: 'caminhonete_usada.png', icon: 'fa-truck-pickup', cor: '#9e9e9e' },
-            { chave: 'caminhonete_nova', nome: 'Caminhonete Nova', preco: 180000, desc: 'Maior capacidade e menos gastos na oficina.', imagem: 'caminhonete_nova.png', icon: 'fa-truck-pickup', cor: '#e0e0e0' },
-            { chave: 'caminhao_boiadeiro', nome: 'Caminhão Boiadeiro', preco: 250000, desc: 'Frete grátis para Gado, Porcos e Cavalos.', imagem: 'caminhao_boiadeiro.png', icon: 'fa-truck', cor: '#8d6e63' },
-            { chave: 'caminhao_bau', nome: 'Caminhão Baú (Frios)', preco: 200000, desc: 'Frete grátis para logística de Peixes.', imagem: 'caminhao_bau.png', icon: 'fa-snowflake', cor: '#81d4fa' },
-            { chave: 'caminhao_prancha', nome: 'Caminhão Prancha', preco: 380000, desc: 'Transporta maquinário pesado entre fazendas de graça.', imagem: 'caminhao_prancha.png', icon: 'fa-truck-loading', cor: '#d84315' }
+            { chave: 'trator_leve', nome: 'Trator Leve', precoBase: 85000, desc: 'Tração geral. Usado na adubação automática.', imagem: 'trator_leve.png', icon: 'fa-tractor', cor: '#ff9800' },
+            { chave: 'trator_pesado', nome: 'Trator Pesado', precoBase: 350000, desc: 'Alta potência e confiabilidade diária.', imagem: 'trator_pesado.png', icon: 'fa-tractor', cor: '#f57c00' },
+            { chave: 'trator_esteira', nome: 'Trator de Esteira', precoBase: 450000, desc: 'Desmatamento pesado. Extrai +R$1.000 por Hectare.', imagem: 'trator_esteira.png', icon: 'fa-snowplow', cor: '#fbc02d' },
+            { chave: 'escavadeira', nome: 'Escavadeira', precoBase: 550000, desc: 'Zera custos de escavação em bebedouros e represas.', imagem: 'escavadeira.png', icon: 'fa-water', cor: '#03a9f4' },
+            { chave: 'colheitadeira', nome: 'Colheitadeira Grãos', precoBase: 850000, desc: 'Zera as taxas de aluguel na colheita.', imagem: 'colheitadeira.png', icon: 'fa-truck-monster', cor: '#4caf50' },
+            { chave: 'pulverizador', nome: 'Pulverizador Autopropelido', precoBase: 420000, desc: 'Aplica defensivos sem custo de aluguel.', imagem: 'pulverizador.png', icon: 'fa-spray-can', cor: '#ab47bc' },
+            { chave: 'pulv_arrasto', nome: 'Pulverizador de Arrasto', precoBase: 35000, desc: 'Econômico. Zera aluguel, mas gasta horas.', imagem: 'pulv_arrasto.png', icon: 'fa-spray-can', cor: '#9c27b0' },
+            { chave: 'plantadeira', nome: 'Plantadeira', precoBase: 150000, desc: 'Reduz os custos logísticos no plantio.', imagem: 'plantadeira.png', icon: 'fa-seedling', cor: '#8bc34a' },
+            { chave: 'grade_aradora', nome: 'Grade Aradora', precoBase: 65000, desc: 'Reduz em 80% o custo para Arar a terra.', imagem: 'grade_aradora.png', icon: 'fa-tools', cor: '#795548' },
+            { chave: 'caminhonete_usada', nome: 'Caminhonete Usada', precoBase: 45000, desc: 'Frete grátis básico para lotes pequenos.', imagem: 'caminhonete_usada.png', icon: 'fa-truck-pickup', cor: '#9e9e9e' },
+            { chave: 'caminhonete_nova', nome: 'Caminhonete Nova', precoBase: 180000, desc: 'Maior capacidade e menos gastos na oficina.', imagem: 'caminhonete_nova.png', icon: 'fa-truck-pickup', cor: '#e0e0e0' },
+            { chave: 'caminhao_boiadeiro', nome: 'Caminhão Boiadeiro', precoBase: 250000, desc: 'Frete grátis para Gado, Porcos e Cavalos.', imagem: 'caminhao_boiadeiro.png', icon: 'fa-truck', cor: '#8d6e63' },
+            { chave: 'caminhao_bau', nome: 'Caminhão Baú (Frios)', precoBase: 200000, desc: 'Frete grátis para logística de Peixes.', imagem: 'caminhao_bau.png', icon: 'fa-snowflake', cor: '#81d4fa' },
+            { chave: 'caminhao_prancha', nome: 'Caminhão Prancha', precoBase: 380000, desc: 'Transporta maquinário pesado entre fazendas de graça.', imagem: 'caminhao_prancha.png', icon: 'fa-truck-loading', cor: '#d84315' },
+            { chave: 'drone_agricola', nome: 'Drone de Precisão', precoBase: 180000, desc: 'Pulverização e adubação em massa via aplicativo.', imagem: 'drone.png', icon: 'fa-crosshairs', cor: '#00bcd4' },
+            { chave: 'aviao_agricola', nome: 'Avião Agrícola EMB-202', precoBase: 2500000, desc: 'Pulverização total em alta velocidade (+15% rendimento).', imagem: 'aviao_agricola.png', icon: 'fa-plane', cor: '#e91e63' },
+            { chave: 'aluguel_aviao', nome: 'Pulverização Aérea (Por Voo)', precoBase: 35000, desc: 'Serviço terceirizado de pulverização sem necessidade de hangar.', imagem: 'aviao_agricola.png', icon: 'fa-plane-departure', cor: '#9c27b0' },
+            { chave: 'aluguel_aviao_adubo', nome: 'Aluguer Aéreo de Adubação', precoBase: 45000, desc: 'Serviço aéreo com avião agrícola para adubação rápida da lavoura.', imagem: 'aviao_agricola.png', icon: 'fa-plane', cor: '#0288d1' }
         ];
 
         let htmlList = `<div style="text-align:left; color:#fff; font-family: 'Poppins', sans-serif;">`;
@@ -307,6 +330,10 @@ document.addEventListener('DOMContentLoaded', function() {
         htmlList += `<label style="color:#aaa; font-size:12px;"><b>2. Veículos e Implementos:</b></label><div style="max-height: 50vh; overflow-y: auto; padding-right: 5px; margin-top:5px; display: grid; gap: 10px;">`;
         
         catalogo.forEach(m => {
+            // Pega o preço direto do painel (com chave maq_ ou exata para alugueis) se existir, senão usa o base
+            let chaveBusca = m.chave.startsWith('aluguel_') ? m.chave : `maq_${m.chave}`;
+            let precoAtual = precosDinamicos[chaveBusca] !== undefined ? precosDinamicos[chaveBusca] : m.precoBase;
+
             htmlList += `
             <div style="background: #1a1a24; border: 1px solid #333; padding: 12px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center;">
                 <div style="display: flex; gap: 15px; align-items: center; width: 65%;">
@@ -320,8 +347,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                 </div>
                 <div style="text-align: right; width: 35%;">
-                    <div style="color: #4caf50; font-weight: 900; font-size: 15px; margin-bottom: 6px;">R$ ${m.preco.toLocaleString('pt-BR')}</div>
-                    <button onclick="confirmarCompraMaquina('${m.chave}', '${m.nome}', ${m.preco})" style="background: linear-gradient(135deg, #2e7d32, #1b5e20); color: white; border: none; padding: 8px 10px; border-radius: 6px; font-weight: bold; font-size: 11px; cursor: pointer; width: 100%;">
+                    <div style="color: #4caf50; font-weight: 900; font-size: 15px; margin-bottom: 6px;">R$ ${precoAtual.toLocaleString('pt-BR')}</div>
+                    <button onclick="confirmarCompraMaquina('${m.chave}', '${m.nome}', ${precoAtual})" style="background: linear-gradient(135deg, #2e7d32, #1b5e20); color: white; border: none; padding: 8px 10px; border-radius: 6px; font-weight: bold; font-size: 11px; cursor: pointer; width: 100%;">
                         <i class="fas fa-shopping-cart"></i> COMPRAR
                     </button>
                 </div>
@@ -337,27 +364,69 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     window.confirmarCompraMaquina = function(chave, nome, preco) {
-        let fazenda_id = document.getElementById('conc-fazenda-destino').value;
-        if(!fazenda_id) { Swal.fire('Atenção', 'Selecione uma fazenda primeiro!', 'warning'); return; }
+        // Pega o elemento correto do select de destino na concessionária
+        let selectElement = document.getElementById('conc-fazenda-destino');
+        let fazenda_id = selectElement ? selectElement.value : null;
+    
+        if(!fazenda_id) { 
+            Swal.fire('Atenção', 'Selecione uma fazenda de destino válida!', 'warning'); 
+            return; 
+        }
+            
+        // 🛩️ TRATAMENTO ESPECIAL PARA ALUGUER AÉREO (PULVERIZAÇÃO OU ADUBAÇÃO)
+        if (chave === 'aluguel_aviao' || chave === 'aluguel_aviao_adubo') {
+            Swal.fire({ 
+                title: 'A contactar serviço aéreo...', 
+                background: '#1a1a24', 
+                color: '#fff', 
+                didOpen: () => Swal.showLoading() 
+            });
+    
+            fetch(`/api/cultivo/aviao_pulverizar_tudo/${fazenda_id}`, {
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ modo_aluguel: true, tipo: chave })
+            })
+            .then(r => r.json())
+            .then(d => {
+                if(d.sucesso) {
+                    Swal.fire('Serviço Aéreo Concluído! 🛩️', d.msg, 'success').then(() => location.reload());
+                } else {
+                    Swal.fire('Atenção', d.erro, 'warning');
+                }
+            })
+            .catch(() => {
+                Swal.fire('Erro', 'Falha ao processar o aluguer aéreo.', 'error');
+            });
+            
+            return;
+        }
 
-        Swal.fire({
-            title: `Confirmar Compra?`,
-            html: `O veículo <b>${nome}</b> será entregue no barracão.<br><br><span style="color:#f44336; font-size: 18px; font-weight: bold;">- R$ ${preco.toLocaleString('pt-BR')}</span>`,
-            icon: 'question', showCancelButton: true, confirmButtonText: 'Comprar', cancelButtonText: 'Cancelar',
-            background: '#1a1a24', color: '#fff', confirmButtonColor: '#2e7d32'
-        }).then((res) => {
-            if(res.isConfirmed) {
-                Swal.fire({ title: 'Despachando Carga...', background: '#1a1a24', color: '#fff', didOpen: () => Swal.showLoading() });
-                fetch('/api/barracao/comprar', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ chave_maquina: chave, fazenda_id: parseInt(fazenda_id) })
-                }).then(r => r.json()).then(d => {
-                    if(d.sucesso) Swal.fire('Entregue! 🚜', d.msg, 'success').then(() => location.reload());
-                    else Swal.fire('Negado', d.erro, 'error');
-                });
-            }
-        });
-    }
+    // COMPRA NORMAL DE MÁQUINAS FÍSICAS
+    Swal.fire({
+        title: `Confirmar Compra?`,
+        html: `O veículo <b>${nome}</b> será entregue no barracão.<br><br><span style="color:#f44336; font-size: 18px; font-weight: bold;">- R$ ${preco.toLocaleString('pt-BR')}</span>`,
+        icon: 'question', 
+        showCancelButton: true, 
+        confirmButtonText: 'Comprar', 
+        cancelButtonText: 'Cancelar',
+        background: '#1a1a24', 
+        color: '#fff', 
+        confirmButtonColor: '#2e7d32'
+    }).then((res) => {
+        if(res.isConfirmed) {
+            Swal.fire({ title: 'Despachando Carga...', background: '#1a1a24', color: '#fff', didOpen: () => Swal.showLoading() });
+            fetch('/api/barracao/comprar', {
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ chave_maquina: chave, fazenda_id: parseInt(fazenda_id) })
+            }).then(r => r.json()).then(d => {
+                if(d.sucesso) Swal.fire('Entregue! 🚜', d.msg, 'success').then(() => location.reload());
+                else Swal.fire('Negado', d.erro, 'error');
+            });
+        }
+    });
+};
     
     window.abrirLoja = function() {
         const minhasTerras = todasAsTerras.filter(t => t.e_minha);

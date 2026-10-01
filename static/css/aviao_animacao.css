@@ -1,0 +1,51 @@
+/* Container de sobreposição restrito estritamente ao mapa da fazenda */
+#overlay-animacao-aviao {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 9999;
+    pointer-events: none;
+    overflow: hidden;
+    border-radius: inherit;
+}
+
+/* Wrapper do Avião criado dinamicamente pelo JS */
+.aviao-wrapper-js {
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    transform: translate(-50%, -50%);
+    transition: all 1.2s cubic-bezier(0.25, 1, 0.5, 1); /* Movimento suave e natural */
+    will-change: left, top, transform;
+}
+
+/* A imagem do avião com sombra projetada no solo da fazenda */
+.aviao-animado-sprite {
+    width: 100%;
+    height: 100%;
+    background-image: url('/static/img/aviao_agricola.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    filter: drop-shadow(4px 12px 6px rgba(0, 0, 0, 0.5));
+    transform-origin: center center;
+}
+
+/* Efeito de Névoa / Pulverização agrícola */
+.spray-nevoa {
+    position: absolute;
+    width: 80px;
+    height: 80px;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.8) 0%, rgba(76, 175, 80, 0.1) 60%, transparent 100%);
+    border-radius: 50%;
+    filter: blur(4px);
+    transform: translate(-50%, -50%);
+    animation: fadeOutSpray 1.8s forwards;
+}
+
+@keyframes fadeOutSpray {
+    0% { opacity: 0.9; transform: translate(-50%, -50%) scale(0.6); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(2.2); }
+}
