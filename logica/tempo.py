@@ -98,7 +98,7 @@ class GerenciadorTempo:
                         preco_base = 0
                         for chave, info in Concessionaria.CATALOGO.items():
                             if info['nome'] == maq.modelo:
-                                preco_base = info['preco']
+                                preco_base = info.get('preco', 0)
                                 break
                         
                         custo_reparo = dano * (preco_base * 0.0015) if preco_base > 0 else dano * 350.0
